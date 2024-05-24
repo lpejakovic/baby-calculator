@@ -1,2 +1,2 @@
 # baby-calculator
-Service for calculating babies age in weeks
+Service for calculating baby's age in weeks, days, etc.

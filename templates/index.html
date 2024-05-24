@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Calculator</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px;
+            background: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Baby Calculator</h1>
+        <form id="datetime-form">
+            <label for="date">Datum (dd.MM.yyyy):</label>
+            <input type="text" id="date" name="date" placeholder="dd.MM.yyyy" required pattern="\d{2}\.\d{2}\.\d{4}">
+            <label for="time">Vrijeme (HH:mm):</label>
+            <input type="text" id="time" name="time" placeholder="HH:mm" required pattern="[0-2][0-9]:[0-5][0-9]">
+            <button type="submit">Izračunaj razliku</button>
+        </form>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function setCookie(name, value, days) {
+            const d = new Date();
+            d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+            const expires = "expires=" + d.toUTCString();
+            document.cookie = name + "=" + value + ";" + expires + ";path=/";
+        }
+
+        function getCookie(name) {
+            const cname = name + "=";
+            const decodedCookie = decodeURIComponent(document.cookie);
+            const ca = decodedCookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') {
+                    c = c.substring(1);
+                }
+                if (c.indexOf(cname) === 0) {
+                    return c.substring(cname.length, c.length);
+                }
+            }
+            return "";
+        }
+
+        $(document).ready(function() {
+            const savedDate = getCookie('date');
+            const savedTime = getCookie('time');
+            if (savedDate) {
+                $('#date').val(savedDate);
+            }
+            if (savedTime) {
+                $('#time').val(savedTime);
+            }
+
+            $('#datetime-form').on('submit', function(event) {
+                event.preventDefault();
+
+                // Validate date format
+                const datePattern = /^\d{2}\.\d{2}\.\d{4}$/;
+                const date = $('#date').val();
+                if (!datePattern.test(date)) {
+                    alert('Please enter the date in dd.MM.yyyy format.');
+                    return;
+                }
+
+                // Validate time format
+                const timePattern = /^[0-2][0-9]:[0-5][0-9]$/;
+                const time = $('#time').val();
+                if (!timePattern.test(time)) {
+                    alert('Please enter the time in HH:mm format.');
+                    return;
+                }
+
+                setCookie('date', date, 30);
+                setCookie('time', time, 30);
+
+                $.ajax({
+                    url: '/calculate',
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        $('#result').html(
+                            `
+                            <hr />
+                            <hr />
+                            <p>Trenutni datum i vrijeme: ${response.current}</p>
+                            <p>Razlika: ${response.day_diff}</p>
+                            <hr />
+                            <p>Vaše dijete ima ${response.year_diff};</p>
+                            <p>odnosno ${response.week_diff};</p>
+                            <hr />
+                            <hr />
+                            `
+                        );
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
