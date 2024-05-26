@@ -57,11 +57,15 @@
         #result {
             margin-top: 20px;
         }
+        .version-text{
+            font-size: .875rem;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Baby Calculator</h1>
+        <h1>Baby Calculator <span class="version-text">v1.1</span></h1>
         <form id="datetime-form">
             <label for="date">Datum (dd.MM.yyyy):</label>
             <input type="text" id="date" name="date" placeholder="dd.MM.yyyy" required pattern="\d{2}\.\d{2}\.\d{4}">
