@@ -1,14 +1,25 @@
 from flask import Flask, render_template, request, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from datetime import datetime
 from utils_dt import *
 
 app = Flask(__name__)
 
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"]
+)
+throttle_string = "1 per second; 32 per minute; 256 per hour"
+
 @app.route('/')
+@limiter.limit(throttle_string)
 def index():
     return render_template('index.html')
 
 @app.route('/calculate', methods=['POST'])
+@limiter.limit(throttle_string)
 def calculate():
     input_date = request.form['date']
     input_time = request.form['time']
