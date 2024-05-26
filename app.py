@@ -33,9 +33,9 @@ def calculate():
     week_days = days % 7
     week_day_text = generate_days_string(week_days)
 
-    years_diff, months_diff, days_diff = diff_in_ymd(input_datetime, current_datetime)
+    years_diff, months_diff, days_diff = calculate_date_difference(input_datetime, current_datetime)
     year_text = generate_years_string(years_diff)
-    year_month_text = generate_years_string(months_diff)
+    year_month_text = generate_months_string(months_diff)
     year_day_text = generate_days_string(days_diff) 
 
     result = {
