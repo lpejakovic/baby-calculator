@@ -67,10 +67,8 @@
     <div class="container">
         <h1>Baby Calculator <span class="version-text">v1.1</span></h1>
         <form id="datetime-form">
-            <label for="date">Datum (dd.MM.yyyy):</label>
-            <input type="text" id="date" name="date" placeholder="dd.MM.yyyy" required pattern="\d{2}\.\d{2}\.\d{4}">
-            <label for="time">Vrijeme (HH:mm):</label>
-            <input type="text" id="time" name="time" placeholder="HH:mm" required pattern="[0-2][0-9]:[0-5][0-9]">
+            <label for="datetime">Datum i vrijeme:</label>
+            <input type="datetime-local" id="datetime" name="datetime" required>
             <button type="submit">Izračunaj razliku</button>
         </form>
         <div id="result"></div>
@@ -101,36 +99,16 @@
         }
 
         $(document).ready(function() {
-            const savedDate = getCookie('date');
-            const savedTime = getCookie('time');
-            if (savedDate) {
-                $('#date').val(savedDate);
-            }
-            if (savedTime) {
-                $('#time').val(savedTime);
+            const savedDateTime = getCookie('datetime');
+            if (savedDateTime) {
+                $('#datetime').val(savedDateTime);
             }
 
             $('#datetime-form').on('submit', function(event) {
                 event.preventDefault();
-
-                // Validate date format
-                const datePattern = /^\d{2}\.\d{2}\.\d{4}$/;
-                const date = $('#date').val();
-                if (!datePattern.test(date)) {
-                    alert('Please enter the date in dd.MM.yyyy format.');
-                    return;
-                }
-
-                // Validate time format
-                const timePattern = /^[0-2][0-9]:[0-5][0-9]$/;
-                const time = $('#time').val();
-                if (!timePattern.test(time)) {
-                    alert('Please enter the time in HH:mm format.');
-                    return;
-                }
-
-                setCookie('date', date, 30);
-                setCookie('time', time, 30);
+                
+                const datetime = $('#datetime').val();
+                setCookie('datetime', datetime, 30);
 
                 $.ajax({
                     url: '/calculate',

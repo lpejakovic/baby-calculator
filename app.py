@@ -21,10 +21,7 @@ def index():
 @app.route('/calculate', methods=['POST'])
 @limiter.limit(throttle_string)
 def calculate():
-    input_date = request.form['date']
-    input_time = request.form['time']
-    input_datetime_str = f"{input_date} {input_time}"
-    input_datetime = datetime.strptime(input_datetime_str, '%d.%m.%Y %H:%M')
+    input_datetime = datetime.strptime(request.form['datetime'], '%Y-%m-%dT%H:%M')
     
     current_datetime = datetime.now()
     difference = current_datetime - input_datetime
