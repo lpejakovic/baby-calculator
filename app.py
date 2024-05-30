@@ -11,7 +11,7 @@ limiter = Limiter(
     app=app,
     default_limits=["200 per day", "50 per hour"]
 )
-throttle_string = "1 per second; 32 per minute; 256 per hour"
+throttle_string = "1 per second; 16 per minute; 64 per hour"
 
 @app.route('/')
 @limiter.limit(throttle_string)
