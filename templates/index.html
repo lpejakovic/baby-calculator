@@ -14,7 +14,7 @@
         <form id="datetime-form">
             <label for="datetime">Datum i vrijeme rođenja:</label>
             <input type="datetime-local" id="datetime" name="datetime" required>
-            <button type="submit">Izračunaj razliku</button>
+            <button type="submit" id="calculate-button">Izračunaj razliku</button>
         </form>
         <div id="result"></div>
     </div>
@@ -51,7 +51,9 @@
 
             $('#datetime-form').on('submit', function(event) {
                 event.preventDefault();
-                
+
+                $('#calculate-button').prop('disabled', true);
+
                 const datetime = $('#datetime').val();
                 setCookie('datetime', datetime, 30);
 
@@ -73,6 +75,12 @@
                             <hr />
                             `
                         );
+                    },
+                    complete: function(jqXHR, textStatus) {
+                        setTimeout(() => {
+                            $('#calculate-button').prop('disabled', false);
+                        }, 1000);
+                        console.log('Calculation done. Status:', textStatus);
                     }
                 });
             });
