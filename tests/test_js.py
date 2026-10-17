@@ -172,7 +172,9 @@ def test_countdown(js, days, expected):
 
 
 @pytest.mark.parametrize("search, expected", [
-    ("?d=2026-09-01", {"date": "2026-09-01", "time": "", "name": "", "due": ""}),
+    ("#d=2026-09-01", {"date": "2026-09-01", "time": "", "name": "", "due": ""}),
+    ("#d=2026-09-01T08:30&n=Ana&due=2026-10-01", {"date": "2026-09-01", "time": "08:30", "name": "Ana", "due": "2026-10-01"}),
+    ("?d=2026-09-01", {"date": "2026-09-01", "time": "", "name": "", "due": ""}),  # older links
     ("?d=2026-09-01T08:30", {"date": "2026-09-01", "time": "08:30", "name": "", "due": ""}),
     ("?d=2026-09-01T08%3A30", {"date": "2026-09-01", "time": "08:30", "name": "", "due": ""}),
     ("?x=1&d=2026-09-01&y=2", {"date": "2026-09-01", "time": "", "name": "", "due": ""}),
@@ -191,13 +193,14 @@ def test_read_shared_birth(js, search, expected):
 
 
 def test_build_share_url(js):
-    assert js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '08:30')") == "https://bc.example/?d=2026-09-01T08:30"
-    assert js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '')") == "https://bc.example/?d=2026-09-01"
+    # The data goes after "#", so it is never sent to the server
+    assert js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '08:30')") == "https://bc.example/#d=2026-09-01T08:30"
+    assert js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '')") == "https://bc.example/#d=2026-09-01"
 
 
 def test_share_url_round_trip(js):
     url = js.eval("M.buildShareUrl('https://bc.example/', '2024-02-29', '23:59')")
-    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})") == {"date": "2024-02-29", "time": "23:59", "name": "", "due": ""}
+    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('#'):])})") == {"date": "2024-02-29", "time": "23:59", "name": "", "due": ""}
 
 
 # --- Pregnancy mode
@@ -269,7 +272,8 @@ def test_due_countdown(js, days, expected):
 
 
 @pytest.mark.parametrize("search, expected", [
-    ("?t=2026-12-10", {"basis": "due", "date": "2026-12-10"}),
+    ("#t=2026-12-10", {"basis": "due", "date": "2026-12-10"}),
+    ("?t=2026-12-10", {"basis": "due", "date": "2026-12-10"}),  # older links
     ("?x=1&t=2026-12-10", {"basis": "due", "date": "2026-12-10"}),
     ("?t=2026-02-30", None),
     ("?t=", None),
@@ -341,8 +345,8 @@ def test_remove_last_child(js):
 
 def test_share_url_with_name(js):
     url = js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '08:30', 'Ana Marija')")
-    assert url == "https://bc.example/?d=2026-09-01T08:30&n=Ana%20Marija"
-    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})")["name"] == "Ana Marija"
+    assert url == "https://bc.example/#d=2026-09-01T08:30&n=Ana%20Marija"
+    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('#'):])})")["name"] == "Ana Marija"
 
 
 # --- English texts
@@ -480,8 +484,8 @@ def test_corrected_age_texts(js):
 
 def test_due_date_in_share_links_and_storage(js):
     url = js.eval("M.buildShareUrl('https://bc.example/', '2026-08-01', '14:30', 'Ana', '2026-10-01')")
-    assert url == "https://bc.example/?d=2026-08-01T14:30&n=Ana&due=2026-10-01"
-    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})")["due"] == "2026-10-01"
+    assert url == "https://bc.example/#d=2026-08-01T14:30&n=Ana&due=2026-10-01"
+    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('#'):])})")["due"] == "2026-10-01"
     assert call(js, "M.readSharedBirth('?d=2026-08-01&due=2026-13-01')")["due"] == ""  # invalid due date ignored
     stored = [{"id": 1, "date": "2026-08-01", "due": "2026-10-01"}, {"id": 2, "date": "2026-08-01", "due": "nope"}]
     assert [c["due"] for c in call(js, f"M.normalizeChildren({json.dumps(stored)}, null)")] == ["2026-10-01", ""]

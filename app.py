@@ -4,7 +4,7 @@ import os
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask, Response, jsonify, make_response, render_template, request, url_for
+from flask import Flask, Response, jsonify, make_response, redirect, render_template, request, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -12,7 +12,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from i18n import API_ERRORS, LANGUAGES, PAGE_TEXT, UNSUPPORTED_LANG
 from utils_dt import calculate_date_difference, format_datetime, join_units
 
-APP_VERSION = "2.11"
+APP_VERSION = "2.12"
 
 # Cached by the service worker for offline use (besides the page itself)
 PRECACHED_STATIC = ["styles/main.css", "js/app.js", "favicon.ico", "apple-touch-icon.png",
@@ -51,7 +51,15 @@ def render_page(lang):
 @app.route('/')
 @limiter.exempt
 def index():
-    return render_page("hr")
+    # Visitors who chose English (the "lang" cookie, set by the language switch) go straight to /en/;
+    # the browser keeps any "#..." part of the URL across the redirect
+    if request.cookies.get('lang') == 'en':
+        query = request.query_string.decode()
+        response = redirect(url_for('index_en') + (f'?{query}' if query else ''))
+    else:
+        response = make_response(render_page("hr"))
+    response.vary.add('Cookie')
+    return response
 
 @app.route('/en/')
 @limiter.exempt

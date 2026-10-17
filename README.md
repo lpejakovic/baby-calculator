@@ -13,7 +13,7 @@ A **pregnancy mode** ("Trudnoća") works from the due date or the first day of t
 the pregnancy as weeks + days (`32+6 · 33. tjedan · 3. tromjesečje`), the due date with a countdown and progress bar,
 and upcoming pregnancy milestones (14, 20, 28, 37 and 40 weeks).
 
-The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.11**.
+The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.12**.
 
 ## Features
 
@@ -22,15 +22,18 @@ The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.11**.
 - Future dates are rejected; the date limits follow "today" even when the page or app stays open overnight
 - Upcoming milestones: month birthdays (1–23 months), birthdays and day counts (100, 200, 300, 500, 1,000 … 10,000 days),
   with the date and "danas" / "sutra" / "za N dana"
-- Croatian and English: separate pages (`/` and `/en/`) with `hreflang` links, a language switch, English
+- Privacy note under the page: dates and names stay on the device and are never sent to the server
+- Croatian and English: separate pages (`/` and `/en/`) with `hreflang` links, a language switch that is remembered
+  (a `lang` cookie; `/` then redirects to `/en/`), English
   plurals, ordinals ("1st birthday") and dates ("4 Mar 2025"); saved data is shared between the languages
 - Installable app (PWA) that works offline: manifest, service worker, and an "Instaliraj aplikaciju" button
   where the browser supports it
 - Branded 404 page in both languages, `robots.txt`, and `sitemap.xml` with `hreflang`
 - Link preview (Open Graph): title, description and a 1200×630 image for Viber, WhatsApp, Facebook and others
-- Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` (optionally `&n=Ana` and `&due=YYYY-MM-DD`) adds that child next to the visitor's own
-  children (or selects it if it's already there), `?t=2026-12-10` opens
-  pregnancy mode with that due date. "Podijeli" opens the phone's
+- Share link: `#d=2026-09-01` or `#d=2026-09-01T08:30` (optionally `&n=Ana` and `&due=YYYY-MM-DD`) adds that child next to the visitor's own
+  children (or selects it if it's already there), `#t=2026-12-10` opens
+  pregnancy mode with that due date. The data is after `#`, so it never reaches the server; older `?d=`/`?t=`
+  links still work. "Podijeli" opens the phone's
   share sheet (or copies the link), and "Kopiraj tekst" copies a one-line summary
 - Corrected age for premature babies: an optional due date per child ("Prijevremeno rođeno dijete?") adds a
   "Korigirana dob" card with the age counted from the due date and the gestational age at birth

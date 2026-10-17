@@ -331,3 +331,21 @@ def test_health(limiter):
         assert response.status_code == 200
     assert response.get_json() == {"status": "ok", "version": app_module.APP_VERSION}
     assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_language_cookie_redirects_to_english(client):
+    client.set_cookie("lang", "en")
+    response = client.get("/")
+    assert response.status_code == 302 and response.headers["Location"] == "/en/"
+    assert "Cookie" in response.headers["Vary"]
+    response = client.get("/?d=2026-09-01")  # older share links keep their query
+    assert response.headers["Location"] == "/en/?d=2026-09-01"
+
+
+@pytest.mark.parametrize("cookie", ["hr", "xx", None])
+def test_croatian_page_without_english_cookie(client, cookie):
+    if cookie:
+        client.set_cookie("lang", cookie)
+    response = client.get("/")
+    assert response.status_code == 200 and '<html lang="hr">' in response.get_data(as_text=True)
+    assert "Cookie" in response.headers["Vary"]

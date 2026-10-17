@@ -477,6 +477,12 @@ progress {
     color: var(--muted);
     text-align: center;
 }
+.privacy-note {
+    margin: 16px 0 0;
+    font-size: .875rem;
+    color: var(--muted);
+    text-align: center;
+}
 .not-found {
     text-align: center;
 }

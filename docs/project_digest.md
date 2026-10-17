@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 318 automated tests and linting in CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 329 automated tests and linting in CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -100,7 +100,8 @@ Dependencies are pinned in `requirements.txt`.
    `<html lang>` and takes every text from `TEXT[lang]` in `app.js` (plural rules, "i"/"and", ordinals, date format,
    errors, share text); the pure functions take an optional `lang` that defaults to Croatian. Saved data is shared
    between the pages, share links keep the current page, and each language has its own manifest, start URL and
-   preview image.
+   preview image. The language switch sets a `lang` cookie; `/` redirects to `/en/` when it is `en` (the `#…` part of
+   the URL survives the redirect), and the cached page does the same offline.
 13. The script registers `/sw.js`. Flask renders it with the page and versioned static URLs, so any static change gives a new
    service worker and cache name; old caches are deleted on activation. The page is network-first with a cached fallback,
    static files are cache-first, and `/calculate` is never cached. Where Chrome fires `beforeinstallprompt`, an
@@ -163,6 +164,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | Linting (ruff, ESLint) and axe-core accessibility audit in CI; removed dead code found by ESLint |
 | 2026-10-17 | Separate development clone, pull requests, `deploy/deploy.sh`; heavy tests only in CI; branch protection |
 | 2026-10-17 | **v2.11**: API with plain numbers, JSON input, `lang=en`, real elapsed time |
+| 2026-10-17 | **v2.12**: privacy note, share links after `#` (never sent to the server), remembered language |
 
 ## Observations and issues
 
@@ -181,7 +183,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 318 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 329 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps

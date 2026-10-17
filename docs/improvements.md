@@ -14,11 +14,8 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## 1. Small site fixes
 
-1. **Split `app.js`** (828 lines) into modules: date math, texts and page code.
+1. **Split `app.js`** (about 1,300 lines) into modules: date math, texts and page code.
 
 ## 2. New features
 
-1. **Privacy note:** "Podaci ostaju samo na vašem uređaju", visible without opening anything (the backup section
-   already says so when opened).
-2. **Remember the language:** open the chosen language next time, or suggest English once to English-language browsers.
-3. **More pregnancy dating options:** IVF transfer date, or a date from an ultrasound.
+1. **More pregnancy dating options:** IVF transfer date, or a date from an ultrasound.
