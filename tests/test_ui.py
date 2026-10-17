@@ -239,7 +239,7 @@ def test_pregnancy_layout(open_page, width):
     layout = page.evaluate("""() => ({
         overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         targets: [...document.querySelectorAll('button, input:not([type=radio]), .mode-switch label, .basis label')]
-            .filter(el => el.offsetParent !== null)
+            .filter(el => el.checkVisibility())
             .map(el => Math.round(el.getBoundingClientRect().height)),
     })""")
     assert not layout["overflow"]
@@ -454,10 +454,12 @@ def test_english_layout(open_page, base_url, width):
     page.click("#add-child")
     calculate(page, "2026-09-01", name="Marko")
     overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
-    targets = page.evaluate("""[...document.querySelectorAll('button, a, input:not([type=radio]), .chip, .mode-switch label')]
-        .filter(el => el.offsetParent !== null).map(el => Math.round(el.getBoundingClientRect().height))""")
+    # Links inside running text are exempt from the WCAG 2.2 target size, like the WHO source link
+    small = page.evaluate("""[...document.querySelectorAll('button, a, input:not([type=radio]), .chip, .mode-switch label')]
+        .filter(el => el.checkVisibility() && !el.closest('p') && el.getBoundingClientRect().height < 44)
+        .map(el => `${el.tagName.toLowerCase()}#${el.id}: ${el.textContent.trim().slice(0, 30)}`)""")
     assert not overflow
-    assert min(targets) >= 44, targets
+    assert small == []
 
 
 @pytest.mark.parametrize("now, expected", [
@@ -816,7 +818,7 @@ def test_pregnancy_dating_layout(open_page, width):
     choose_basis(page, "Ultrazvuku")
     overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
     heights = page.evaluate("""[...document.querySelectorAll('#pregnancy-form label.radio, #pregnancy-form input:not([type=radio]), #pregnancy-form select, #pregnancy-form button')]
-        .filter(el => el.offsetParent !== null).map(el => Math.round(el.getBoundingClientRect().height))""")
+        .filter(el => el.checkVisibility()).map(el => Math.round(el.getBoundingClientRect().height))""")
     assert not overflow and min(heights) >= 44, heights
 
 
@@ -949,10 +951,10 @@ def test_no_button_label_is_cut_off(open_page, base_url, lang, width):
     page.click("#growth .sex label.radio >> nth=0")
     # Elements reaching past the right edge (named, so a failure says what to fix)
     sticking_out = page.evaluate("""[...document.querySelectorAll('main *')]
-        .filter(el => el.offsetParent !== null && el.getBoundingClientRect().right > document.documentElement.clientWidth)
+        .filter(el => el.checkVisibility() && el.getBoundingClientRect().right > document.documentElement.clientWidth)
         .map(el => `${el.tagName.toLowerCase()}#${el.id}.${el.className}: ${el.textContent.trim().slice(0, 40)}`)""")
     cut = page.evaluate("""[...document.querySelectorAll('button, a, .chip, .mode-switch label, .basis label')]
-        .filter(el => el.offsetParent !== null && el.scrollWidth > el.clientWidth + 1)
+        .filter(el => el.checkVisibility() && el.scrollWidth > el.clientWidth + 1)
         .map(el => el.textContent.trim())""")
     assert sticking_out == [] and cut == []
 
@@ -1101,7 +1103,7 @@ def test_responsive_layout(open_page, width, height, columns, scheme):
             actions: [...document.querySelectorAll('#share .actions button')].map(b => b.getBoundingClientRect().height),
             // Visible text/date inputs, and the labels that act as radio buttons
             inputs: [...document.querySelectorAll('input:not([type=radio]), .mode-switch label, .basis label')]
-                .filter(el => el.offsetParent !== null)
+                .filter(el => el.checkVisibility())
                 .map(el => el.getBoundingClientRect().height),
             columns: getComputedStyle(document.querySelector('.cards')).gridTemplateColumns.split(' ').length,
         };
