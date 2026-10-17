@@ -1,6 +1,7 @@
 """Tests for static/js/app.js, run in QuickJS and checked against dateutil's relativedelta."""
 import json
 import random
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -12,16 +13,17 @@ import utils_dt
 
 quickjs = pytest.importorskip("quickjs")
 
-APP_JS = Path(__file__).resolve().parent.parent / "static" / "js" / "app.js"
+JS_DIR = Path(__file__).resolve().parent.parent / "static" / "js"
+PURE_SCRIPTS = ["texts", "dates", "calendar", "data"]  # browser-free, in load order
 EPOCH = datetime(1970, 1, 1)
 
 
 @pytest.fixture(scope="module")
 def js():
     ctx = quickjs.Context()
-    ctx.eval("var module = { exports: {} };")
-    ctx.eval(APP_JS.read_text())
-    ctx.eval("var M = module.exports;")
+    for name in PURE_SCRIPTS:
+        ctx.eval((JS_DIR / f"{name}.js").read_text())
+    ctx.eval("var M = globalThis.BC;")
     return ctx
 
 
@@ -700,3 +702,14 @@ def test_backup_keeps_new_pregnancy_details(js):
     text = backup_json(children=[], pregnancy={"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 3})
     assert call(js, f"M.parseBackup({json.dumps(text)})")["pregnancy"] == \
         {"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 3}
+
+
+def test_app_js_loads_after_the_pure_scripts():
+    # Without a DOM the page code doesn't run, but syntax errors and names missing from BC fail here
+    ctx = quickjs.Context()
+    for name in [*PURE_SCRIPTS, "app"]:
+        ctx.eval((JS_DIR / f"{name}.js").read_text())
+    app_js = (JS_DIR / "app.js").read_text()
+    imported = re.search(r"const \{([^}]*)\} = globalThis\.BC;", app_js).group(1)
+    missing = [n.strip() for n in imported.split(",") if n.strip() and ctx.eval(f"typeof BC.{n.strip()}") == "undefined"]
+    assert missing == []

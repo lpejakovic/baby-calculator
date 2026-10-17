@@ -15,7 +15,7 @@ measured there), and shows
 the pregnancy as weeks + days (`32+6 · 33. tjedan · 3. tromjesečje`), the due date with a countdown and progress bar,
 and upcoming pregnancy milestones (14, 20, 28, 37 and 40 weeks).
 
-The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.13**.
+The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.14**.
 
 ## Features
 
@@ -69,7 +69,11 @@ templates/404.html           Not-found page
 templates/sitemap.xml        Sitemap with hreflang alternates
 templates/sw.js              Service worker (rendered with the current asset URLs)
 static/manifest.json         Web app manifest (Croatian; manifest-en.json for English)
-static/js/app.js             Age and pregnancy calculation, live counter, milestones, sharing, localStorage
+static/js/texts.js           Croatian and English texts, plural rules (pure)
+static/js/dates.js           Age, corrected age, pregnancy, milestones (pure)
+static/js/calendar.js        .ics export (pure)
+static/js/data.js            Children, share links, backups (pure)
+static/js/app.js             Page code: forms, results, storage, events
 static/styles/main.css       Styles (light and dark)
 static/favicon.ico           Favicon (16 and 32 px)
 static/apple-touch-icon.png  Home-screen icon (180 px)
@@ -116,7 +120,8 @@ pytest -m "not ui"                                   # without the browser tests
   dark mode, empty, baby (with corrected age), pregnancy, backup and error states, and the 404 page
 - `tests/test_utils_dt.py`: Croatian plural rules and date math for the API
 - `tests/test_api.py`: both pages, language links, 404 page, `robots.txt` and `sitemap.xml`, link preview, manifests and icons, service worker, and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
-- `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
+- `tests/test_js.py`: the pure scripts (`texts.js`, `dates.js`, `calendar.js`, `data.js`) in QuickJS, plus a check that
+  `app.js` loads and finds everything it uses: `calculateAge()` checked against `relativedelta` on 2,000 random dates
   plus month ends, leap years and DST; milestones against a `relativedelta` reference on 500 random dates;
   corrected age (against `relativedelta`, limits, texts); calendar files (escaping, byte-based line folding,
   validated with the `icalendar` parser); backups (format, validation, merging, links); English plurals, ordinals, dates and texts (same keys in both languages); share links; saved children (migration, cleaning, adding shared, removing); pregnancy weeks, trimesters, due date, limits and milestones; plurals, date parsing and text joining
