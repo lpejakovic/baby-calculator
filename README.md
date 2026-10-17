@@ -13,7 +13,7 @@ A **pregnancy mode** ("Trudnoća") works from the due date or the first day of t
 the pregnancy as weeks + days (`32+6 · 33. tjedan · 3. tromjesečje`), the due date with a countdown and progress bar,
 and upcoming pregnancy milestones (14, 20, 28, 37 and 40 weeks).
 
-The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.7.1**.
+The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.8**.
 
 ## Features
 
@@ -28,10 +28,12 @@ The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.7.1**.
   where the browser supports it
 - Branded 404 page in both languages, `robots.txt`, and `sitemap.xml` with `hreflang`
 - Link preview (Open Graph): title, description and a 1200×630 image for Viber, WhatsApp, Facebook and others
-- Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` (optionally `&n=Ana`) adds that child next to the visitor's own
+- Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` (optionally `&n=Ana` and `&due=YYYY-MM-DD`) adds that child next to the visitor's own
   children (or selects it if it's already there), `?t=2026-12-10` opens
   pregnancy mode with that due date. "Podijeli" opens the phone's
   share sheet (or copies the link), and "Kopiraj tekst" copies a one-line summary
+- Corrected age for premature babies: an optional due date per child ("Prijevremeno rođeno dijete?") adds a
+  "Korigirana dob" card with the age counted from the due date and the gestational age at birth
 - Several children: optional names, a chip per child to switch between them, "+ Dodaj dijete" and "Ukloni dijete"
 - The children are kept in `localStorage` and the result is shown straight away on the next visit
   (a v2.x single saved date and a v1.x cookie are moved over automatically)
@@ -100,9 +102,9 @@ pytest -m "not ui"                                   # without the browser tests
 - `tests/test_api.py`: both pages, language links, 404 page, `robots.txt` and `sitemap.xml`, link preview, manifests and icons, service worker, and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
 - `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
   plus month ends, leap years and DST; milestones against a `relativedelta` reference on 500 random dates;
-  English plurals, ordinals, dates and texts (same keys in both languages); share links; saved children (migration, cleaning, adding shared, removing); pregnancy weeks, trimesters, due date, limits and milestones; plurals, date parsing and text joining
+  corrected age (against `relativedelta`, limits, texts); English plurals, ordinals, dates and texts (same keys in both languages); share links; saved children (migration, cleaning, adding shared, removing); pregnancy weeks, trimesters, due date, limits and milestones; plurals, date parsing and text joining
 - `tests/test_ui.py`: headless Chromium: live counter, milestones, several children, pregnancy mode, English page
-  and language switch, 404 page, real time across clock changes, date limits after midnight, share link and copy buttons, offline use,
+  and language switch, corrected age, 404 page, real time across clock changes, date limits after midnight, share link and copy buttons, offline use,
   install button, saved date, cookie migration, future dates, visitor time zone,
   and layout at 320–1280 px in light and dark mode (no sideways scrolling, 16 px edges, 44 px touch targets)
 

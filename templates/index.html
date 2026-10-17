@@ -67,6 +67,14 @@
                     <small id="time-hint" class="hint">{{ t.optional }}</small>
                 </div>
             </div>
+            <details class="premature" id="premature">
+                <summary>{{ t.premature }}</summary>
+                <div class="field">
+                    <label for="due-date">{{ t.premature_due }}</label>
+                    <input type="date" id="due-date" name="due" aria-describedby="due-hint">
+                    <small id="due-hint" class="hint">{{ t.premature_hint }}</small>
+                </div>
+            </details>
             <button type="submit">{{ t.calculate_age }}</button>
             <button type="button" class="button-link" id="remove-child" hidden>{{ t.remove_child }}</button>
         </form>
@@ -100,6 +108,11 @@
                 <div class="card">
                     <p class="card-label">{{ t.total }}</p>
                     <p class="card-value card-value-small" id="age-total"></p>
+                </div>
+                <div class="card card-wide" id="corrected-card" hidden>
+                    <p class="card-label">{{ t.corrected_age }}</p>
+                    <p class="card-value" id="corrected-value"></p>
+                    <p class="card-sub" id="corrected-detail"></p>
                 </div>
                 <div class="card card-wide">
                     <h3 class="card-label" id="milestones-title">{{ t.milestones }}</h3>

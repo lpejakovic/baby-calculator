@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 241 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 259 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -43,7 +43,7 @@ Dependencies are pinned in `requirements.txt`.
 | `templates/sitemap.xml`  | Both pages with `hreflang` alternates |
 | `templates/sw.js`        | Service worker template: precache list and cache name come from the current versioned asset URLs |
 | `static/manifest.json`   | Web app manifest (standalone, icons 192/512/maskable); `manifest-en.json` for `/en/` |
-| `static/js/app.js`       | Date parsing, `calculateAge()`, `upcomingMilestones()`, children, pregnancy functions, share links, Croatian plurals, live counter, `localStorage` |
+| `static/js/app.js`       | Date parsing, `calculateAge()`, `correctedAge()`, `upcomingMilestones()`, children, pregnancy functions, share links, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
 | `static/favicon.ico`     | Favicon, 16 and 32 px (3.9 KB) |
 | `static/apple-touch-icon.png` | Home-screen icon, 180 px |
@@ -78,13 +78,18 @@ Dependencies are pinned in `requirements.txt`.
    42 weeks. `pregnancyMilestones()` lists 14, 20, 28, 37 and 40 weeks. Mode and pregnancy data are stored under the
    `mode` and `pregnancy` keys; `?t=YYYY-MM-DD` shares a due date. Pregnancy values change once a day, so they are
    re-rendered on a 1-minute timer only when the date changes.
-9. **Languages**: `/` (Croatian) and `/en/` (English) render the same template with `PAGE_TEXT[lang]`, and add
+9. **Corrected age**: a child can have an optional due date (`due`, stored with the child and shared as `&due=`).
+   `correctedAge()` gives the gestational age at birth (280 days minus the days born early), whether the due date
+   has passed, and then `calculateAge(due, now)`. The card shows "Počinje na termin" before the due date and "Nije
+   potrebna" for babies born on or after it, and notes from age 2 that correction is usually used until then.
+   `correctedAgeError()` allows a due date at most 20 weeks after the birth.
+10. **Languages**: `/` (Croatian) and `/en/` (English) render the same template with `PAGE_TEXT[lang]`, and add
    canonical and `hreflang` links (`x-default` is Croatian) plus a link to the other language. The script reads
    `<html lang>` and takes every text from `TEXT[lang]` in `app.js` (plural rules, "i"/"and", ordinals, date format,
    errors, share text); the pure functions take an optional `lang` that defaults to Croatian. Saved data is shared
    between the pages, share links keep the current page, and each language has its own manifest, start URL and
    preview image.
-10. The script registers `/sw.js`. Flask renders it with the page and versioned static URLs, so any static change gives a new
+11. The script registers `/sw.js`. Flask renders it with the page and versioned static URLs, so any static change gives a new
    service worker and cache name; old caches are deleted on activation. The page is network-first with a cached fallback,
    static files are cache-first, and `/calculate` is never cached. Where Chrome fires `beforeinstallprompt`, an
    "Instaliraj aplikaciju" button appears.
@@ -139,6 +144,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.7**: English version and language switch; the improvement review is complete |
 | 2026-10-17 | **v2.7.1**: real elapsed time in "Ukupno", 404 page, `robots.txt`, `sitemap.xml`, date limits follow today |
 | 2026-10-17 | Passwordless restart (sudoers rule), `/health`, uptime workflow, Dependabot |
+| 2026-10-17 | **v2.8**: corrected age for premature babies |
 
 ## Observations and issues
 
@@ -157,7 +163,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 241 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 259 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps

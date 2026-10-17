@@ -40,6 +40,10 @@ PAGE_TEXT = {
         "not_found_title": "Stranica nije pronađena",
         "not_found_text": "Ova stranica ne postoji. Možda je poveznica pogrešna ili zastarjela.",
         "back_home": "Natrag na kalkulator",
+        "premature": "Prijevremeno rođeno dijete?",
+        "premature_due": "Termin poroda",
+        "premature_hint": "Za korigiranu dob. Nije obavezno.",
+        "corrected_age": "Korigirana dob",
     },
     "en": {
         "locale": "en_US",
@@ -78,5 +82,9 @@ PAGE_TEXT = {
         "not_found_title": "Page not found",
         "not_found_text": "This page doesn't exist. The link may be wrong or out of date.",
         "back_home": "Back to the calculator",
+        "premature": "Born early?",
+        "premature_due": "Due date",
+        "premature_hint": "For the corrected age. Optional.",
+        "corrected_age": "Corrected age",
     },
 }

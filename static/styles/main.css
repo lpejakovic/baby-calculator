@@ -208,6 +208,44 @@ h1 {
     color: var(--primary);
     background: var(--surface-accent);
 }
+.premature summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    list-style: none;
+    min-height: 44px;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+}
+.premature summary::-webkit-details-marker {
+    display: none;
+}
+.premature summary::before {
+    /* Our own disclosure arrow; display: flex removes the browser's marker */
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform .15s;
+}
+.premature[open] summary::before {
+    transform: rotate(45deg);
+}
+@media (prefers-reduced-motion: reduce) {
+    .premature summary::before {
+        transition: none;
+    }
+}
+.premature summary:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
+.premature .field {
+    margin-top: 4px;
+}
 .button-link {
     align-self: center;
     min-height: 44px;

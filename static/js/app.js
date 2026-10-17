@@ -74,6 +74,8 @@
                 dateMissing: 'Unesite datum.',
                 dateInvalid: 'Neispravan datum.',
                 lmpFuture: 'Datum zadnje menstruacije ne može biti u budućnosti.',
+                dueInvalid: 'Neispravan termin poroda.',
+                dueTooLate: 'Termin poroda može biti najviše 20 tjedana nakon rođenja.',
                 dueTooFar: 'Termin je predaleko u budućnosti (više od 40 tjedana).',
                 lmpTooOld: 'Zadnja menstruacija je prije više od 42 tjedna. Ako je beba rođena, odaberite „Beba je rođena”.',
                 duePassed: 'Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”.',
@@ -82,6 +84,12 @@
             textCopied: 'Tekst je kopiran.',
             copyFailed: 'Kopiranje nije uspjelo.',
             confirmRemove: (label) => `Ukloniti „${label}” s popisa?`,
+            corrected: 'Korigirana dob',
+            correctedNotNeeded: 'Nije potrebna',
+            correctedStarts: 'Počinje na termin',
+            correctedStartsIn: (when, due) => `${when} (termin ${due})`,
+            gestationAtBirth: (w, d) => `Gestacijska dob pri rođenju:\u00a0${w}+${d}`,
+            correctedUntil2: 'Korekcija se obično koristi do 2. godine.',
         },
         en: {
             word: (n, key) => (n === 1 ? key : `${key}s`),
@@ -115,6 +123,8 @@
                 dateMissing: 'Enter a date.',
                 dateInvalid: 'Invalid date.',
                 lmpFuture: 'The first day of the last period can’t be in the future.',
+                dueInvalid: 'Invalid due date.',
+                dueTooLate: 'The due date can be at most 20 weeks after the birth.',
                 dueTooFar: 'The due date is too far in the future (more than 40 weeks).',
                 lmpTooOld: 'The last period was more than 42 weeks ago. If the baby is born, choose “Baby is born”.',
                 duePassed: 'The due date was more than two weeks ago. If the baby is born, choose “Baby is born”.',
@@ -123,6 +133,12 @@
             textCopied: 'Text copied.',
             copyFailed: 'Copying failed.',
             confirmRemove: (label) => `Remove “${label}” from the list?`,
+            corrected: 'Corrected age',
+            correctedNotNeeded: 'Not needed',
+            correctedStarts: 'Starts at the due date',
+            correctedStartsIn: (when, due) => `${when} (due ${due})`,
+            gestationAtBirth: (w, d) => `Born at ${w}+${d}\u00a0weeks`,
+            correctedUntil2: 'Correction is usually used until age 2.',
         },
     };
 
@@ -203,6 +219,32 @@
             minutes: Math.floor(real / 60000) % 60,
             seconds: Math.floor(real / 1000) % 60,
         };
+    }
+
+    const MAX_DAYS_EARLY = 20 * 7; // born at 20+0 weeks or later
+
+    // Corrected age for a baby born before the due date: the age counted from the due date.
+    // Dates only for the due date; birth and now are wall-clock times.
+    function correctedAge(birth, due, now) {
+        const birthDay = startOfDay(birth);
+        const dueDay = startOfDay(due);
+        const daysEarly = Math.round((dueDay - birthDay) / DAY);
+        const gestation = PREGNANCY_DAYS - daysEarly;
+        const result = {
+            premature: daysEarly > 0,
+            daysEarly,
+            gestationWeeks: Math.floor(gestation / 7),
+            gestationDays: gestation % 7,
+            started: now >= dueDay,
+            daysUntilDue: Math.max(0, Math.round((dueDay - startOfDay(now)) / DAY)),
+        };
+        if (result.premature && result.started) result.age = calculateAge(dueDay, now);
+        return result;
+    }
+
+    function correctedAgeError(birth, due, lang = 'hr') {
+        const daysEarly = Math.round((startOfDay(due) - startOfDay(birth)) / DAY);
+        return daysEarly > MAX_DAYS_EARLY ? texts(lang).errors.dueTooLate : null;
     }
 
     function startOfDay(ms) {
@@ -322,12 +364,14 @@
         try {
             name = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, ' ')).trim().slice(0, NAME_MAX) : '';
         } catch (e) { /* malformed escape: ignore the name */ }
-        return { date, time, name };
+        const dueMatch = /[?&]due=([^&#]*)/.exec(search);
+        const due = dueMatch && parseBirth(dueMatch[1], '') !== null ? dueMatch[1] : '';
+        return { date, time, name, due };
     }
 
-    function buildShareUrl(base, date, time, name = '') {
+    function buildShareUrl(base, date, time, name = '', due = '') {
         const n = name ? `&n=${encodeURIComponent(name)}` : '';
-        return `${base}?d=${date}${time ? `T${time}` : ''}${n}`;
+        return `${base}?d=${date}${time ? `T${time}` : ''}${n}${due ? `&due=${due}` : ''}`;
     }
 
     // --- Several children: [{ id, name, date, time }] ---
@@ -338,6 +382,8 @@
             name: String(child.name || '').trim().slice(0, NAME_MAX),
             date: child.date,
             time: child.time || '',
+            // Due date for the corrected age of a premature baby; '' when not given
+            due: typeof child.due === 'string' && parseBirth(child.due, '') !== null ? child.due : '',
         };
     }
 
@@ -364,7 +410,11 @@
     function addSharedChild(children, shared) {
         const same = children.find((c) => c.date === shared.date && c.time === (shared.time || ''));
         if (same) {
-            const updated = children.map((c) => (c === same && !c.name && shared.name ? { ...c, name: shared.name } : c));
+            const updated = children.map((c) => (c === same ? {
+                ...c,
+                name: c.name || shared.name || '',
+                due: c.due || shared.due || '',
+            } : c));
             return { children: updated.map(cleanChild), activeId: same.id };
         }
         const child = cleanChild({ id: nextChildId(children), ...shared });
@@ -425,6 +475,13 @@
         const addChildButton = $('add-child');
         const removeChildButton = $('remove-child');
         const resultTitle = $('result-title');
+        const dueInput = $('due-date');
+        const premature = $('premature');
+        const corrected = {
+            card: $('corrected-card'),
+            value: $('corrected-value'),
+            detail: $('corrected-detail'),
+        };
         const pregnancyForm = $('pregnancy-form');
         const pregnancyDate = $('pregnancy-date');
         const pregnancyDateLabel = $('pregnancy-date-label');
@@ -493,6 +550,8 @@
             nameInput.value = child ? child.name : '';
             dateInput.value = child ? child.date : '';
             timeInput.value = child ? child.time : '';
+            dueInput.value = child ? child.due : '';
+            premature.open = Boolean(dueInput.value);
             renderChildren();
             if (child) {
                 calculate();
@@ -562,7 +621,27 @@
             }));
         }
 
-        function render(birth) {
+        function renderCorrected(birth, due, now, age) {
+            corrected.card.hidden = due === null;
+            if (due === null) return;
+            const c = correctedAge(birth, due, now);
+            const gestation = t.gestationAtBirth(c.gestationWeeks, c.gestationDays);
+            if (!c.premature) {
+                corrected.value.textContent = t.correctedNotNeeded;
+                corrected.detail.textContent = gestation;
+            } else if (!c.started) {
+                corrected.value.textContent = t.correctedStarts;
+                corrected.detail.textContent =
+                    `${t.correctedStartsIn(countdown(c.daysUntilDue, lang), formatDate(due, lang))} · ${gestation}`;
+            } else {
+                corrected.value.textContent = joinParts([[c.age.years, 'year'], [c.age.months, 'month'], [c.age.days, 'day']], lang);
+                const parts = [joinParts([[c.age.weeks, 'week'], [c.age.weekDays, 'day']], lang), gestation];
+                if (age.years >= 2) parts.push(t.correctedUntil2);
+                corrected.detail.textContent = parts.join(' · ');
+            }
+        }
+
+        function render(birth, due = null) {
             const now = Math.max(wallClockNow(), birth);
             // Milestones only change at midnight
             if (startOfDay(now) !== milestonesDay) {
@@ -574,6 +653,7 @@
             out.calendar.textContent = joinParts([[age.years, 'year'], [age.months, 'month'], [age.days, 'day']], lang);
             out.total.textContent = joinParts([[age.elapsedDays, 'day'], [age.hours, 'hour'],
                 [age.minutes, 'minute'], [age.seconds, 'second']], lang);
+            renderCorrected(birth, due, now, age);
             return age;
         }
 
@@ -598,8 +678,12 @@
             if (!dateInput.value) return showError(t.errors.birthMissing);
             if (birth === null) return showError(t.errors.birthInvalid);
             if (birth > wallClockNow()) return showError(t.errors.birthFuture);
+            const due = dueInput.value ? parseBirth(dueInput.value, '') : null;
+            if (dueInput.value && due === null) return showError(t.errors.dueInvalid);
+            const dueProblem = due === null ? null : correctedAgeError(birth, due, lang);
+            if (dueProblem) return showError(dueProblem);
 
-            const entry = { name: nameInput.value, date: dateInput.value, time: timeInput.value };
+            const entry = { name: nameInput.value, date: dateInput.value, time: timeInput.value, due: dueInput.value };
             if (activeChild()) {
                 children = children.map((c) => (c.id === activeId ? cleanChild({ ...c, ...entry }) : c));
             } else {
@@ -617,11 +701,11 @@
 
             current = { mode: 'baby', birth };
             milestonesDay = null;
-            render(birth);
+            render(birth, due);
             announce.textContent = `${named || t.age}: ${out.calendar.textContent}, ${t.or} ${out.weeks.textContent}.`;
 
             clearInterval(timer);
-            timer = setInterval(() => render(birth), 1000);
+            timer = setInterval(() => render(birth, due), 1000);
         }
 
         function calculatePregnancy() {
@@ -679,7 +763,10 @@
             const born = out.bornAt.textContent;
             const child = activeChild();
             const prefix = `${child && child.name ? child.name : t.age}: `;
-            return `${prefix}${out.calendar.textContent} (${out.weeks.textContent}). ${born}${born.endsWith('.') ? '' : '.'}`;
+            // The corrected age is added only when it is a real age (born early, due date passed)
+            const correctedText = !corrected.card.hidden && /\d/.test(corrected.value.textContent)
+                ? ` ${t.corrected}: ${corrected.value.textContent}.` : '';
+            return `${prefix}${out.calendar.textContent} (${out.weeks.textContent}).${correctedText} ${born}${born.endsWith('.') ? '' : '.'}`;
         }
 
         function shareUrl() {
@@ -688,7 +775,7 @@
                 return `${base}?t=${isoDate(current.lmp + PREGNANCY_DAYS * DAY)}`;
             }
             const child = activeChild();
-            return buildShareUrl(base, dateInput.value, timeInput.value, child ? child.name : '');
+            return buildShareUrl(base, dateInput.value, timeInput.value, child ? child.name : '', child ? child.due : '');
         }
 
         function showStatus(message) {
@@ -763,6 +850,7 @@
             selectChild(next.activeId);
         });
         timeInput.addEventListener('change', () => dateInput.value && calculate());
+        dueInput.addEventListener('change', () => dateInput.value && calculate());
 
         pregnancyForm.addEventListener('submit', function (event) {
             event.preventDefault();
@@ -825,6 +913,8 @@
             nameInput.value = child.name;
             dateInput.value = child.date;
             timeInput.value = child.time;
+            dueInput.value = child.due;
+            premature.open = Boolean(child.due);
         }
         store(ACTIVE_CHILD_KEY, activeId);
         renderChildren();
@@ -843,6 +933,7 @@
             plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate,
             readSharedBirth, buildShareUrl, lmpFrom, pregnancyStatus, pregnancyError, pregnancyMilestones, dueCountdown,
             readSharedPregnancy, normalizeChildren, nextChildId, childLabel, addSharedChild, removeChild,
+            correctedAge, correctedAgeError,
             TEXT, unit, formatBirth,
         };
     }

@@ -93,7 +93,7 @@ def test_opens_shared_link(browser, base_url):
     assert page.is_visible("#result")
     assert page.url == base_url  # parameter removed after loading
     assert page.evaluate("JSON.parse(localStorage.getItem('children'))") == [
-        {"id": 1, "name": "", "date": "2026-09-01", "time": "08:30"}]
+        {"id": 1, "name": "", "date": "2026-09-01", "time": "08:30", "due": ""}]
     context.close()
 
 
@@ -496,6 +496,94 @@ def test_date_limits_move_with_today(browser, base_url):
     context.close()
 
 
+def premature_page(open_page, now, path=""):
+    page = open_page(timezone_id="Europe/Zagreb", permissions=["clipboard-read", "clipboard-write"])
+    page.clock.set_fixed_time(now)
+    if path:
+        page.goto(page.url + path)
+    return page
+
+
+def enter_premature(page, birth="2026-08-01", due="2026-10-01", name="Ana"):
+    page.fill("#child-name", name)
+    page.fill("#birth-date", birth)
+    page.click("#premature summary")
+    page.fill("#due-date", due)
+    page.click("#birth-form button[type=submit]")
+
+
+def test_corrected_age(open_page):
+    page = premature_page(open_page, "2026-12-15T12:00:00+01:00")
+    assert page.is_hidden("#due-date")  # collapsed until opened
+    enter_premature(page)
+    assert page.text_content("#corrected-value") == "2 mjeseca i 14 dana"
+    assert page.text_content("#corrected-detail") == "10 tjedana i 5 dana · Gestacijska dob pri rođenju:\u00a031+2"
+    assert page.text_content("#age-calendar") == "4 mjeseca i 14 dana"  # the actual age is unchanged
+    page.click("#copy-text")
+    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    assert page.evaluate("navigator.clipboard.readText()") == \
+        "Ana: 4 mjeseca i 14 dana (19 tjedana i 3 dana). Korigirana dob: 2 mjeseca i 14 dana. Rođenje: 01.08.2026."
+
+
+def test_corrected_age_before_due_date(open_page):
+    page = premature_page(open_page, "2026-09-15T12:00:00+02:00")
+    enter_premature(page)
+    assert page.text_content("#corrected-value") == "Počinje na termin"
+    assert page.text_content("#corrected-detail") == \
+        "za 16 dana (termin 01.10.2026.) · Gestacijska dob pri rođenju:\u00a031+2"
+
+
+def test_corrected_age_not_needed_and_hidden(open_page):
+    page = premature_page(open_page, "2026-12-15T12:00:00+01:00")
+    enter_premature(page, due="2026-07-30")
+    assert page.text_content("#corrected-value") == "Nije potrebna"
+    assert page.text_content("#corrected-detail") == "Gestacijska dob pri rođenju:\u00a040+2"
+    page.fill("#due-date", "")
+    page.click("#birth-form button[type=submit]")
+    assert page.is_hidden("#corrected-card")
+
+
+def test_corrected_age_errors_and_note(open_page):
+    page = premature_page(open_page, "2026-12-15T12:00:00+01:00")
+    enter_premature(page, due="2026-12-20")  # more than 20 weeks after the birth
+    assert page.text_content("#error") == "Termin poroda može biti najviše 20 tjedana nakon rođenja."
+    page.fill("#birth-date", "2024-01-01")
+    page.fill("#due-date", "2024-03-01")
+    page.click("#birth-form button[type=submit]")
+    assert page.text_content("#corrected-detail").endswith("Korekcija se obično koristi do 2. godine.")
+
+
+def test_corrected_age_is_saved_per_child(open_page):
+    page = premature_page(open_page, "2026-12-15T12:00:00+01:00")
+    enter_premature(page)
+    page.click("#add-child")
+    assert page.input_value("#due-date") == "" and not page.evaluate("document.getElementById('premature').open")
+    calculate(page, "2025-03-04", name="Marko")
+    assert page.is_hidden("#corrected-card")
+    page.click("#child-list >> text=Ana")
+    assert page.input_value("#due-date") == "2026-10-01" and page.evaluate("document.getElementById('premature').open")
+    assert page.is_visible("#corrected-card")
+
+
+def test_corrected_age_share_link_and_english(open_page, base_url):
+    page = premature_page(open_page, "2026-12-15T12:00:00+01:00", "en/?d=2026-08-01&n=Ana&due=2026-10-01")
+    assert page.text_content("#corrected-value") == "2 months and 14 days"
+    assert page.text_content("#corrected-detail") == "10 weeks and 5 days · Born at 31+2\u00a0weeks"
+    page.evaluate("delete Navigator.prototype.share; delete navigator.share")
+    page.click("#share-link")
+    page.wait_for_function("document.getElementById('share-status').textContent === 'Link copied.'")
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/?d=2026-08-01&n=Ana&due=2026-10-01"
+
+
+@pytest.mark.parametrize("width", [320, 1280])
+def test_corrected_age_layout(open_page, width):
+    page = open_page(viewport={"width": width, "height": 900})
+    enter_premature(page, birth="2026-08-01", due="2026-10-01")
+    overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    summary = page.evaluate("document.querySelector('#premature summary').getBoundingClientRect().height")
+    assert not overflow and summary >= 44
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)
@@ -513,7 +601,7 @@ def test_migrates_legacy_cookie(open_page, base_url):
     assert page.input_value("#birth-time") == "22:10"
     assert page.context.cookies() == []
     assert page.evaluate("JSON.parse(localStorage.getItem('children'))") == [
-        {"id": 1, "name": "", "date": "2026-08-15", "time": "22:10"}]
+        {"id": 1, "name": "", "date": "2026-08-15", "time": "22:10", "due": ""}]
     assert page.evaluate("localStorage.getItem('birth')") is None
 
 

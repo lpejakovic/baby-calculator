@@ -10,7 +10,7 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## Plan
 
-1. **Features:** corrected age for premature babies, backup and restore, calendar export.
+1. **Features:** backup and restore, calendar export.
 2. **Then:** separate working copy, linting and accessibility audit in CI, API improvements, split `app.js`.
 
 ## 1. Workflow and operations
@@ -27,9 +27,8 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## 3. New features
 
-1. **Corrected age for premature babies** ("korigirana dob"): with the due date entered too, show both ages.
-2. **Backup and restore:** export children and pregnancy as a file or link, and import on another device.
-3. **Add milestones to a calendar** (`.ics` download).
-4. **Privacy note:** "Podaci ostaju samo na vašem uređaju".
-5. **Remember the language:** open the chosen language next time, or suggest English once to English-language browsers.
-6. **More pregnancy dating options:** IVF transfer date, or a date from an ultrasound.
+1. **Backup and restore:** export children and pregnancy as a file or link, and import on another device.
+2. **Add milestones to a calendar** (`.ics` download).
+3. **Privacy note:** "Podaci ostaju samo na vašem uređaju".
+4. **Remember the language:** open the chosen language next time, or suggest English once to English-language browsers.
+5. **More pregnancy dating options:** IVF transfer date, or a date from an ultrasound.

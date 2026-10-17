@@ -171,14 +171,14 @@ def test_countdown(js, days, expected):
 
 
 @pytest.mark.parametrize("search, expected", [
-    ("?d=2026-09-01", {"date": "2026-09-01", "time": "", "name": ""}),
-    ("?d=2026-09-01T08:30", {"date": "2026-09-01", "time": "08:30", "name": ""}),
-    ("?d=2026-09-01T08%3A30", {"date": "2026-09-01", "time": "08:30", "name": ""}),
-    ("?x=1&d=2026-09-01&y=2", {"date": "2026-09-01", "time": "", "name": ""}),
-    ("?d=2026-09-01&n=Ana", {"date": "2026-09-01", "time": "", "name": "Ana"}),
-    ("?d=2026-09-01&n=Ana+Marija", {"date": "2026-09-01", "time": "", "name": "Ana Marija"}),
-    ("?d=2026-09-01&n=%C4%8Ce%C5%A1%C4%87i%C4%87", {"date": "2026-09-01", "time": "", "name": "Češćić"}),
-    ("?d=2026-09-01&n=%E0%A4%A", {"date": "2026-09-01", "time": "", "name": ""}),  # malformed escape
+    ("?d=2026-09-01", {"date": "2026-09-01", "time": "", "name": "", "due": ""}),
+    ("?d=2026-09-01T08:30", {"date": "2026-09-01", "time": "08:30", "name": "", "due": ""}),
+    ("?d=2026-09-01T08%3A30", {"date": "2026-09-01", "time": "08:30", "name": "", "due": ""}),
+    ("?x=1&d=2026-09-01&y=2", {"date": "2026-09-01", "time": "", "name": "", "due": ""}),
+    ("?d=2026-09-01&n=Ana", {"date": "2026-09-01", "time": "", "name": "Ana", "due": ""}),
+    ("?d=2026-09-01&n=Ana+Marija", {"date": "2026-09-01", "time": "", "name": "Ana Marija", "due": ""}),
+    ("?d=2026-09-01&n=%C4%8Ce%C5%A1%C4%87i%C4%87", {"date": "2026-09-01", "time": "", "name": "Češćić", "due": ""}),
+    ("?d=2026-09-01&n=%E0%A4%A", {"date": "2026-09-01", "time": "", "name": "", "due": ""}),  # malformed escape
     ("?d=2026-02-30", None),
     ("?d=2026-09-01T25:00", None),
     ("?d=", None),
@@ -196,7 +196,7 @@ def test_build_share_url(js):
 
 def test_share_url_round_trip(js):
     url = js.eval("M.buildShareUrl('https://bc.example/', '2024-02-29', '23:59')")
-    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})") == {"date": "2024-02-29", "time": "23:59", "name": ""}
+    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})") == {"date": "2024-02-29", "time": "23:59", "name": "", "due": ""}
 
 
 # --- Pregnancy mode
@@ -281,8 +281,8 @@ def test_read_shared_pregnancy(js, search, expected):
 
 # --- Several children
 
-def child(id, date="2026-09-01", time="", name=""):
-    return {"id": id, "name": name, "date": date, "time": time}
+def child(id, date="2026-09-01", time="", name="", due=""):
+    return {"id": id, "name": name, "date": date, "time": time, "due": due}
 
 
 def test_normalize_children_migrates_single_birth(js):
@@ -419,3 +419,72 @@ def test_english_pregnancy_texts(js):
 def test_english_child_label_and_fallback(js):
     assert js.eval("M.childLabel({name: ''}, 1, 'en')") == "Child 2"
     assert js.eval("M.childLabel({name: ''}, 1, 'de')") == "Dijete 2"  # unknown language: Croatian
+
+
+# --- Corrected age (premature babies)
+
+def corrected(js, birth, due, now):
+    return call(js, f"M.correctedAge({ms(birth)}, {ms(due)}, {ms(now)})")
+
+
+def test_corrected_age_after_due_date(js):
+    # 61 days early: 280 - 61 = 219 days = 31+2
+    result = corrected(js, datetime(2026, 8, 1, 14, 30), datetime(2026, 10, 1), datetime(2026, 12, 15, 12))
+    assert {k: result[k] for k in ("premature", "daysEarly", "gestationWeeks", "gestationDays", "started")} == \
+        {"premature": True, "daysEarly": 61, "gestationWeeks": 31, "gestationDays": 2, "started": True}
+    age = result["age"]
+    assert (age["years"], age["months"], age["days"], age["weeks"], age["weekDays"]) == (0, 2, 14, 10, 5)
+
+
+def test_corrected_age_before_due_date(js):
+    result = corrected(js, datetime(2026, 8, 1), datetime(2026, 10, 1), datetime(2026, 9, 15, 23, 59))
+    assert (result["started"], result["daysUntilDue"]) == (False, 16)
+    assert "age" not in result
+
+
+@pytest.mark.parametrize("due, weeks, days", [(datetime(2026, 8, 1), 40, 0), (datetime(2026, 7, 30), 40, 2)])
+def test_corrected_age_not_needed(js, due, weeks, days):
+    result = corrected(js, datetime(2026, 8, 1, 9), due, datetime(2026, 12, 1))
+    assert (result["premature"], result["gestationWeeks"], result["gestationDays"]) == (False, weeks, days)
+    assert "age" not in result
+
+
+def test_corrected_age_matches_relativedelta(js):
+    rng = random.Random(3)
+    for _ in range(500):
+        birth = datetime(2018, 1, 1) + timedelta(minutes=rng.randint(0, 6 * 365 * 24 * 60))
+        due = datetime.combine(birth.date() + timedelta(days=rng.randint(1, 140)), datetime.min.time())
+        now = due + timedelta(minutes=rng.randint(0, 3 * 365 * 24 * 60))
+        rd = relativedelta(now, due)
+        age = corrected(js, birth, due, now)["age"]
+        assert (age["years"], age["months"], age["days"]) == (rd.years, rd.months, rd.days), (birth, due, now)
+        assert age["totalDays"] == (now - due).days
+
+
+@pytest.mark.parametrize("days_early, lang, expected", [
+    (140, "hr", None),
+    (141, "hr", "Termin poroda može biti najviše 20 tjedana nakon rođenja."),
+    (141, "en", "The due date can be at most 20 weeks after the birth."),
+])
+def test_corrected_age_limit(js, days_early, lang, expected):
+    birth = datetime(2026, 8, 1, 10)
+    due = datetime(2026, 8, 1) + timedelta(days=days_early)
+    assert call(js, f"M.correctedAgeError({ms(birth)}, {ms(due)}, '{lang}')") == expected
+
+
+def test_corrected_age_texts(js):
+    assert js.eval("M.TEXT.hr.gestationAtBirth(31, 2)") == "Gestacijska dob pri rođenju:\u00a031+2"
+    assert js.eval("M.TEXT.en.gestationAtBirth(31, 2)") == "Born at 31+2\u00a0weeks"
+
+
+def test_due_date_in_share_links_and_storage(js):
+    url = js.eval("M.buildShareUrl('https://bc.example/', '2026-08-01', '14:30', 'Ana', '2026-10-01')")
+    assert url == "https://bc.example/?d=2026-08-01T14:30&n=Ana&due=2026-10-01"
+    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})")["due"] == "2026-10-01"
+    assert call(js, "M.readSharedBirth('?d=2026-08-01&due=2026-13-01')")["due"] == ""  # invalid due date ignored
+    stored = [{"id": 1, "date": "2026-08-01", "due": "2026-10-01"}, {"id": 2, "date": "2026-08-01", "due": "nope"}]
+    assert [c["due"] for c in call(js, f"M.normalizeChildren({json.dumps(stored)}, null)")] == ["2026-10-01", ""]
+    # A shared due date fills in a matching child that has none
+    shared = {"date": "2026-09-01", "time": "", "name": "", "due": "2026-10-20"}
+    result = call(js, f"M.addSharedChild({json.dumps([child(1)])}, {json.dumps(shared)})")
+    assert result["children"][0]["due"] == "2026-10-20"
