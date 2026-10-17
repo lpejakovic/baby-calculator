@@ -12,7 +12,8 @@
     <meta property="og:title" content="Baby Calculator">
     <meta property="og:description" content="Izračunajte dob bebe u tjednima, mjesecima i danima, uživo do sekunde.">
     <meta property="og:url" content="{{ request.url_root }}">
-    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </head>

@@ -18,22 +18,24 @@ The UI is in Croatian. Current version: **v2.0**.
   (a v1.x cookie is moved over automatically)
 - Responsive layout (phone to desktop), dark mode, WCAG AA contrast, keyboard focus styles, screen-reader announcements
 - No external scripts or libraries
-- Optional JSON API (`POST /calculate`), rate limited via Flask-Limiter (`1/second; 8/minute; 32/hour` per IP)
+- Optional JSON API (`POST /calculate`), rate limited via Flask-Limiter (`1/second; 8/minute; 32/hour` per IP); the page itself is not limited
 
 ## Project structure
 
 ```
-app.py                 Flask app, routes, rate limits, APP_VERSION
-utils_dt.py            Croatian plural helpers and date math for the API
-wsgi.py                WSGI entry point for Gunicorn
-requirements.txt       Pinned Python dependencies
-templates/index.html   Page and form
-static/js/app.js       Age calculation, live counter, localStorage
-static/styles/main.css Styles (light and dark)
-static/favicon.ico     Favicon
-docs/project_digest.md Project digest / technical overview
-docs/improvements.md   Open improvements and review
-deploy/                systemd unit and nginx site config
+app.py                       Flask app, routes, rate limits, APP_VERSION
+utils_dt.py                  Croatian plural helpers and date math for the API
+wsgi.py                      WSGI entry point for Gunicorn
+requirements.txt             Pinned Python dependencies
+templates/index.html         Page and form
+static/js/app.js             Age calculation, live counter, localStorage
+static/styles/main.css       Styles (light and dark)
+static/favicon.ico           Favicon (16 and 32 px)
+static/apple-touch-icon.png  Home-screen icon (180 px)
+static/images/icon-1024.webp Full-size icon artwork
+docs/project_digest.md       Project digest / technical overview
+docs/improvements.md         Open improvements and review
+deploy/                      systemd unit and nginx site config
 ```
 
 ## Requirements
@@ -54,11 +56,18 @@ python app.py            # development server at http://127.0.0.1:5000 (debug=Tr
 
 The page doesn't use the API any more; it is kept for compatibility.
 
-`POST /calculate`, form-encoded, field `datetime` in `YYYY-MM-DDTHH:MM` format.
+`POST /calculate`, form-encoded:
+
+| Field | Required | Description |
+|---|---|---|
+| `datetime` | yes | Birth date and time, `YYYY-MM-DDTHH:MM` |
+| `tz` | no | IANA time zone of the caller, e.g. `Europe/Zagreb`; without it the server's local time is used |
 
 ```bash
-curl -X POST -d "datetime=2024-05-01T08:30" http://127.0.0.1:5000/calculate
+curl -X POST -d "datetime=2024-05-01T08:30" -d "tz=Europe/Zagreb" http://127.0.0.1:5000/calculate
 ```
+
+Errors return HTTP 400 (invalid date, date in the future, unknown time zone) or 429 (rate limit) with `{"error": "..."}`.
 
 Response:
 
@@ -99,7 +108,7 @@ After code changes, only `sudo systemctl restart baby-calculator` is needed.
 ## Notes
 
 - The API rejects birth dates in the future (HTTP 400).
-- The API calculates with the server's local time (`datetime.now()`); the page uses the visitor's time zone.
+- The API calculates in the `tz` time zone if given, otherwise in the server's local time; the page uses the visitor's time zone.
 - Rate-limit counters are kept in memory, so they reset when the service restarts and are not shared between workers.
 
 See [docs/project_digest.md](docs/project_digest.md) for a more detailed technical overview.

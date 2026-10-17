@@ -4,7 +4,9 @@ from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 from datetime import datetime
-from utils_dt import *
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from utils_dt import (YEARS, MONTHS, WEEKS, DAYS, HOURS, MINUTES, SECONDS,
+                      plural, format_datetime, calculate_date_difference)
 
 APP_VERSION = "2.0"
 
@@ -15,7 +17,9 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "50 per hour"],
+    # One Gunicorn worker, so in-process storage is enough; use Redis if workers are added
+    storage_uri="memory://",
 )
 throttle_string = "1 per second; 8 per minute; 32 per hour"
 
@@ -28,7 +32,7 @@ def static_cache_buster(endpoint, values):
             values['v'] = int(os.stat(path).st_mtime)
 
 @app.route('/')
-@limiter.limit(throttle_string)
+@limiter.exempt
 def index():
     return render_template('index.html', version=APP_VERSION)
 
@@ -40,37 +44,30 @@ def calculate():
     except ValueError:
         return jsonify({"error": "Neispravan datum i vrijeme rođenja."}), 400
 
-    current_datetime = datetime.now()
+    # Optional IANA time zone (e.g. "Europe/Zagreb"); without it the server's local time is used
+    tz_name = request.form.get('tz')
+    try:
+        current_datetime = datetime.now(ZoneInfo(tz_name)).replace(tzinfo=None) if tz_name else datetime.now()
+    except (ZoneInfoNotFoundError, ValueError):
+        return jsonify({"error": "Nepoznata vremenska zona."}), 400
     if input_datetime > current_datetime:
         return jsonify({"error": "Datum rođenja ne može biti u budućnosti."}), 400
 
     difference = current_datetime - input_datetime
-
     days = difference.days
-    days_text = generate_days_string(days)
-    seconds = difference.seconds
-    hours = seconds // 3600
-    hours_text = generate_hours_string(hours)
-    minutes = (seconds % 3600) // 60
-    minutes_text = generate_minutes_string(minutes)
-    seconds = seconds % 60
-    seconds_text = generate_seconds_string(seconds)
-
-    week_passed = days // 7
-    week_text = generate_week_string(week_passed)
-    week_days = days % 7
-    week_day_text = generate_days_string(week_days)
-
+    hours = difference.seconds // 3600
+    minutes = (difference.seconds % 3600) // 60
+    seconds = difference.seconds % 60
+    weeks, week_days = divmod(days, 7)
     years_diff, months_diff, days_diff = calculate_date_difference(input_datetime, current_datetime)
-    year_text = generate_years_string(years_diff)
-    year_month_text = generate_months_string(months_diff)
-    year_day_text = generate_days_string(days_diff) 
 
     result = {
-        "current":f"{format_datetime(current_datetime)}",
-        "day_diff":f"{days} {days_text}, {hours} {hours_text}, {minutes} {minutes_text} i {seconds} {seconds_text}",
-        "week_diff": f"{week_passed} {week_text} i {week_days} {week_day_text}",
-        "year_diff": f"{years_diff} {year_text}, {months_diff} {year_month_text} i {days_diff} {year_day_text}",
+        "current": format_datetime(current_datetime),
+        "day_diff": f"{days} {plural(days, DAYS)}, {hours} {plural(hours, HOURS)}, "
+                    f"{minutes} {plural(minutes, MINUTES)} i {seconds} {plural(seconds, SECONDS)}",
+        "week_diff": f"{weeks} {plural(weeks, WEEKS)} i {week_days} {plural(week_days, DAYS)}",
+        "year_diff": f"{years_diff} {plural(years_diff, YEARS)}, {months_diff} {plural(months_diff, MONTHS)} "
+                     f"i {days_diff} {plural(days_diff, DAYS)}",
     }
     return jsonify(result)
 
@@ -79,7 +76,6 @@ def ratelimit_handler(e):
     if request.path != '/calculate':
         return e
     return jsonify({"error": "Previše zahtjeva. Pokušajte ponovno kasnije."}), 429
-
 
 
 if __name__ == '__main__':

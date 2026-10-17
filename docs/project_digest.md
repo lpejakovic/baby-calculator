@@ -27,14 +27,16 @@ Dependencies are pinned in `requirements.txt`.
 | File                     | Purpose |
 |--------------------------|---------|
 | `app.py`                 | Flask app, `APP_VERSION`, Limiter setup, routes `/` and `/calculate` |
-| `utils_dt.py`            | API only: `generate_*_string()` Croatian plural helpers, `format_datetime()`, `calculate_date_difference()` |
+| `utils_dt.py`            | API only: `plural()` and Croatian word forms, `format_datetime()`, `calculate_date_difference()` |
 | `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
 | `requirements.txt`       | Pinned dependencies |
 | `deploy/`                | systemd unit and nginx site config |
 | `templates/index.html`   | Form, result cards, meta/Open Graph tags |
 | `static/js/app.js`       | Date parsing, `calculateAge()`, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
-| `static/favicon.ico`     | Favicon |
+| `static/favicon.ico`     | Favicon, 16 and 32 px (3.9 KB) |
+| `static/apple-touch-icon.png` | Home-screen icon, 180 px |
+| `static/images/icon-1024.webp` | Full-size icon artwork (source for other icons) |
 
 ## Page flow
 
@@ -49,26 +51,29 @@ Dependencies are pinned in `requirements.txt`.
 
 ## API flow (`POST /calculate`)
 
-The page no longer calls it. The server parses `datetime=YYYY-MM-DDTHH:MM` with `strptime`, rejects invalid or future dates with 400,
-subtracts it from `datetime.now()` and returns `day_diff`, `week_diff` and `year_diff` strings plus `current`.
+The page no longer calls it. The server parses `datetime=YYYY-MM-DDTHH:MM` with `strptime`, takes the current time in the optional
+`tz` time zone (IANA name, via `zoneinfo`) or else the server's local time, rejects invalid dates, future dates and unknown zones with 400,
+and returns `day_diff`, `week_diff` and `year_diff` strings plus `current`.
 
 ## Croatian plural rules
 
-`plural(n, forms)` in `app.js` and each `generate_*_string(n)` in `utils_dt.py` follow the standard Croatian rule:
+`plural(n, forms)` in `app.js` and `plural(number, forms)` in `utils_dt.py` follow the standard Croatian rule:
 
 - ends in 1, but not 11 → singular (`1 sat`, `21 minutu`)
 - ends in 2–4, but not 12–14 → paucal (`3 sata`, `22 minute`)
 - otherwise → genitive plural (`5 sati`, `12 minuta`)
 
-`generate_days_string` has only two forms (`dan` / `dana`), which is correct for "dan".
+"dan" has only two distinct forms (`dan` / `dana`).
 The API uses accusative forms (`godinu`, `minutu`, `sekundu`) because its text was written for "Vaše dijete ima …";
 the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card values.
 
 ## Rate limiting
 
-- Defaults: `200 per day; 50 per hour`
-- Both routes: `1 per second; 8 per minute; 32 per hour`, keyed by remote address
-- Storage is in-memory, so counters reset when the service restarts. Flask-Limiter logs a warning about this at startup.
+- `/calculate`: `1 per second; 8 per minute; 32 per hour`, keyed by client IP
+- `/`: not limited (`@limiter.exempt`); static files are served by nginx and never reach Flask
+- Defaults for anything else: `200 per day; 50 per hour`
+- Storage is explicitly in-memory (`memory://`), so counters reset when the service restarts. Fine with one Gunicorn worker;
+  switch to Redis if workers are added.
 - **Real client IP** (fixed): nginx proxies over a Unix socket with `include proxy_params`, and the app wraps
   `wsgi_app` in `ProxyFix(x_for=1, x_proto=1, x_host=1)`. `get_remote_address` sees the client IP from the last
   `X-Forwarded-For` entry, so each visitor has their own limit and forged header prefixes are ignored.
@@ -92,11 +97,11 @@ Checked against the running code with Flask's test client:
 1. **Bad input** (fixed): an invalid or missing `datetime` returns 400 with `{"error": "..."}`, and rate-limited
    `/calculate` requests return 429 with a JSON message. The page shows the message in red under the form.
 2. **Future dates** (fixed): rejected with 400 `Datum rođenja ne može biti u budućnosti.`, and the input has a `max` of the current time.
-3. **Time zone** (fixed for the page): the page calculates in the visitor's time zone. The API still uses the server's local time.
+3. **Time zone** (fixed): the page calculates in the visitor's time zone; the API accepts an optional `tz`.
 4. **Dead code in `utils_dt.py`** (fixed): removed.
-5. **`from utils_dt import *`** in `app.py`. Explicit imports would be clearer.
-6. **Repetitive helpers.** The six three-form plural functions are identical apart from their words and could be one
-   `plural(n, one, few, many)` function.
+5. **Wildcard import** (fixed): `app.py` imports names from `utils_dt` explicitly.
+6. **Repetitive helpers** (fixed): one `plural(number, forms)` function with word-form tuples. API output was checked
+   to be identical to the old helpers on 3,006 inputs.
 7. **Repo hygiene** (fixed): `wsgi.py` and `requirements.txt` are committed, and `.gitignore` covers `__pycache__/`, `bc-env/` and `*.sock`.
    The working tree still has file-mode-only changes (644 → 755) on some tracked files.
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
