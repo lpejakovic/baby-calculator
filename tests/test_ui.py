@@ -15,6 +15,13 @@ pytestmark = pytest.mark.ui
 BIRTH_DATE, BIRTH_TIME = "2025-03-04", "17:45"
 
 
+def webkit_internal_style(message):
+    """WebKit on Linux styles its own <select> and viewport handling with inline styles, which the strict CSP
+    reports (securitypolicyviolation points at the page's <select> and <meta name=viewport>, which have no
+    styles). Only this message, and only in WebKit."""
+    return BROWSER == "webkit" and message.startswith("Refused to apply") and "'unsafe-inline'" in message
+
+
 @pytest.fixture
 def open_page(browser, base_url):
     contexts, errors = [], []
@@ -22,12 +29,9 @@ def open_page(browser, base_url):
     def _open(**context_options):
         context = browser.new_context(**context_options)
         contexts.append(context)
-        context.add_init_script("""window.__csp = []; document.addEventListener('securitypolicyviolation', (e) =>
-            window.__csp.push([e.violatedDirective, e.sourceFile, e.lineNumber, e.sample, e.blockedURI]));""")
         page = context.new_page()
-        page.on("console", lambda m: m.type == "error" and print("CSPDIAG", page.evaluate("JSON.stringify(window.__csp)")))
         page.on("pageerror", lambda e: errors.append(str(e)))
-        page.on("console", lambda m: m.type == "error" and errors.append(m.text))
+        page.on("console", lambda m: m.type == "error" and not webkit_internal_style(m.text) and errors.append(m.text))
         page.goto(base_url)
         return page
 
