@@ -642,7 +642,10 @@
         }
 
         function chartSvg(model, label) {
-            const root = svg('svg', { viewBox: `0 0 ${model.width} ${model.height}`, role: 'img', 'aria-label': label });
+            const root = svg('svg', {
+                viewBox: `0 0 ${model.width} ${model.height}`, width: model.width, height: model.height,
+                role: 'img', 'aria-label': label,
+            });
             const left = model.pad.left;
             const right = model.width - model.pad.right;
             const bottom = model.height - model.pad.bottom;
@@ -719,7 +722,10 @@
             const measure = chosenMeasure();
             const points = measurements.filter((m) => m[measure] !== undefined)
                 .map((m) => ({ months: ageInMonths(start, parseBirth(m.date, '')), value: m[measure] }));
-            const model = growthChart(tables[measure], points, 600, 340);
+            // Drawn at the real width, so the text keeps its size on phones (a closed section has no width yet)
+            const width = Math.max(280, Math.round(growth.chart.clientWidth || 600));
+            const height = Math.round(Math.min(360, Math.max(240, width * 0.62)));
+            const model = growthChart(tables[measure], points, width, height);
             growth.chart.replaceChildren(chartSvg(model, t.growthChartLabel(t.measures[measure])));
         }
 
@@ -765,6 +771,12 @@
             renderGrowth();
         }));
         measureTabs.forEach((input) => input.addEventListener('change', renderGrowth));
+        growth.box.addEventListener('toggle', () => growth.box.open && renderGrowth());
+        let resizeFrame = null;
+        window.addEventListener('resize', function () {
+            cancelAnimationFrame(resizeFrame);
+            resizeFrame = requestAnimationFrame(() => growth.box.open && current && current.mode === 'baby' && renderGrowth());
+        });
 
         // --- Share picture (card.js) ---
         const pictureButton = $('share-picture');

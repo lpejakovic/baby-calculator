@@ -1044,6 +1044,10 @@ def test_growth_in_english(open_page):
     assert measurement_rows(page) == ["10 Apr 2026: 6.2 kg (P69)"]
     add_measurement(page, "2026-06-10", weight="7.1")
     keep_artifact(page.locator("#growth").screenshot(), "growth-en-dark-phone.png")
+    # Drawn at the real width: the SVG isn't scaled down, so its text keeps its size on a phone
+    svg_width, box_width = page.evaluate("""[document.querySelector('#growth-chart svg').getAttribute('width'),
+        document.querySelector('#growth-chart').clientWidth]""")
+    assert abs(int(svg_width) - box_width) <= 1
 
 
 def test_restores_saved_date(open_page):

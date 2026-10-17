@@ -554,6 +554,9 @@ progress {
 .growth-chart .point {
     fill: var(--primary);
 }
+.hint a {
+    color: var(--primary);
+}
 .measurements {
     margin: 0;
     padding: 0;
