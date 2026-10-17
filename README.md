@@ -13,7 +13,7 @@ A **pregnancy mode** ("Trudnoća") works from the due date or the first day of t
 the pregnancy as weeks + days (`32+6 · 33. tjedan · 3. tromjesečje`), the due date with a countdown and progress bar,
 and upcoming pregnancy milestones (14, 20, 28, 37 and 40 weeks).
 
-The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.10**.
+The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.11**.
 
 ## Features
 
@@ -44,7 +44,8 @@ The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.10**.
   (a v2.x single saved date and a v1.x cookie are moved over automatically)
 - Responsive layout (phone to desktop), dark mode, WCAG AA contrast, keyboard focus styles, screen-reader announcements
 - No external scripts or libraries
-- Optional JSON API (`POST /calculate`), rate limited via Flask-Limiter (`1/second; 8/minute; 32/hour` per IP); the page itself is not limited
+- JSON API (`POST /calculate`) with plain numbers, time zones and Croatian or English texts, rate limited via
+  Flask-Limiter (`1/second; 8/minute; 32/hour` per IP); the page itself is not limited
 
 ## Project structure
 
@@ -52,7 +53,7 @@ The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.10**.
 app.py                       Flask app, routes (/, /en/, /sw.js, /health, /robots.txt, /sitemap.xml, /calculate), 404 page,
                              rate limits, APP_VERSION
 i18n.py                      Page texts in Croatian and English
-utils_dt.py                  Croatian plural helpers and date math for the API
+utils_dt.py                  Croatian and English word forms and date math for the API
 wsgi.py                      WSGI entry point for Gunicorn
 requirements.txt             Pinned Python dependencies
 requirements-dev.txt         Test and lint dependencies (pytest, QuickJS, Playwright, icalendar, axe-core, ruff)
@@ -135,31 +136,48 @@ GitHub Actions (`.github/workflows/tests.yml`) runs the linters, the unit tests 
 
 ## API
 
-The page doesn't use the API any more; it is kept for compatibility. Its texts are Croatian only.
+The page calculates in the browser and doesn't use the API; it is kept for other programs.
 
-`POST /calculate`, form-encoded:
+`POST /calculate`, form-encoded or JSON (`Content-Type: application/json`):
 
 | Field | Required | Description |
 |---|---|---|
-| `datetime` | yes | Birth date and time, `YYYY-MM-DDTHH:MM` |
-| `tz` | no | IANA time zone of the caller, e.g. `Europe/Zagreb`; without it the server's local time is used |
+| `datetime` | yes | Birth date and time, `YYYY-MM-DDTHH:MM`, in the `tz` time zone |
+| `tz` | no | IANA time zone, e.g. `Asia/Tokyo`; default `Europe/Zagreb` |
+| `lang` | no | `hr` (default) or `en`, for the texts and error messages |
 
 ```bash
-curl -X POST -d "datetime=2024-05-01T08:30" -d "tz=Europe/Zagreb" http://127.0.0.1:5000/calculate
+curl -X POST -d "datetime=2026-09-01T08:30" http://127.0.0.1:5000/calculate
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"datetime": "2026-09-01T08:30", "tz": "Asia/Tokyo", "lang": "en"}' http://127.0.0.1:5000/calculate
 ```
 
-Errors return HTTP 400 (invalid date, date in the future, unknown time zone) or 429 (rate limit) with `{"error": "..."}`.
-
-Response:
+Response (`lang=hr`, on 17 Oct 2026 at 15:30:45 in Zagreb):
 
 ```json
 {
-  "current":   "08.06.2024 14:10:00",
-  "day_diff":  "38 dana, 5 sati, 40 minuta i 0 sekundi",
-  "week_diff": "5 tjedana i 3 dana",
-  "year_diff": "0 godina, 1 mjesec i 7 dana"
+  "current":   "17.10.2026 15:30:45",
+  "day_diff":  "46 dana, 7 sati, 0 minuta i 45 sekundi",
+  "week_diff": "6 tjedana i 4 dana",
+  "year_diff": "0 godina, 1 mjesec i 16 dana",
+  "age": {
+    "calendar": {"years": 0, "months": 1, "days": 16},
+    "weeks":    {"weeks": 6, "days": 4},
+    "elapsed":  {"days": 46, "hours": 7, "minutes": 0, "seconds": 45, "total_seconds": 3999645}
+  },
+  "birth": "2026-09-01T08:30:00+02:00",
+  "now":   "2026-10-17T15:30:45+02:00",
+  "tz":    "Europe/Zagreb",
+  "lang":  "hr"
 }
 ```
+
+- The first four fields are the original API and keep their format; with `lang=en` they are English
+  ("46 days, 7 hours, 0 minutes and 45 seconds", "17 Oct 2026 15:30:45").
+- `age.calendar` and `age.weeks` use wall-clock time, like a calendar. `age.elapsed` and `day_diff` are real elapsed
+  time, so they include the extra or missing hour of a summer/winter time change.
+- Errors: HTTP 400 (invalid date, date in the future, unknown time zone, unsupported language) or 429 (rate limit,
+  `1/second; 8/minute; 32/hour` per IP), as `{"error": "..."}` in the requested language.
 
 ## Development workflow
 
@@ -219,7 +237,7 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl restart baby-calculator
 ## Notes
 
 - The API rejects birth dates in the future (HTTP 400).
-- The API calculates in the `tz` time zone if given, otherwise in the server's local time; the page uses the visitor's time zone.
+- The API calculates in the `tz` time zone (default `Europe/Zagreb`); the page uses the visitor's time zone.
 - Rate-limit counters are kept in memory, so they reset when the service restarts and are not shared between workers.
 
 See [docs/project_digest.md](docs/project_digest.md) for a more detailed technical overview.

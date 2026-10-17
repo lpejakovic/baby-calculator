@@ -106,3 +106,19 @@ PAGE_TEXT = {
         "add_to_calendar": "Add to calendar",
     },
 }
+
+API_ERRORS = {
+    "hr": {
+        "invalid_datetime": "Neispravan datum i vrijeme rođenja.",
+        "unknown_tz": "Nepoznata vremenska zona.",
+        "future": "Datum rođenja ne može biti u budućnosti.",
+        "rate_limited": "Previše zahtjeva. Pokušajte ponovno kasnije.",
+    },
+    "en": {
+        "invalid_datetime": "Invalid date and time of birth.",
+        "unknown_tz": "Unknown time zone.",
+        "future": "The date of birth can't be in the future.",
+        "rate_limited": "Too many requests. Please try again later.",
+    },
+}
+UNSUPPORTED_LANG = "Nepodržani jezik / Unsupported language (hr, en)."

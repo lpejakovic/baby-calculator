@@ -26,6 +26,18 @@ def frozen_time(monkeypatch):
 
 
 @pytest.fixture
+def freeze_at(monkeypatch):
+    """freeze_at(aware_datetime): the app's clock stands still at that instant."""
+    def _freeze(instant):
+        class Frozen(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
+        monkeypatch.setattr(app_module, "datetime", Frozen)
+    return _freeze
+
+
+@pytest.fixture
 def limiter():
     app_module.limiter.reset()
     app_module.limiter.enabled = True

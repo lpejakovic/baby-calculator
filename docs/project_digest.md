@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 307 automated tests and linting in CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 318 automated tests and linting in CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -29,7 +29,7 @@ Dependencies are pinned in `requirements.txt`.
 |--------------------------|---------|
 | `app.py`                 | Flask app, `APP_VERSION`, Limiter setup, routes `/`, `/en/`, `/sw.js`, `/health`, `/robots.txt`, `/sitemap.xml` and `/calculate`, 404 handler |
 | `i18n.py`                | Page texts (`PAGE_TEXT`) in Croatian and English |
-| `utils_dt.py`            | API only: `plural()` and Croatian word forms, `format_datetime()`, `calculate_date_difference()` |
+| `utils_dt.py`            | API only: `plural()`, Croatian and English word forms, `join_units()`, `format_datetime()`, `calculate_date_difference()` |
 | `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
 | `requirements.txt`       | Pinned dependencies |
 | `deploy/`                | systemd unit, nginx site config, `deploy.sh` (deploys `origin/main` after CI passed, with rollback) |
@@ -108,9 +108,10 @@ Dependencies are pinned in `requirements.txt`.
 
 ## API flow (`POST /calculate`)
 
-The page no longer calls it. The server parses `datetime=YYYY-MM-DDTHH:MM` with `strptime`, takes the current time in the optional
-`tz` time zone (IANA name, via `zoneinfo`) or else the server's local time, rejects invalid dates, future dates and unknown zones with 400,
-and returns `day_diff`, `week_diff` and `year_diff` strings plus `current`.
+The page doesn't call it. It reads form fields or a JSON object (`datetime`, optional `tz` defaulting to
+`Europe/Zagreb`, optional `lang` `hr`/`en`), validates them (400 with a message in the requested language), takes the
+current time in `tz`, and returns the original text fields (`current`, `day_diff`, `week_diff`, `year_diff`) plus
+`age.calendar`, `age.weeks` (wall-clock), `age.elapsed` (real elapsed time, DST-aware), `birth`, `now`, `tz` and `lang`.
 
 ## Croatian plural rules
 
@@ -160,7 +161,8 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.9**: backup and restore; browser tests run under the production CSP |
 | 2026-10-17 | **v2.10**: calendar export of milestones (`.ics`) |
 | 2026-10-17 | Linting (ruff, ESLint) and axe-core accessibility audit in CI; removed dead code found by ESLint |
-| 2026-10-17 | Separate development clone, pull requests, `deploy/deploy.sh`; heavy tests only in CI |
+| 2026-10-17 | Separate development clone, pull requests, `deploy/deploy.sh`; heavy tests only in CI; branch protection |
+| 2026-10-17 | **v2.11**: API with plain numbers, JSON input, `lang=en`, real elapsed time |
 
 ## Observations and issues
 
@@ -169,7 +171,7 @@ Checked against the running code with Flask's test client:
 1. **Bad input** (fixed): an invalid or missing `datetime` returns 400 with `{"error": "..."}`, and rate-limited
    `/calculate` requests return 429 with a JSON message. The page shows the message in red under the form.
 2. **Future dates** (fixed): rejected with 400 `Datum rođenja ne može biti u budućnosti.`, and the input has a `max` of the current time.
-3. **Time zone** (fixed): the page calculates in the visitor's time zone; the API accepts an optional `tz`.
+3. **Time zone** (fixed): the page calculates in the visitor's time zone; the API accepts `tz` and uses real elapsed time.
 4. **Dead code in `utils_dt.py`** (fixed): removed.
 5. **Wildcard import** (fixed): `app.py` imports names from `utils_dt` explicitly.
 6. **Repetitive helpers** (fixed): one `plural(number, forms)` function with word-form tuples. API output was checked
@@ -179,7 +181,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 307 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 318 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps

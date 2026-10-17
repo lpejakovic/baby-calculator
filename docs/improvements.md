@@ -10,12 +10,11 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## Plan
 
-1. **Next:** API improvements, split `app.js`.
+1. **Next:** split `app.js`.
 
 ## 1. Small site fixes
 
-1. **Better API:** plain numbers (`years`, `months`, `weeks`, `total_days`…) next to the text, and `lang=en`.
-2. **Split `app.js`** (828 lines) into modules: date math, texts and page code.
+1. **Split `app.js`** (828 lines) into modules: date math, texts and page code.
 
 ## 2. New features
 
