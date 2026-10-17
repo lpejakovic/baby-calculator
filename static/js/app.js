@@ -4,13 +4,14 @@
     'use strict';
 
     const {
-        BACKUP_MAX_BYTES, DAY, PREGNANCY_DAYS, addSharedChild, babyCalendarEvents, buildBackupLink, buildIcs,
+        addSharedChild, ageInMonths, babyCalendarEvents, BACKUP_MAX_BYTES, buildBackupLink, buildIcs,
         buildShareUrl, calculateAge, childLabel, cleanChild, convertPregnancy, correctedAge, correctedAgeError,
-        TEXT, countdown, drawCard, dueCountdown, formatBirth, layoutCard, formatDate, isoDate, joinParts, makeBackup, mergeChildren,
-        nextChildId, normalizeChildren, parseBackup, parseBirth, pregnancyCalendarEvents, pregnancyError,
-        pregnancyLmp, pregnancyMilestones, pregnancyStatus, readBackupLink, readSharedBirth,
-        readSharedPregnancy, removeChild, startOfDay, texts, todayValue, upcomingMilestones, validPregnancy,
-        wallClockNow, wallToReal,
+        countdown, DAY, drawCard, dueCountdown, formatBirth, formatDate, formatPercentile, growthChart, isoDate,
+        joinParts, layoutCard, makeBackup, measurePercentile, MEASURES, mergeChildren, nextChildId,
+        normalizeChildren, parseBackup, parseBirth, PREGNANCY_DAYS, pregnancyCalendarEvents, pregnancyError,
+        pregnancyLmp, pregnancyMilestones, pregnancyStatus, readBackupLink, readSharedBirth, readSharedPregnancy,
+        removeChild, startOfDay, TEXT, texts, todayValue, upcomingMilestones, validPregnancy, wallClockNow,
+        wallToReal, WHO_GROWTH,
     } = globalThis.BC;
 
     // Migration of older saved data (see loadChildren). Both can be removed after 2026-11-17, when the
@@ -173,6 +174,8 @@
             timeInput.value = child ? child.time : '';
             dueInput.value = child ? child.due : '';
             premature.open = Boolean(dueInput.value);
+            growth.box.open = Boolean(child && child.measurements);
+            growth.date.value = '';
             renderChildren();
             if (child) {
                 calculate();
@@ -344,6 +347,7 @@
             current = { mode: 'baby', birth };
             milestonesDay = null;
             render(birth, due);
+            renderGrowth();
             announce.textContent = `${named || t.age}: ${out.calendar.textContent}, ${t.or} ${out.weeks.textContent}.`;
 
             clearInterval(timer);
@@ -599,6 +603,181 @@
             return t.backupRestored;
         }
 
+        // --- Growth (growth.js, who-growth.js) ---
+        const growth = {
+            box: $('growth'), form: $('measure-form'), date: $('measure-date'), error: $('measure-error'),
+            chart: $('growth-chart'), list: $('measurements'), corrected: $('growth-corrected'),
+        };
+        const measureInputs = { weight: $('measure-weight'), length: $('measure-length'), head: $('measure-head') };
+        const sexInputs = document.querySelectorAll('input[name="sex"]');
+        const measureTabs = document.querySelectorAll('input[name="measure"]');
+        const UNITS = { weight: 'kg', length: 'cm', head: 'cm' };
+        const SVG = 'http://www.w3.org/2000/svg';
+
+        function chosenMeasure() {
+            return document.querySelector('input[name="measure"]:checked').value;
+        }
+
+        function updateActiveChild(changes) {
+            children = children.map((c) => (c.id === activeId ? cleanChild({ ...c, ...changes }) : c));
+            saveChildren();
+        }
+
+        // Age 0 on the WHO curves: the birth, or the due date for a baby born early (corrected age)
+        function growthStart(child) {
+            const birth = parseBirth(child.date, '');
+            const due = child.due ? parseBirth(child.due, '') : null;
+            return due !== null && due > birth ? { start: due, corrected: true } : { start: startOfDay(birth), corrected: false };
+        }
+
+        function formatNumber(value) {
+            return new Intl.NumberFormat(lang, { maximumFractionDigits: 2 }).format(value);
+        }
+
+        function svg(name, attributes, text) {
+            const element = document.createElementNS(SVG, name);
+            Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+            if (text !== undefined) element.textContent = text;
+            return element;
+        }
+
+        function chartSvg(model, label) {
+            const root = svg('svg', {
+                viewBox: `0 0 ${model.width} ${model.height}`, width: model.width, height: model.height,
+                role: 'img', 'aria-label': label,
+            });
+            const left = model.pad.left;
+            const right = model.width - model.pad.right;
+            const bottom = model.height - model.pad.bottom;
+            model.yTicks.forEach((tick) => {
+                root.append(svg('line', { class: 'grid', x1: left, x2: right, y1: tick.y, y2: tick.y }));
+                root.append(svg('text', { class: 'axis', x: left - 6, y: tick.y + 4, 'text-anchor': 'end' }, formatNumber(tick.value)));
+            });
+            model.xTicks.forEach((tick) => {
+                root.append(svg('text', { class: 'axis', x: tick.x, y: bottom + 18, 'text-anchor': 'middle' }, String(tick.months)));
+            });
+            root.append(svg('text', { class: 'axis', x: right, y: model.height - 2, 'text-anchor': 'end' }, t.axisMonths));
+            model.curves.forEach((curve) => {
+                root.append(svg('path', { class: `curve curve-${curve.percentile}`, d: curve.d }));
+                root.append(svg('text', { class: 'axis', x: curve.labelX, y: curve.labelY + 4 }, `P${curve.percentile}`));
+            });
+            if (model.points.length > 1) {
+                const d = model.points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+                root.append(svg('path', { class: 'child-line', d }));
+            }
+            model.points.forEach((p) => root.append(svg('circle', { class: 'point', cx: p.x, cy: p.y, r: 5 })));
+            return root;
+        }
+
+        // "P50", or why there is no percentile
+        function percentileText(table, start, date, value) {
+            const months = ageInMonths(start, parseBirth(date, ''));
+            if (months < 0) return t.beforeTerm;
+            const p = measurePercentile(table, months, value);
+            return p === null ? t.after24 : formatPercentile(p);
+        }
+
+        function renderGrowth() {
+            const child = activeChild();
+            if (!child) return;
+            sexInputs.forEach((input) => { input.checked = input.value === child.sex; });
+            growth.date.min = child.date;
+            growth.date.max = todayValue();
+            if (!growth.date.value) growth.date.value = todayValue();
+            const tables = child.sex ? WHO_GROWTH[child.sex === 'f' ? 'girls' : 'boys'] : null;
+            const { start, corrected } = growthStart(child);
+            const measurements = child.measurements || [];
+
+            growth.list.replaceChildren(...[...measurements].reverse().map((m) => {
+                const li = document.createElement('li');
+                li.className = 'measurement';
+                const parts = Object.keys(UNITS).filter((key) => m[key] !== undefined).map((key) => {
+                    const p = tables ? ` (${percentileText(tables[key], start, m.date, m[key])})` : '';
+                    return `${formatNumber(m[key])} ${UNITS[key]}${p}`;
+                });
+                const text = document.createElement('span');
+                text.textContent = `${formatDate(parseBirth(m.date, ''), lang)}: ${parts.join(' · ')}`;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'button-link';
+                remove.textContent = '×';
+                remove.setAttribute('aria-label', t.removeMeasurement(formatDate(parseBirth(m.date, ''), lang)));
+                remove.addEventListener('click', () => {
+                    updateActiveChild({ measurements: measurements.filter((other) => other.date !== m.date) });
+                    renderGrowth();
+                });
+                li.append(text, remove);
+                return li;
+            }));
+
+            growth.corrected.hidden = !(tables && corrected);
+            growth.corrected.textContent = t.correctedNote;
+            if (!tables) {
+                const hint = document.createElement('p');
+                hint.className = 'hint';
+                hint.textContent = t.sexMissing;
+                growth.chart.replaceChildren(hint);
+                return;
+            }
+            const measure = chosenMeasure();
+            const points = measurements.filter((m) => m[measure] !== undefined)
+                .map((m) => ({ months: ageInMonths(start, parseBirth(m.date, '')), value: m[measure] }));
+            // Drawn at the real width, so the text keeps its size on phones (a closed section has no width yet)
+            const width = Math.max(280, Math.round(growth.chart.clientWidth || 600));
+            const height = Math.round(Math.min(360, Math.max(240, width * 0.62)));
+            const model = growthChart(tables[measure], points, width, height);
+            growth.chart.replaceChildren(chartSvg(model, t.growthChartLabel(t.measures[measure])));
+        }
+
+        function showMeasureError(message) {
+            growth.error.textContent = message;
+            growth.error.hidden = false;
+        }
+
+        growth.form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            const child = activeChild();
+            if (!child) return;
+            const date = parseBirth(growth.date.value, '');
+            if (date === null || date < startOfDay(parseBirth(child.date, '')) || date > parseBirth(todayValue(), '')) {
+                showMeasureError(t.measureDate);
+                return;
+            }
+            const entry = { date: growth.date.value };
+            for (const [key, input] of Object.entries(measureInputs)) {
+                const raw = input.value.trim().replace(',', '.');
+                if (!raw) continue;
+                const value = Number(raw);
+                const range = MEASURES[key];
+                if (!(value >= range.min && value <= range.max)) {
+                    showMeasureError(t.measureRange(t.measures[key], formatNumber(range.min), formatNumber(range.max), UNITS[key]));
+                    input.focus();
+                    return;
+                }
+                entry[key] = value;
+            }
+            if (Object.keys(entry).length === 1) {
+                showMeasureError(t.measureNoValue);
+                return;
+            }
+            // A second measurement on the same date adds to it (new values win)
+            updateActiveChild({ measurements: [...(child.measurements || []), entry] });
+            Object.values(measureInputs).forEach((input) => { input.value = ''; });
+            growth.error.hidden = true;
+            renderGrowth();
+        });
+        sexInputs.forEach((input) => input.addEventListener('change', function () {
+            updateActiveChild({ sex: input.value });
+            renderGrowth();
+        }));
+        measureTabs.forEach((input) => input.addEventListener('change', renderGrowth));
+        growth.box.addEventListener('toggle', () => growth.box.open && renderGrowth());
+        let resizeFrame = null;
+        window.addEventListener('resize', function () {
+            cancelAnimationFrame(resizeFrame);
+            resizeFrame = requestAnimationFrame(() => growth.box.open && current && current.mode === 'baby' && renderGrowth());
+        });
+
         // --- Share picture (card.js) ---
         const pictureButton = $('share-picture');
         let cardIcon = null;
@@ -732,6 +911,7 @@
             timeInput.value = child ? child.time : '';
             dueInput.value = child ? child.due : '';
             premature.open = Boolean(dueInput.value);
+            growth.box.open = Boolean(child && child.measurements);
             store(ACTIVE_CHILD_KEY, activeId);
             renderChildren();
             const savedPregnancy = validPregnancy(restore(PREGNANCY_KEY));

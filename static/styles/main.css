@@ -249,7 +249,8 @@ h1 {
     white-space: normal;
 }
 .premature summary,
-.backup summary {
+.backup summary,
+.growth summary {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -260,11 +261,13 @@ h1 {
     cursor: pointer;
 }
 .premature summary::-webkit-details-marker,
-.backup summary::-webkit-details-marker {
+.backup summary::-webkit-details-marker,
+.growth summary::-webkit-details-marker {
     display: none;
 }
 .premature summary::before,
-.backup summary::before {
+.backup summary::before,
+.growth summary::before {
     /* Our own disclosure arrow; display: flex removes the browser's marker */
     content: "";
     width: 8px;
@@ -275,17 +278,20 @@ h1 {
     transition: transform .15s;
 }
 .premature[open] summary::before,
-.backup[open] summary::before {
+.backup[open] summary::before,
+.growth[open] summary::before {
     transform: rotate(45deg);
 }
 @media (prefers-reduced-motion: reduce) {
     .premature summary::before,
-    .backup summary::before {
+    .backup summary::before,
+    .growth summary::before {
         transition: none;
     }
 }
 .premature summary:focus-visible,
-.backup summary:focus-visible {
+.backup summary:focus-visible,
+.growth summary:focus-visible {
     outline: 3px solid var(--primary);
     outline-offset: 2px;
 }
@@ -501,6 +507,77 @@ progress {
     font-size: .875rem;
     color: var(--muted);
     text-align: center;
+}
+.growth[open] > * + * {
+    margin-top: 12px;
+}
+.measure-form {
+    gap: 12px;
+}
+.measure-fields {
+    display: grid;
+    gap: 12px;
+}
+@media (min-width: 420px) {
+    .measure-fields {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+.growth-chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.growth-chart .grid {
+    stroke: var(--surface-accent);
+    stroke-width: 1;
+}
+.growth-chart .axis {
+    fill: var(--muted);
+    font-size: 13px;
+}
+.growth-chart .curve {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 4;
+}
+.growth-chart .curve-50 {
+    stroke: var(--text);
+    stroke-dasharray: none;
+}
+.growth-chart .child-line {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 2.5;
+}
+.growth-chart .point {
+    fill: var(--primary);
+}
+.hint a {
+    color: var(--primary);
+}
+.measurements {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.measurement {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+    border-top: 1px solid var(--surface-accent);
+    font-variant-numeric: tabular-nums;
+}
+.measurement .button-link {
+    flex: none;
+    min-width: 44px;
+    padding: 8px;
+    text-decoration: none;
+    font-size: 1.25rem;
+    line-height: 1;
 }
 .privacy-note {
     margin: 16px 0 0;

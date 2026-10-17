@@ -4,7 +4,7 @@
     'use strict';
 
     const {
-        parseBirth, texts, validPregnancy,
+        cleanMeasurements, parseBirth, texts, validPregnancy,
     } = BC;
 
     const NAME_MAX = 40;
@@ -42,7 +42,7 @@
     // --- Several children: [{ id, name, date, time }] ---
 
     function cleanChild(child) {
-        return {
+        const clean = {
             id: child.id,
             name: String(child.name || '').trim().slice(0, NAME_MAX),
             date: child.date,
@@ -50,6 +50,11 @@
             // Due date for the corrected age of a premature baby; '' when not given
             due: typeof child.due === 'string' && parseBirth(child.due, '') !== null ? child.due : '',
         };
+        // Growth chart data, stored only once used: sex ('f' or 'm') and measurements
+        if (child.sex === 'f' || child.sex === 'm') clean.sex = child.sex;
+        const measurements = cleanMeasurements(child.measurements);
+        if (measurements.length) clean.measurements = measurements;
+        return clean;
     }
 
     // Valid children from storage; a v2.x single saved birth becomes the first child
@@ -79,6 +84,9 @@
                 ...c,
                 name: c.name || shared.name || '',
                 due: c.due || shared.due || '',
+                sex: c.sex || shared.sex,
+                // Measurements from both; on the same date the existing ones win
+                measurements: cleanMeasurements([...(shared.measurements || []), ...(c.measurements || [])]),
             } : c));
             return { children: updated.map(cleanChild), activeId: same.id };
         }

@@ -14,4 +14,3 @@ Earlier reviews are reflected in [CHANGELOG.md](../CHANGELOG.md).
 ## Features
 
 3. **Pregnancy week by week:** a short note per week (development, size). Needs carefully sourced content.
-4. **Growth chart:** weight, length and head size against the WHO growth standards, stored in the browser.

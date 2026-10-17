@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.18 – 2026-10-17
+- Growth chart: weight, length and head circumference with WHO percentiles from birth to 24 months, by corrected
+  age for babies born early; measurements are stored with the child and included in backups.
+
 ## 2.17 – 2026-10-17
 - German (`/de/`) and Italian (`/it/`), also in the API (`lang=de`, `lang=it`).
 - The language switch lists all languages; action buttons wrap instead of squeezing long labels.
