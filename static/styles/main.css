@@ -263,7 +263,8 @@ h1 {
 }
 .premature summary,
 .backup summary,
-.growth summary {
+.growth > summary,
+.measure-add > summary {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -275,12 +276,14 @@ h1 {
 }
 .premature summary::-webkit-details-marker,
 .backup summary::-webkit-details-marker,
-.growth summary::-webkit-details-marker {
+.growth > summary::-webkit-details-marker,
+.measure-add > summary::-webkit-details-marker {
     display: none;
 }
 .premature summary::before,
 .backup summary::before,
-.growth summary::before {
+.growth > summary::before,
+.measure-add > summary::before {
     /* Our own disclosure arrow; display: flex removes the browser's marker */
     content: "";
     width: 8px;
@@ -292,19 +295,22 @@ h1 {
 }
 .premature[open] summary::before,
 .backup[open] summary::before,
-.growth[open] summary::before {
+.growth[open] > summary::before,
+.measure-add[open] > summary::before {
     transform: rotate(45deg);
 }
 @media (prefers-reduced-motion: reduce) {
     .premature summary::before,
     .backup summary::before,
-    .growth summary::before {
+    .growth > summary::before,
+    .measure-add > summary::before {
         transition: none;
     }
 }
 .premature summary:focus-visible,
 .backup summary:focus-visible,
-.growth summary:focus-visible {
+.growth > summary:focus-visible,
+.measure-add > summary:focus-visible {
     outline: 3px solid var(--primary);
     outline-offset: 2px;
 }
@@ -333,7 +339,7 @@ h1 {
     color: var(--primary-hover);
 }
 .result-title {
-    margin: 0 0 12px;
+    margin: 0 0 2px;
     font-size: 1.25rem;
     text-align: center;
     overflow-wrap: anywhere;
@@ -427,6 +433,8 @@ button:focus-visible {
     gap: 12px;
 }
 .card {
+    /* Grid items: may shrink below their content (a wide table scrolls inside instead) */
+    min-width: 0;
     padding: 16px;
     border: 1px solid var(--surface-accent);
     border-radius: 12px;
@@ -505,7 +513,7 @@ progress {
     font-weight: 700;
 }
 .born-at {
-    margin: 12px 0 0;
+    margin: 0 0 12px;
     font-size: .875rem;
     color: var(--muted);
     text-align: center;
@@ -556,6 +564,9 @@ progress {
 .growth[open] > * + * {
     margin-top: 12px;
 }
+.measure-add[open] > * + * {
+    margin-top: 12px;
+}
 .measure-form {
     gap: 12px;
 }
@@ -603,23 +614,50 @@ progress {
     color: var(--primary);
 }
 .measurements {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    /* Scrolls sideways rather than squeezing the columns on very narrow screens */
+    overflow-x: auto;
 }
-.measurement {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 4px 0;
-    border-top: 1px solid var(--surface-accent);
+.measurements table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .875rem;
     font-variant-numeric: tabular-nums;
 }
-.measurement .button-link {
-    flex: none;
-    min-width: 44px;
-    padding: 8px;
+.measurements th,
+.measurements td {
+    padding: 4px 3px;
+    border-top: 1px solid var(--surface-accent);
+    text-align: right;
+    vertical-align: top;
+}
+.measurements thead th {
+    border-top: none;
+    font-weight: 600;
+    color: var(--muted);
+    vertical-align: bottom;
+}
+.measurements th:first-child {
+    padding-left: 0;
+    text-align: left;
+}
+.measurements tbody th {
+    /* "17. Okt. 2026" may wrap; "17.10.2026." stays whole */
+    font-weight: normal;
+}
+.measurements td:last-child {
+    width: 32px;
+    padding: 0;
+}
+.measurements .unit {
+    font-weight: normal;
+}
+.measurements .percentile {
+    display: block;
+    color: var(--muted);
+}
+.measurements .button-link {
+    min-width: 32px;
+    padding: 8px 4px;
     text-decoration: none;
     font-size: 1.25rem;
     line-height: 1;
@@ -706,6 +744,9 @@ progress {
     }
     .card-primary .card-value {
         font-size: 1.5rem;
+    }
+    .card {
+        padding: 14px 12px;
     }
 }
 @media (max-width: 360px) {

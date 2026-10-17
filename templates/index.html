@@ -133,6 +133,7 @@
 
         <section id="result" aria-labelledby="result-title" tabindex="-1" hidden>
             <h2 id="result-title" class="result-title visually-hidden">{{ t.child_age }}</h2>
+            <p class="born-at" id="born-at"></p>
             <div class="cards">
                 <div class="card card-primary">
                     <p class="card-label">{{ t.weeks }}</p>
@@ -163,28 +164,6 @@
                         <label class="radio"><input type="radio" name="sex" value="f"> {{ t.girl }}</label>
                         <label class="radio"><input type="radio" name="sex" value="m"> {{ t.boy }}</label>
                     </fieldset>
-                    <form id="measure-form" class="measure-form" novalidate>
-                        <div class="measure-fields">
-                            <div class="field">
-                                <label for="measure-date">{{ t.measure_date }}</label>
-                                <input type="date" id="measure-date" name="measure-date">
-                            </div>
-                            <div class="field">
-                                <label for="measure-weight">{{ t.weight_kg }}</label>
-                                <input type="text" id="measure-weight" name="weight" inputmode="decimal" autocomplete="off">
-                            </div>
-                            <div class="field">
-                                <label for="measure-length">{{ t.length_cm }}</label>
-                                <input type="text" id="measure-length" name="length" inputmode="decimal" autocomplete="off">
-                            </div>
-                            <div class="field">
-                                <label for="measure-head">{{ t.head_cm }}</label>
-                                <input type="text" id="measure-head" name="head" inputmode="decimal" autocomplete="off">
-                            </div>
-                        </div>
-                        <button type="submit">{{ t.add_measurement }}</button>
-                    </form>
-                    <p class="error-text" id="measure-error" role="alert" hidden></p>
                     <fieldset class="basis measure-tabs">
                         <legend class="visually-hidden">{{ t.chart_measure }}</legend>
                         <label class="radio"><input type="radio" name="measure" value="weight" checked> {{ t.measure_weight }}</label>
@@ -193,12 +172,49 @@
                     </fieldset>
                     <div class="growth-chart" id="growth-chart"></div>
                     <p class="hint" id="growth-corrected" hidden></p>
-                    <ul class="measurements" id="measurements"></ul>
+                    <div class="measurements" id="measurements-box" hidden>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th scope="col">{{ t.table_date }}</th>
+                                    <th scope="col">{{ t.measure_weight }} <span class="unit">kg</span></th>
+                                    <th scope="col">{{ t.measure_length }} <span class="unit">cm</span></th>
+                                    <th scope="col">{{ t.table_head }} <span class="unit">cm</span></th>
+                                    <th scope="col"><span class="visually-hidden">{{ t.remove }}</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="measurements"></tbody>
+                        </table>
+                    </div>
+                    <details class="measure-add" id="measure-add">
+                        <summary>{{ t.add_measurement }}</summary>
+                        <form id="measure-form" class="measure-form" novalidate>
+                            <div class="measure-fields">
+                                <div class="field">
+                                    <label for="measure-date">{{ t.measure_date }}</label>
+                                    <input type="date" id="measure-date" name="measure-date">
+                                </div>
+                                <div class="field">
+                                    <label for="measure-weight">{{ t.weight_kg }}</label>
+                                    <input type="text" id="measure-weight" name="weight" inputmode="decimal" autocomplete="off">
+                                </div>
+                                <div class="field">
+                                    <label for="measure-length">{{ t.length_cm }}</label>
+                                    <input type="text" id="measure-length" name="length" inputmode="decimal" autocomplete="off">
+                                </div>
+                                <div class="field">
+                                    <label for="measure-head">{{ t.head_cm }}</label>
+                                    <input type="text" id="measure-head" name="head" inputmode="decimal" autocomplete="off">
+                                </div>
+                            </div>
+                            <button type="submit">{{ t.add_measurement }}</button>
+                        </form>
+                        <p class="error-text" id="measure-error" role="alert" hidden></p>
+                    </details>
                     <p class="hint">{{ t.growth_note }}
                         <a href="https://www.who.int/tools/child-growth-standards" rel="noopener">{{ t.growth_source }}</a></p>
                 </details>
             </div>
-            <p class="born-at" id="born-at"></p>
         </section>
 
         <section id="pregnancy-result" aria-labelledby="pregnancy-result-title" tabindex="-1" hidden>

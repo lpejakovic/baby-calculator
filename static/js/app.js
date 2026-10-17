@@ -162,6 +162,7 @@
             dueInput.value = child ? child.due : '';
             premature.open = Boolean(dueInput.value);
             growth.box.open = Boolean(child && child.measurements);
+            growth.add.open = false;
             growth.date.value = '';
             renderChildren();
             if (child) {
@@ -631,7 +632,8 @@
         // --- Growth (growth.js, who-growth.js) ---
         const growth = {
             box: $('growth'), form: $('measure-form'), date: $('measure-date'), error: $('measure-error'),
-            chart: $('growth-chart'), list: $('measurements'), corrected: $('growth-corrected'),
+            chart: $('growth-chart'), list: $('measurements'), listBox: $('measurements-box'),
+            corrected: $('growth-corrected'), add: $('measure-add'),
         };
         const measureInputs = { weight: $('measure-weight'), length: $('measure-length'), head: $('measure-head') };
         const sexInputs = document.querySelectorAll('input[name="sex"]');
@@ -713,27 +715,42 @@
             const { start, corrected } = growthStart(child);
             const measurements = child.measurements || [];
 
+            // Newest first: date, then each value with its percentile under it
+            growth.listBox.hidden = measurements.length === 0;
             growth.list.replaceChildren(...[...measurements].reverse().map((m) => {
-                const li = document.createElement('li');
-                li.className = 'measurement';
-                const parts = Object.keys(UNITS).filter((key) => m[key] !== undefined).map((key) => {
-                    const p = tables ? ` (${percentileText(tables[key], start, m.date, m[key])})` : '';
-                    return `${formatNumber(m[key])} ${UNITS[key]}${p}`;
-                });
-                const text = document.createElement('span');
-                text.textContent = `${formatDate(parseBirth(m.date, ''), lang)}: ${parts.join(' · ')}`;
+                const row = document.createElement('tr');
+                const when = formatDate(parseBirth(m.date, ''), lang);
+                const date = document.createElement('th');
+                date.scope = 'row';
+                date.textContent = when;
+                row.append(date, ...Object.keys(UNITS).map((key) => {
+                    const cell = document.createElement('td');
+                    if (m[key] === undefined) return cell;
+                    cell.textContent = formatNumber(m[key]);
+                    if (tables) {
+                        const p = document.createElement('span');
+                        p.className = 'percentile';
+                        p.textContent = percentileText(tables[key], start, m.date, m[key]);
+                        cell.append(p);
+                    }
+                    return cell;
+                }));
                 const remove = document.createElement('button');
                 remove.type = 'button';
                 remove.className = 'button-link';
                 remove.textContent = '×';
-                remove.setAttribute('aria-label', t.removeMeasurement(formatDate(parseBirth(m.date, ''), lang)));
+                remove.setAttribute('aria-label', t.removeMeasurement(when));
                 remove.addEventListener('click', () => {
                     updateActiveChild({ measurements: measurements.filter((other) => other.date !== m.date) });
                     renderGrowth();
                 });
-                li.append(text, remove);
-                return li;
+                const removeCell = document.createElement('td');
+                removeCell.append(remove);
+                row.append(removeCell);
+                return row;
             }));
+            // Nothing measured yet: the form is all there is to do, so it is open
+            if (!measurements.length) growth.add.open = true;
 
             growth.corrected.hidden = !(tables && corrected);
             growth.corrected.textContent = t.correctedNote;
@@ -937,6 +954,7 @@
             dueInput.value = child ? child.due : '';
             premature.open = Boolean(dueInput.value);
             growth.box.open = Boolean(child && child.measurements);
+            growth.add.open = false;
             store(ACTIVE_CHILD_KEY, activeId);
             renderChildren();
             const savedPregnancy = validPregnancy(restore(PREGNANCY_KEY));
