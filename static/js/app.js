@@ -105,6 +105,9 @@
         const shareButton = $('share-link');
         const copyButton = $('copy-text');
         const shareStatus = $('share-status');
+        const undo = { bar: $('undo'), text: $('undo-text'), button: $('undo-button') };
+        let undoState = null; // the children just before a removal, while "Poništi" is offered
+        let undoTimer = null;
         let statusTimer = null;
         let timer = null;
         let milestonesDay = null;
@@ -131,10 +134,44 @@
         }
 
         function saveChildren() {
+            hideUndo(); // anything saved after a removal replaces what "Poništi" would bring back
             store(CHILDREN_KEY, children);
             store(ACTIVE_CHILD_KEY, activeId);
             keepData();
         }
+
+        // After removing a child or a measurement (already saved): "Poništi" brings back the list as it was before
+        function offerUndo(message, before) {
+            undoState = before;
+            undo.text.textContent = message;
+            undo.button.textContent = t.undo;
+            undo.bar.hidden = false;
+            announce.textContent = message;
+            undo.button.focus();
+            const close = () => {
+                // Not while the visitor is on the button
+                if (undo.bar.contains(document.activeElement)) undoTimer = setTimeout(close, 2000);
+                else hideUndo();
+            };
+            clearTimeout(undoTimer);
+            undoTimer = setTimeout(close, 10000);
+        }
+
+        function hideUndo() {
+            undoState = null;
+            clearTimeout(undoTimer);
+            undo.bar.hidden = true;
+        }
+
+        undo.button.addEventListener('click', function () {
+            const before = undoState;
+            if (!before) return;
+            children = before.children;
+            activeId = before.activeId;
+            saveChildren();
+            selectChild(activeId);
+            if (!result.hidden) result.focus();
+        });
 
         function renderChildren() {
             childrenBox.hidden = children.length === 0;
@@ -524,11 +561,12 @@
         removeChildButton.addEventListener('click', function () {
             const child = activeChild();
             if (!child) return;
-            if (!confirm(t.confirmRemove(childLabel(child, children.indexOf(child), lang)))) return;
+            const before = { children, activeId };
             const next = removeChild(children, child.id);
             children = next.children;
             saveChildren();
             selectChild(next.activeId);
+            offerUndo(t.childRemoved(childLabel(child, before.children.indexOf(child), lang)), before);
         });
         timeInput.addEventListener('change', () => dateInput.value && calculate('live'));
         dueInput.addEventListener('change', () => dateInput.value && calculate('live'));
@@ -743,8 +781,10 @@
                 remove.textContent = '×';
                 remove.setAttribute('aria-label', t.removeMeasurement(when));
                 remove.addEventListener('click', () => {
+                    const before = { children, activeId };
                     updateActiveChild({ measurements: measurements.filter((other) => other.date !== m.date) });
                     renderGrowth();
+                    offerUndo(t.measurementRemoved(when), before);
                 });
                 const removeCell = document.createElement('td');
                 removeCell.append(remove);

@@ -308,13 +308,13 @@ def test_rename_and_unnamed_child(open_page):
 
 def test_remove_child(open_page):
     page = open_page()
-    page.on("dialog", lambda dialog: dialog.accept())
     calculate(page, "2025-03-04", name="Ana")
     page.click("#add-child")
     calculate(page, "2026-09-01", name="Marko")
     edit(page)
     page.click("#remove-child")
     assert chips(page) == ["Ana"] and page.input_value("#child-name") == "Ana"
+    assert page.text_content("#undo-text") == "Uklonjeno: „Marko”."
     edit(page)
     page.click("#remove-child")
     assert page.is_hidden("#children") and page.is_hidden("#result")
@@ -322,13 +322,44 @@ def test_remove_child(open_page):
     assert page.evaluate("localStorage.getItem('children')") == "[]"
 
 
-def test_remove_child_can_be_cancelled(open_page):
+def test_remove_child_can_be_undone(open_page):
+    page = open_page(viewport={"width": 390, "height": 844})
+    calculate(page, "2025-03-04", name="Ana")
+    page.click("#add-child")
+    calculate(page, "2026-09-01", name="Marko")
+    edit(page)
+    page.click("#remove-child")  # no browser dialog: removed straight away, with "Poništi"
+    assert chips(page) == ["Ana"]
+    assert page.is_visible("#undo") and page.text_content("#undo-button") == "Poništi"
+    assert page.evaluate("document.activeElement.id") == "undo-button"
+    assert page.text_content("#announce") == "Uklonjeno: „Marko”."
+    keep_artifact(page.screenshot(), "undo-hr-phone.png")
+    page.click("#undo-button")
+    assert chips(page) == ["Ana", "Marko"] and active_chip(page) == "Marko"
+    assert page.is_hidden("#undo") and page.is_visible("#result")
+    page.reload()  # the restored list is saved
+    assert chips(page) == ["Ana", "Marko"]
+
+
+def test_undo_goes_away(open_page):
     page = open_page()
-    page.on("dialog", lambda dialog: dialog.dismiss())
-    calculate(page, name="Ana")
+    page.clock.install()
+    page.reload()
+    calculate(page, "2025-03-04", name="Ana")
+    page.click("#add-child")
+    calculate(page, "2026-09-01", name="Marko")
     edit(page)
     page.click("#remove-child")
-    assert chips(page) == ["Ana"]
+    page.clock.run_for(11_000)
+    assert page.is_visible("#undo")  # kept while the focus is on "Poništi"
+    page.click("h1")
+    page.clock.run_for(3_000)
+    assert page.is_hidden("#undo")
+    edit(page)
+    page.click("#remove-child")  # Ana, the last one
+    assert page.is_visible("#undo")
+    calculate(page, "2026-01-01", name="Iva")  # saving something else ends the chance to undo
+    assert page.is_hidden("#undo") and chips(page) == ["Iva"]
 
 
 def test_shared_link_adds_child(open_page, base_url):
@@ -417,12 +448,11 @@ def test_english_errors_and_confirm(open_page, base_url):
     page.evaluate("document.getElementById('birth-date').removeAttribute('max')")
     calculate(page, future, "10:00")
     assert page.text_content("#error") == "The date of birth can’t be in the future. For a pregnancy, choose “Pregnancy”."
-    messages = []
-    page.on("dialog", lambda dialog: (messages.append(dialog.message), dialog.dismiss()))
     calculate(page, "2025-03-04", name="Ana")
     edit(page)
     page.click("#remove-child")
-    assert messages == ["Remove “Ana” from the list?"]
+    assert page.text_content("#undo-text") == "Removed: “Ana”."
+    assert page.text_content("#undo-button") == "Undo"
 
 
 def test_english_copy_and_share(open_page, base_url):
@@ -1063,6 +1093,9 @@ def test_growth_validation_and_editing(open_page):
     assert measurement_rows(page) == ["10.04.2026.: 6,4 kg (P53) · 40,5 cm (P52)"]
     page.click("#measurements button")
     assert measurement_rows(page) == [] and page.is_hidden("#measurements-box")
+    assert page.text_content("#undo-text") == "Uklonjeno: mjerenje od 10.04.2026."
+    page.click("#undo-button")
+    assert measurement_rows(page) == ["10.04.2026.: 6,4 kg (P53) · 40,5 cm (P52)"]
 
 
 def test_growth_uses_corrected_age(open_page):
