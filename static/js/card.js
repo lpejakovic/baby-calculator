@@ -23,11 +23,17 @@
         return `${clipped}…`;
     }
 
-    // Greedy word wrap; measure(text, font) gives the width in pixels
+    // Non-breaking spaces keep a number with its unit ("7 mjeseci") and "i" / "and" with what follows,
+    // so a line never ends with "7" or "i"
+    function keepTogether(text) {
+        return String(text).replace(/(\d+) (?=\p{L})/gu, '$1\u00a0').replace(/(^| )(i|and) (?=\S)/g, '$1$2\u00a0');
+    }
+
+    // Greedy word wrap at ordinary spaces; measure(text, font) gives the width in pixels
     function wrapLines(text, font, maxWidth, measure) {
         const lines = [];
         let line = '';
-        String(text).split(/\s+/).filter(Boolean).forEach((word) => {
+        String(text).split(/ +/).filter(Boolean).forEach((word) => {
             const candidate = line ? `${line} ${word}` : word;
             if (line && measure(candidate, font) > maxWidth) {
                 lines.push(line);
@@ -67,7 +73,7 @@
         let y = MARGIN + icon.size + px(48);
 
         const block = (text, sizes, weight, color, maxLines, gapAfter) => {
-            const { size, lines } = fitText(text, sizes.map(px), weight, width, maxLines, measure);
+            const { size, lines } = fitText(keepTogether(text), sizes.map(px), weight, width, maxLines, measure);
             lines.forEach((line) => {
                 ops.push({ text: line, x: center, y, size, font: cardFont(size, weight), color });
                 y += Math.round(size * 1.2);
@@ -130,6 +136,6 @@
     }
 
     Object.assign(BC, {
-        CARD_SIZE, CARD_MARGIN: MARGIN, cardFont, clipLine, wrapLines, fitText, layoutCard, drawCard,
+        CARD_SIZE, CARD_MARGIN: MARGIN, cardFont, clipLine, keepTogether, wrapLines, fitText, layoutCard, drawCard,
     });
 })(globalThis.BC = globalThis.BC || {});

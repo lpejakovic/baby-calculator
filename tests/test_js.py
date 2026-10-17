@@ -736,7 +736,7 @@ BABY_CARD = {"title": "Ana", "main": "1 godina, 7 mjeseci i 13 dana",
 def test_card_layout_fits_and_keeps_order(js):
     layout = card(js, BABY_CARD)
     assert layout["size"] == 1080
-    texts = [op["text"] for op in layout["ops"]]
+    texts = [op["text"].replace("\u00a0", " ") for op in layout["ops"]]
     assert texts[0] == "Ana" and texts[-1] == "bc.example"
     assert texts.index("84 tjedna i 4 dana") < texts.index("Rođenje: 04.03.2025.")
     body, footer = layout["ops"][:-1], layout["ops"][-1]
@@ -776,3 +776,16 @@ def test_card_very_long_content_still_fits(js):
     body, footer = layout["ops"][:-1], layout["ops"][-1]
     assert body[-1]["y"] + body[-1]["size"] * 1.2 <= footer["y"]
     assert all(card_width(op) <= 1080 - 2 * 96 for op in layout["ops"])
+
+
+@pytest.mark.parametrize("main", ["1 godina, 7 mjeseci i 13 dana", "32 weeks and 6 days", "10 godina, 11 mjeseci i 30 dana"])
+def test_card_keeps_numbers_with_their_units(js, main):
+    lines = [op["text"] for op in card(js, {**BABY_CARD, "main": main})["ops"] if op["color"] == "#4f46b8"]
+    assert " ".join(lines).replace("\u00a0", " ") == main
+    for line in lines:
+        assert not re.search(r"(\d| i| and)$", line.replace("\u00a0", " ")), lines
+
+
+def test_keep_together(js):
+    assert js.eval("M.keepTogether('1 godina, 7 mjeseci i 13 dana')") == "1\u00a0godina, 7\u00a0mjeseci i\u00a013\u00a0dana"
+    assert js.eval("M.keepTogether('32+6 · week 33')") == "32+6 · week 33"  # numbers at the end stay as they are
