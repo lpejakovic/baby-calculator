@@ -995,6 +995,7 @@ def test_growth_chart(open_page):
     assert svg.locator("path.curve").count() == 5 and svg.locator("circle.point").count() == 2
     page.click("#growth label.radio:has-text('Duljina')")
     assert page.locator("#growth-chart circle.point").count() == 1  # only one length was measured
+    keep_artifact(page.locator("#growth").screenshot(), "growth-hr-light.png")
     page.reload()  # saved with the child; the section opens again because there are measurements
     assert page.evaluate("document.getElementById('growth').open") and len(measurement_rows(page)) == 2
 
@@ -1035,12 +1036,14 @@ def test_growth_uses_corrected_age(open_page):
 
 
 def test_growth_in_english(open_page):
-    page = growth_page(open_page, "en/")
+    page = growth_page(open_page, "en/", color_scheme="dark", viewport={"width": 390, "height": 900})
     calculate(page, "2026-01-10", name="Ana")
     page.click("#growth summary")
     page.click("#growth label.radio:has-text('Girl')")
     add_measurement(page, "2026-04-10", weight="6.2")
     assert measurement_rows(page) == ["10 Apr 2026: 6.2 kg (P69)"]
+    add_measurement(page, "2026-06-10", weight="7.1")
+    keep_artifact(page.locator("#growth").screenshot(), "growth-en-dark-phone.png")
 
 
 def test_restores_saved_date(open_page):
