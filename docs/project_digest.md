@@ -7,7 +7,7 @@ _Generated 2026-10-17 at v1.3 (commit `4415c13`); updated for v2.0._
 baby-calculator is a single-page app that takes a baby's date and time of birth and shows the age
 as weeks/days, years/months/days and a live days/hours/minutes/seconds counter, with Croatian
 labels that use the correct grammatical number. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database and no automated tests, and runs
+Flask serves the page and an optional JSON API. It has no database, has 93 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -31,6 +31,9 @@ Dependencies are pinned in `requirements.txt`.
 | `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
 | `requirements.txt`       | Pinned dependencies |
 | `deploy/`                | systemd unit and nginx site config |
+| `tests/`, `pytest.ini`   | Python, JavaScript (QuickJS) and browser (Playwright) tests |
+| `requirements-dev.txt`   | Test dependencies |
+| `.github/workflows/tests.yml` | CI: unit job and browser job |
 | `templates/index.html`   | Form, result cards, meta/Open Graph tags |
 | `static/js/app.js`       | Date parsing, `calculateAge()`, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
@@ -107,11 +110,11 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **No automated tests.** The JS date math was checked against `relativedelta` with 20,000 random dates and the page in headless
-    Chromium at five screen sizes, but none of this is in the repo yet.
+10. **Tests** (fixed): 93 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+    `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps
 
-1. Automated tests (Python and JavaScript) and CI.
+New features; see below.
 
 The full list of open improvements is in [improvements.md](improvements.md).

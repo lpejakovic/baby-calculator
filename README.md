@@ -27,6 +27,9 @@ app.py                       Flask app, routes, rate limits, APP_VERSION
 utils_dt.py                  Croatian plural helpers and date math for the API
 wsgi.py                      WSGI entry point for Gunicorn
 requirements.txt             Pinned Python dependencies
+requirements-dev.txt         Test dependencies (pytest, QuickJS, Playwright)
+pytest.ini                   pytest settings
+tests/                       Python, JavaScript and browser tests
 templates/index.html         Page and form
 static/js/app.js             Age calculation, live counter, localStorage
 static/styles/main.css       Styles (light and dark)
@@ -36,6 +39,7 @@ static/images/icon-1024.webp Full-size icon artwork
 docs/project_digest.md       Project digest / technical overview
 docs/improvements.md         Open improvements and review
 deploy/                      systemd unit and nginx site config
+.github/workflows/tests.yml  CI
 ```
 
 ## Requirements
@@ -51,6 +55,24 @@ source bc-env/bin/activate
 pip install -r requirements.txt
 python app.py            # development server at http://127.0.0.1:5000 (debug=True)
 ```
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+python -m playwright install --only-shell chromium   # once, for the browser tests
+pytest                                               # all tests
+pytest -m "not ui"                                   # without the browser tests
+```
+
+- `tests/test_utils_dt.py`: Croatian plural rules and date math for the API
+- `tests/test_api.py`: `/` and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
+- `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
+  plus month ends, leap years and DST; plurals, date parsing and text joining
+- `tests/test_ui.py`: headless Chromium: live counter, saved date, cookie migration, future dates, visitor time zone,
+  and layout at 320–1280 px in light and dark mode (no sideways scrolling, 16 px edges, 44 px touch targets)
+
+GitHub Actions (`.github/workflows/tests.yml`) runs the unit tests and the browser tests on every push to `main` and on pull requests.
 
 ## API
 

@@ -2,19 +2,9 @@
 
 _Review started 2026-10-17. Items are removed from this file as they are done; when it is empty, the review is complete._
 
-## Plan
+Each new feature should come with tests in `tests/` (see the README).
 
-1. **Features:** milestones, share link, PWA, pregnancy mode, several children.
-2. **Quality:** tests and CI.
-
-## 1. Quality
-
-- **Tests:**
-  - `pytest` tests for the Python plural rules, month ends, leap years (29 Feb) and invalid input.
-  - JavaScript tests for `calculateAge`, `plural`, `parseBirth` and `joinParts` (the script exports them via `module.exports`). During the rewrite they were checked against `relativedelta` with 20,000 random dates in QuickJS; turn that into a repeatable test.
-- **CI:** GitHub Actions workflow that runs the tests on each push.
-
-## 2. New features
+## New features
 
 1. **Milestones:** "100. dan za 12 dana", the "1000 dana" date, next month birthday, countdown to the first birthday.
 2. **Pregnancy mode:** enter the due date or last period and get "34. tjedan + 2 dana", plus a countdown to the due date.
