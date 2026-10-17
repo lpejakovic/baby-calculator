@@ -177,7 +177,7 @@ def due_in(days):
 
 
 def calculate_pregnancy(page, due_date):
-    page.click("text=Trudnoća")
+    page.click(".mode-switch >> text=Trudnoća")
     edit(page)
     page.fill("#pregnancy-date", due_date)
     page.click("#pregnancy-form button")
@@ -223,7 +223,7 @@ def test_pregnancy_is_remembered_with_mode(open_page):
 
 def test_pregnancy_errors(open_page):
     page = open_page()
-    page.click("text=Trudnoća")
+    page.click(".mode-switch >> text=Trudnoća")
     page.evaluate("document.getElementById('pregnancy-date').removeAttribute('min')")
     page.fill("#pregnancy-date", due_in(-20))
     page.click("#pregnancy-form button")
@@ -397,7 +397,7 @@ def test_english_page(open_page, base_url):
 def test_english_pregnancy(open_page, base_url):
     page = open_page()
     page.goto(base_url + "en/")
-    page.click("text=Pregnancy")
+    page.click(".mode-switch >> text=Pregnancy")
     page.fill("#pregnancy-date", due_in(50))
     page.click("#pregnancy-form button")
     assert page.text_content("#pregnancy-duration") == "32 weeks and 6 days"
@@ -498,7 +498,7 @@ def test_date_limits_move_with_today(browser, base_url):
     page.clock.fast_forward("05:00:00")  # past midnight, page still open
     page.focus("#birth-date")
     assert page.get_attribute("#birth-date", "max") == "2026-10-18"
-    page.click("text=Trudnoća")
+    page.click(".mode-switch >> text=Trudnoća")
     page.focus("#pregnancy-date")
     assert page.get_attribute("#pregnancy-date", "min") == "2026-10-04"  # due date: up to 14 days ago
     context.close()
@@ -613,7 +613,7 @@ def download_backup(page, tmp_path):
 def test_backup_download(open_page, tmp_path):
     page = open_page()
     enter_premature(page, birth="2026-08-01", due="2026-10-01", name="Ana")
-    page.click("text=Trudnoća")
+    page.click(".mode-switch >> text=Trudnoća")
     page.fill("#pregnancy-date", due_in(100))
     page.click("#pregnancy-form button")
     name, path = download_backup(page, tmp_path)
@@ -680,7 +680,7 @@ def test_backup_transfer_link(open_page, browser):
 @pytest.mark.parametrize("accept, expected", [(False, 50), (True, 100)])
 def test_backup_pregnancy_conflict_asks(open_page, base_url, accept, expected):
     page = open_page()
-    page.click("text=Trudnoća")
+    page.click(".mode-switch >> text=Trudnoća")
     page.fill("#pregnancy-date", due_in(50))
     page.click("#pregnancy-form button")
     backup = {"app": "baby-calculator", "version": 1, "children": [], "pregnancy": {"basis": "due", "date": due_in(100)}}
@@ -732,7 +732,7 @@ def test_calendar_export_pregnancy_english(open_page, base_url, tmp_path):
     page = open_page(timezone_id="Europe/Zagreb")
     page.clock.set_fixed_time("2026-10-17T12:00:00+02:00")
     page.goto(base_url + "en/")
-    page.click("text=Pregnancy")
+    page.click(".mode-switch >> text=Pregnancy")
     page.fill("#pregnancy-date", "2026-12-06")
     page.click("#pregnancy-form button")
     name, events = download_calendar(page, "#calendar-pregnancy", tmp_path)
@@ -773,7 +773,7 @@ def days_ago(days):
 
 
 def choose_basis(page, label):
-    page.click("text=Trudnoća")
+    page.click(".mode-switch >> text=Trudnoća")
     edit(page)
     page.click(f"#pregnancy-form label.radio:has-text('{label}')")
 
@@ -825,7 +825,7 @@ def test_switching_basis_keeps_pregnancy(open_page):
 def test_future_transfer_is_rejected_and_english(open_page, base_url):
     page = open_page()
     page.goto(base_url + "en/")
-    page.click("text=Pregnancy")
+    page.click(".mode-switch >> text=Pregnancy")
     page.click("#pregnancy-form label.radio:has-text('Embryo transfer (IVF)')")
     assert page.text_content("#pregnancy-date-label") == "Embryo transfer date"
     page.evaluate("document.getElementById('pregnancy-date').removeAttribute('max')")
@@ -919,7 +919,7 @@ def test_share_picture_downloads_without_file_sharing(open_page, base_url, tmp_p
     page = open_page()
     page.goto(base_url + "en/")
     page.evaluate("delete Navigator.prototype.canShare; delete navigator.canShare")
-    page.click("text=Pregnancy")
+    page.click(".mode-switch >> text=Pregnancy")
     page.fill("#pregnancy-date", due_in(50))
     page.click("#pregnancy-form button[type=submit]")
     with page.expect_download() as info:
@@ -955,7 +955,7 @@ def test_german_pregnancy_and_language_choice(open_page, base_url):
     assert page.url == base_url + "de/"
     page.goto(base_url)  # remembered: "/" opens German
     assert page.url == base_url + "de/"
-    page.click("text=Schwangerschaft")
+    page.click(".mode-switch >> text=Schwangerschaft")
     page.fill("#pregnancy-date", due_in(50))
     page.click("#pregnancy-form button[type=submit]")
     assert page.text_content("#pregnancy-duration") == "32 Wochen und 6 Tage"
