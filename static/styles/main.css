@@ -243,7 +243,8 @@ h1 {
 .backup .actions {
     margin-top: 12px;
 }
-.backup-link {
+.actions .backup-link {
+    /* Full row and allowed to wrap: more specific than ".actions button" and ".button-secondary" */
     flex-basis: 100%;
     white-space: normal;
 }
