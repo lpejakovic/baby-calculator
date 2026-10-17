@@ -12,6 +12,9 @@ set -euo pipefail
 LIVE_DIR=${LIVE_DIR:-/var/www/bc.luka-pejakovic.from.hr/baby-calculator}
 SITE=${SITE:-https://bc.luka-pejakovic.from.hr}
 SERVICE=baby-calculator
+PIP=${PIP:-bc-env/bin/pip}
+HEALTH_TRIES=${HEALTH_TRIES:-30}   # seconds to wait for /health after the restart
+HEALTH_DELAY=${HEALTH_DELAY:-1}
 CHECK_ONLY=false
 [ "${1:-}" = "--check" ] && CHECK_ONLY=true
 
@@ -19,7 +22,9 @@ cd "$LIVE_DIR"
 fail() { echo "deploy: $*" >&2; exit 1; }
 
 # The live folder only changes through this script
-git diff --quiet && git diff --cached --quiet || fail "the live folder has uncommitted changes; refusing to deploy"
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    fail "the live folder has uncommitted changes; refusing to deploy"
+fi
 
 git fetch --quiet origin main
 current=$(git rev-parse HEAD)
@@ -41,16 +46,16 @@ $CHECK_ONLY && { echo "deploy: --check, nothing changed"; exit 0; }
 requirements_changed=false
 git diff --quiet "$current" "$target" -- requirements.txt || requirements_changed=true
 
-install_requirements() { bc-env/bin/pip install --quiet -r requirements.txt; }
+install_requirements() { "$PIP" install --quiet -r requirements.txt; }
 version() { sed -n 's/^APP_VERSION = "\(.*\)"$/\1/p' app.py; }
 healthy() {
     local expected
     expected=$(version)
-    for _ in $(seq 30); do
+    for _ in $(seq "$HEALTH_TRIES"); do
         if curl -fsS --max-time 5 "$SITE/health" 2>/dev/null | grep -q "\"version\":\"$expected\""; then
             return 0
         fi
-        sleep 1
+        sleep "$HEALTH_DELAY"
     done
     return 1
 }

@@ -11,7 +11,7 @@ Flask serves two pages (`/` Croatian, `/en/` English) from one template, a servi
 | Page | `templates/index.html`, `templates/404.html`, `static/styles/main.css` |
 | Script | `static/js/texts.js`, `dates.js`, `calendar.js`, `data.js` (pure: no DOM or storage) and `app.js` (page code) |
 | Offline | `templates/sw.js` (rendered with the current asset URLs), `static/manifest.json`, `manifest-en.json` |
-| Deployment | `deploy/` (systemd unit, nginx template, `deploy.sh`) |
+| Deployment | `deploy/` (systemd unit, nginx template, `deploy.sh`, tested in `tests/test_deploy.py`) |
 | Tests | `tests/` (pytest; QuickJS for the pure scripts; Playwright and axe-core in the browser) |
 
 ## Script
@@ -44,6 +44,9 @@ checks that `app.js` finds everything it takes from `BC`.
 | `pregnancy` | `{basis: "due" \| "lmp" \| "ivf" \| "ultrasound", date, embryoDays?, gaWeeks?, gaDays?}` |
 | `mode` | `"baby"` or `"pregnancy"` |
 | `lang` cookie | `hr` or `en`, set by the language switch; `/` redirects to `/en/` for `en` |
+
+After the visitor saves something, the page asks the browser to keep this data (`navigator.storage.persist()`), at
+most once per visit and never on page load, since Firefox shows a prompt for it.
 
 Links keep their data after `#`, which is never sent to the server:
 
