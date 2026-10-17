@@ -1,100 +1,108 @@
 <!DOCTYPE html>
-<html lang="hr">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baby Calculator</title>
-    <meta name="description" content="Izračunajte dob bebe u tjednima, mjesecima i danima, uživo do sekunde.">
+    <meta name="description" content="{{ t.description }}">
     <meta name="theme-color" content="#f6f3fb" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#16151d" media="(prefers-color-scheme: dark)">
     <meta property="og:type" content="website">
-    <meta property="og:locale" content="hr_HR">
+    <meta property="og:locale" content="{{ t.locale }}">
     <meta property="og:title" content="Baby Calculator">
-    <meta property="og:description" content="Izračunajte dob bebe u tjednima, mjesecima i danima, uživo do sekunde.">
-    <meta property="og:url" content="{{ request.url_root }}">
+    <meta property="og:description" content="{{ t.description }}">
+    <meta property="og:url" content="{{ page_urls[lang] }}">
     <meta property="og:site_name" content="Baby Calculator">
-    <meta property="og:image" content="{{ url_for('static', filename='images/og-image.png', _external=True) }}">
+    <meta property="og:image" content="{{ url_for('static', filename=t.og_image, _external=True) }}">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Baby Calculator: dob bebe u tjednima, mjesecima i danima">
+    <meta property="og:image:alt" content="{{ t.og_image_alt }}">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="manifest" href="{{ url_for('static', filename=t.manifest) }}">
+    <link rel="canonical" href="{{ page_urls[lang] }}">
+    {%- for code, url in page_urls.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="{{ url }}">
+    {%- endfor %}
+    <link rel="alternate" hreflang="x-default" href="{{ page_urls['hr'] }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </head>
 <body>
     <main class="container">
+        <nav class="lang-switch" aria-label="{{ t.switch_label }}">
+            <a href="{{ page_urls[other_lang] }}" hreflang="{{ other_lang }}" lang="{{ other_lang }}">{{ t.switch_to }}</a>
+        </nav>
         <h1>Baby Calculator <span class="version-text">v{{ version }}</span></h1>
 
         <fieldset class="mode-switch">
-            <legend class="visually-hidden">Što računate?</legend>
-            <label><input type="radio" name="mode" value="baby" checked> Beba je rođena</label>
-            <label><input type="radio" name="mode" value="pregnancy"> Trudnoća</label>
+            <legend class="visually-hidden">{{ t.mode_legend }}</legend>
+            <label><input type="radio" name="mode" value="baby" checked> {{ t.mode_baby }}</label>
+            <label><input type="radio" name="mode" value="pregnancy"> {{ t.mode_pregnancy }}</label>
         </fieldset>
 
         <form id="birth-form">
             <fieldset class="children" id="children" hidden>
-                <legend>Dijete</legend>
+                <legend>{{ t.child }}</legend>
                 <div class="chips">
                     <div class="chip-list" id="child-list"></div>
-                    <button type="button" class="chip chip-add" id="add-child">+ Dodaj dijete</button>
+                    <button type="button" class="chip chip-add" id="add-child">{{ t.add_child }}</button>
                 </div>
             </fieldset>
             <div class="field">
-                <label for="child-name">Ime djeteta</label>
+                <label for="child-name">{{ t.child_name }}</label>
                 <input type="text" id="child-name" name="name" maxlength="40" autocomplete="off" aria-describedby="name-hint">
-                <small id="name-hint" class="hint">Nije obavezno</small>
+                <small id="name-hint" class="hint">{{ t.optional }}</small>
             </div>
             <div class="fields">
                 <div class="field">
-                    <label for="birth-date">Datum rođenja</label>
+                    <label for="birth-date">{{ t.birth_date }}</label>
                     <input type="date" id="birth-date" name="date" required>
                 </div>
                 <div class="field">
-                    <label for="birth-time">Vrijeme rođenja</label>
+                    <label for="birth-time">{{ t.birth_time }}</label>
                     <input type="time" id="birth-time" name="time" aria-describedby="time-hint">
-                    <small id="time-hint" class="hint">Nije obavezno</small>
+                    <small id="time-hint" class="hint">{{ t.optional }}</small>
                 </div>
             </div>
-            <button type="submit">Izračunaj dob</button>
-            <button type="button" class="button-link" id="remove-child" hidden>Ukloni dijete</button>
+            <button type="submit">{{ t.calculate_age }}</button>
+            <button type="button" class="button-link" id="remove-child" hidden>{{ t.remove_child }}</button>
         </form>
 
         <form id="pregnancy-form" hidden>
             <fieldset class="basis">
-                <legend>Računaj prema</legend>
-                <label class="radio"><input type="radio" name="basis" value="due" checked> Terminu poroda</label>
-                <label class="radio"><input type="radio" name="basis" value="lmp"> Zadnjoj menstruaciji</label>
+                <legend>{{ t.basis_legend }}</legend>
+                <label class="radio"><input type="radio" name="basis" value="due" checked> {{ t.basis_due }}</label>
+                <label class="radio"><input type="radio" name="basis" value="lmp"> {{ t.basis_lmp }}</label>
             </fieldset>
             <div class="field">
-                <label for="pregnancy-date" id="pregnancy-date-label">Termin poroda</label>
+                <label for="pregnancy-date" id="pregnancy-date-label">{{ t.due_date }}</label>
                 <input type="date" id="pregnancy-date" name="pregnancy-date" required>
             </div>
-            <button type="submit">Izračunaj trudnoću</button>
+            <button type="submit">{{ t.calculate_pregnancy }}</button>
         </form>
 
         <p id="error" class="error-text" role="alert" hidden></p>
 
         <section id="result" aria-labelledby="result-title" hidden>
-            <h2 id="result-title" class="result-title visually-hidden">Dob djeteta</h2>
+            <h2 id="result-title" class="result-title visually-hidden">{{ t.child_age }}</h2>
             <div class="cards">
                 <div class="card card-primary">
-                    <p class="card-label">Tjedni</p>
+                    <p class="card-label">{{ t.weeks }}</p>
                     <p class="card-value" id="age-weeks"></p>
                 </div>
                 <div class="card">
-                    <p class="card-label">Dob</p>
+                    <p class="card-label">{{ t.age }}</p>
                     <p class="card-value" id="age-calendar"></p>
                 </div>
                 <div class="card">
-                    <p class="card-label">Ukupno</p>
+                    <p class="card-label">{{ t.total }}</p>
                     <p class="card-value card-value-small" id="age-total"></p>
                 </div>
                 <div class="card card-wide">
-                    <h3 class="card-label" id="milestones-title">Sljedeće prekretnice</h3>
+                    <h3 class="card-label" id="milestones-title">{{ t.milestones }}</h3>
                     <ul class="milestones" id="milestones" aria-labelledby="milestones-title"></ul>
                 </div>
             </div>
@@ -102,21 +110,21 @@
         </section>
 
         <section id="pregnancy-result" aria-labelledby="pregnancy-result-title" hidden>
-            <h2 id="pregnancy-result-title" class="visually-hidden">Trudnoća</h2>
+            <h2 id="pregnancy-result-title" class="visually-hidden">{{ t.pregnancy }}</h2>
             <div class="cards">
                 <div class="card card-primary">
-                    <p class="card-label">Trajanje trudnoće</p>
+                    <p class="card-label">{{ t.pregnancy_duration }}</p>
                     <p class="card-value" id="pregnancy-duration"></p>
                     <p class="card-sub" id="pregnancy-detail"></p>
                 </div>
                 <div class="card card-wide">
-                    <p class="card-label">Termin poroda</p>
+                    <p class="card-label">{{ t.due_date }}</p>
                     <p class="card-value"><time id="pregnancy-due"></time> <span class="card-value-note" id="pregnancy-countdown"></span></p>
                     <progress id="pregnancy-progress" max="280" value="0" aria-labelledby="pregnancy-progress-text"></progress>
                     <p class="card-sub" id="pregnancy-progress-text"></p>
                 </div>
                 <div class="card card-wide">
-                    <h3 class="card-label" id="pregnancy-milestones-title">Sljedeće prekretnice</h3>
+                    <h3 class="card-label" id="pregnancy-milestones-title">{{ t.milestones }}</h3>
                     <ul class="milestones" id="pregnancy-milestones" aria-labelledby="pregnancy-milestones-title"></ul>
                 </div>
             </div>
@@ -124,13 +132,13 @@
 
         <div id="share" hidden>
             <div class="actions">
-                <button type="button" class="button-secondary" id="share-link">Podijeli</button>
-                <button type="button" class="button-secondary" id="copy-text">Kopiraj tekst</button>
+                <button type="button" class="button-secondary" id="share-link">{{ t.share }}</button>
+                <button type="button" class="button-secondary" id="copy-text">{{ t.copy_text }}</button>
             </div>
             <p class="share-status" id="share-status" role="status"></p>
         </div>
 
-        <button type="button" class="button-secondary install-button" id="install-app" hidden>Instaliraj aplikaciju</button>
+        <button type="button" class="button-secondary install-button" id="install-app" hidden>{{ t.install }}</button>
 
         <p id="announce" class="visually-hidden" aria-live="polite"></p>
     </main>

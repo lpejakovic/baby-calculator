@@ -361,6 +361,101 @@ def test_children_layout(open_page, width):
     assert len(heights) == 5 and min(heights) >= 44
 
 
+CROATIAN = re.compile(r"[čćžšđČĆŽŠĐ]|\\b(dana?|tjedn|mjesec|godin|sati?|minut|sekund|rođ|danas|sutra)", re.I)
+
+
+def test_english_page(open_page, base_url):
+    page = open_page()
+    page.goto(base_url + "en/")
+    calculate(page, "2025-03-04", "17:45", name="Ana")
+    assert re.fullmatch(r"\d+ weeks? and \d+ days?|\d+ weeks?", page.text_content("#age-weeks"))
+    assert page.text_content("#born-at") == "Born: 4 Mar 2025 at 17:45"
+    for item in page.locator("#milestones li").all():
+        when = item.locator(".milestone-when").text_content()
+        assert re.fullmatch(r"\d{1,2} [A-Z][a-z]{2} \d{4} · (today|tomorrow|in \d+ days)", when), when
+    text = page.text_content("main")
+    assert not CROATIAN.search(text), CROATIAN.search(text)
+
+
+def test_english_pregnancy(open_page, base_url):
+    page = open_page()
+    page.goto(base_url + "en/")
+    page.click("text=Pregnancy")
+    page.fill("#pregnancy-date", due_in(50))
+    page.click("#pregnancy-form button")
+    assert page.text_content("#pregnancy-duration") == "32 weeks and 6 days"
+    assert page.text_content("#pregnancy-detail") == "32+6 · week\u00a033 · third\u00a0trimester"
+    assert page.text_content("#pregnancy-countdown") == "in 50 days"
+    assert page.text_content("#pregnancy-progress-text") == "82% of pregnancy"
+    assert page.locator("#pregnancy-milestones .milestone-label").all_text_contents() == ["Full term", "Due date"]
+    page.click("text=Last period")
+    assert page.text_content("#pregnancy-date-label") == "First day of last period"
+
+
+def test_english_errors_and_confirm(open_page, base_url):
+    page = open_page()
+    page.goto(base_url + "en/")
+    future = (date.today() + timedelta(days=2)).isoformat()
+    page.evaluate("document.getElementById('birth-date').removeAttribute('max')")
+    calculate(page, future, "10:00")
+    assert page.text_content("#error") == "The date of birth can’t be in the future. For a pregnancy, choose “Pregnancy”."
+    messages = []
+    page.on("dialog", lambda dialog: (messages.append(dialog.message), dialog.dismiss()))
+    calculate(page, "2025-03-04", name="Ana")
+    page.click("#remove-child")
+    assert messages == ["Remove “Ana” from the list?"]
+
+
+def test_english_copy_and_share(open_page, base_url):
+    page = open_page(permissions=["clipboard-read", "clipboard-write"])
+    page.goto(base_url + "en/")
+    calculate(page, "2025-03-04", "", name="Ana")
+    page.click("#copy-text")
+    page.wait_for_function("document.getElementById('share-status').textContent === 'Text copied.'")
+    copied = page.evaluate("navigator.clipboard.readText()")
+    assert re.fullmatch(r"Ana: .+ \(.+\)\. Born: 4 Mar 2025\.", copied), copied
+    page.evaluate("delete Navigator.prototype.share; delete navigator.share")
+    page.click("#share-link")
+    page.wait_for_function("document.getElementById('share-status').textContent === 'Link copied.'")
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/?d=2025-03-04&n=Ana"
+
+
+def test_language_switch_keeps_data(open_page, base_url):
+    page = open_page()
+    calculate(page, "2025-03-04", name="Ana")
+    croatian_weeks = page.text_content("#age-weeks")
+    page.click(".lang-switch a")
+    assert page.url == base_url + "en/"
+    assert page.evaluate("document.documentElement.lang") == "en"
+    assert page.input_value("#child-name") == "Ana" and page.is_visible("#result")
+    assert page.text_content("#age-weeks").split()[0] == croatian_weeks.split()[0]  # same number of weeks
+    page.click(".lang-switch a")
+    assert page.url == base_url and page.text_content("#age-weeks") == croatian_weeks
+
+
+def test_english_works_offline(open_page, base_url):
+    page = open_page()
+    page.wait_for_function("navigator.serviceWorker.controller !== null", timeout=10_000)
+    page.context.set_offline(True)
+    page.goto(base_url + "en/")
+    calculate(page, "2025-03-04")
+    assert page.is_visible("#result") and "week" in page.text_content("#age-weeks")
+
+
+@pytest.mark.parametrize("width", [320, 360, 1280])
+def test_english_layout(open_page, base_url, width):
+    page = open_page(viewport={"width": width, "height": 900})
+    page.goto(base_url + "en/")
+    calculate(page, "2025-03-04", name="Ana")
+    page.click("#add-child")
+    calculate(page, "2026-09-01", name="Marko")
+    overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    targets = page.evaluate("""[...document.querySelectorAll('button, a, input:not([type=radio]), .chip, .mode-switch label')]
+        .filter(el => el.offsetParent !== null).map(el => Math.round(el.getBoundingClientRect().height))""")
+    assert not overflow
+    assert min(targets) >= 44, targets
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)

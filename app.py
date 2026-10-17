@@ -7,13 +7,15 @@ import json
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from i18n import LANGUAGES, PAGE_TEXT
 from utils_dt import (YEARS, MONTHS, WEEKS, DAYS, HOURS, MINUTES, SECONDS,
                       plural, format_datetime, calculate_date_difference)
 
-APP_VERSION = "2.6"
+APP_VERSION = "2.7"
 
 # Cached by the service worker for offline use (besides the page itself)
-PRECACHED_STATIC = ["styles/main.css", "js/app.js", "favicon.ico", "apple-touch-icon.png", "manifest.json"]
+PRECACHED_STATIC = ["styles/main.css", "js/app.js", "favicon.ico", "apple-touch-icon.png",
+                    "manifest.json", "manifest-en.json"]
 
 app = Flask(__name__)
 # nginx is the only proxy in front of the app; trust its X-Forwarded-* headers
@@ -36,18 +38,33 @@ def static_cache_buster(endpoint, values):
         if os.path.isfile(path):
             values['v'] = int(os.stat(path).st_mtime)
 
+PAGE_ENDPOINTS = {"hr": "index", "en": "index_en"}
+
+
+def render_page(lang):
+    page_urls = {code: url_for(PAGE_ENDPOINTS[code], _external=True) for code in LANGUAGES}
+    other_lang = "en" if lang == "hr" else "hr"
+    return render_template('index.html', version=APP_VERSION, lang=lang, t=PAGE_TEXT[lang],
+                           page_urls=page_urls, other_lang=other_lang)
+
 @app.route('/')
 @limiter.exempt
 def index():
-    return render_template('index.html', version=APP_VERSION)
+    return render_page("hr")
+
+@app.route('/en/')
+@limiter.exempt
+def index_en():
+    return render_page("en")
 
 @app.route('/sw.js')
 @limiter.exempt
 def service_worker():
     # Served from the root so it can control the whole site, not just /static/
-    assets = [url_for('index')] + [url_for('static', filename=name) for name in PRECACHED_STATIC]
+    pages = [url_for(endpoint) for endpoint in PAGE_ENDPOINTS.values()]
+    assets = pages + [url_for('static', filename=name) for name in PRECACHED_STATIC]
     version = hashlib.sha256(json.dumps([APP_VERSION, assets]).encode()).hexdigest()[:12]
-    response = make_response(render_template('sw.js', version=version, assets=assets))
+    response = make_response(render_template('sw.js', version=version, assets=assets, pages=pages))
     response.headers['Content-Type'] = 'text/javascript; charset=utf-8'
     response.headers['Cache-Control'] = 'no-cache'
     return response

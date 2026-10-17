@@ -6,9 +6,9 @@ _Generated 2026-10-17 at v1.3 (commit `4415c13`); updated for v2.0._
 
 baby-calculator is a single-page app that takes a baby's date and time of birth and shows the age
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
-labels that use the correct grammatical number. A pregnancy mode shows weeks + days, trimester, due date and
+labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 188 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 228 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -27,7 +27,8 @@ Dependencies are pinned in `requirements.txt`.
 
 | File                     | Purpose |
 |--------------------------|---------|
-| `app.py`                 | Flask app, `APP_VERSION`, Limiter setup, routes `/`, `/sw.js` and `/calculate` |
+| `app.py`                 | Flask app, `APP_VERSION`, Limiter setup, routes `/`, `/en/`, `/sw.js` and `/calculate` |
+| `i18n.py`                | Page texts (`PAGE_TEXT`) in Croatian and English |
 | `utils_dt.py`            | API only: `plural()` and Croatian word forms, `format_datetime()`, `calculate_date_difference()` |
 | `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
 | `requirements.txt`       | Pinned dependencies |
@@ -37,13 +38,13 @@ Dependencies are pinned in `requirements.txt`.
 | `.github/workflows/tests.yml` | CI: unit job and browser job |
 | `templates/index.html`   | Form, result cards, meta and Open Graph tags (absolute `og:image` via `_external=True`) |
 | `templates/sw.js`        | Service worker template: precache list and cache name come from the current versioned asset URLs |
-| `static/manifest.json`   | Web app manifest (standalone, icons 192/512/maskable) |
+| `static/manifest.json`   | Web app manifest (standalone, icons 192/512/maskable); `manifest-en.json` for `/en/` |
 | `static/js/app.js`       | Date parsing, `calculateAge()`, `upcomingMilestones()`, children, pregnancy functions, share links, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
 | `static/favicon.ico`     | Favicon, 16 and 32 px (3.9 KB) |
 | `static/apple-touch-icon.png` | Home-screen icon, 180 px |
 | `static/images/icon-1024.webp` | Full-size icon artwork (source for other icons) |
-| `static/images/og-image.png` | Link preview image, 1200×630 (55 KB) |
+| `static/images/og-image.png` | Link preview images, 1200×630 (55 KB each; `-en` for English) |
 | `scripts/make_og_image.py` | Regenerates the preview image with Pillow |
 
 ## Page flow
@@ -71,7 +72,13 @@ Dependencies are pinned in `requirements.txt`.
    42 weeks. `pregnancyMilestones()` lists 14, 20, 28, 37 and 40 weeks. Mode and pregnancy data are stored under the
    `mode` and `pregnancy` keys; `?t=YYYY-MM-DD` shares a due date. Pregnancy values change once a day, so they are
    re-rendered on a 1-minute timer only when the date changes.
-9. The script registers `/sw.js`. Flask renders it with the page and versioned static URLs, so any static change gives a new
+9. **Languages**: `/` (Croatian) and `/en/` (English) render the same template with `PAGE_TEXT[lang]`, and add
+   canonical and `hreflang` links (`x-default` is Croatian) plus a link to the other language. The script reads
+   `<html lang>` and takes every text from `TEXT[lang]` in `app.js` (plural rules, "i"/"and", ordinals, date format,
+   errors, share text); the pure functions take an optional `lang` that defaults to Croatian. Saved data is shared
+   between the pages, share links keep the current page, and each language has its own manifest, start URL and
+   preview image.
+10. The script registers `/sw.js`. Flask renders it with the page and versioned static URLs, so any static change gives a new
    service worker and cache name; old caches are deleted on activation. The page is network-first with a cached fallback,
    static files are cache-first, and `/calculate` is never cached. Where Chrome fires `beforeinstallprompt`, an
    "Instaliraj aplikaciju" button appears.
@@ -123,6 +130,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.4**: installable app (PWA), works offline |
 | 2026-10-17 | **v2.5**: pregnancy mode |
 | 2026-10-17 | **v2.6**: several children |
+| 2026-10-17 | **v2.7**: English version and language switch; the improvement review is complete |
 
 ## Observations and issues
 
@@ -141,11 +149,9 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 188 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 228 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps
 
-New features; see below.
-
-The full list of open improvements is in [improvements.md](improvements.md).
+The 2026-10-17 improvement review is complete. New ideas go in [improvements.md](improvements.md).

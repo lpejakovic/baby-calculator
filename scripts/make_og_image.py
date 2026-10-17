@@ -1,4 +1,4 @@
-"""Generate static/images/og-image.png, the 1200x630 link preview image.
+"""Generate the 1200x630 link preview images: static/images/og-image.png (Croatian) and og-image-en.png.
 
 Needs Pillow and the DejaVu Sans fonts (Debian/Ubuntu package fonts-dejavu-core):
 
@@ -11,7 +11,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 ICON = ROOT / "static" / "images" / "icon-1024.webp"
-OUT = ROOT / "static" / "images" / "og-image.png"
 FONTS = Path("/usr/share/fonts/truetype/dejavu")
 
 WIDTH, HEIGHT = 1200, 630
@@ -20,11 +19,13 @@ TEXT = "#2b2838"        # --text in main.css; 8.7:1 on the background
 MUTED = "#5b4a5a"
 
 TITLE = "Baby Calculator"
-LINES = ["Dob bebe u tjednima,", "mjesecima i danima"]
-FOOTER = "uživo do sekunde · prekretnice"
+VERSIONS = {
+    "og-image.png": (["Dob bebe u tjednima,", "mjesecima i danima"], "uživo do sekunde · prekretnice"),
+    "og-image-en.png": (["A baby's age in weeks,", "months and days"], "live to the second · milestones"),
+}
 
 
-def main():
+def make(out, lines, footer):
     image = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
     icon = Image.open(ICON).convert("RGB").resize((HEIGHT, HEIGHT), Image.LANCZOS)
     image.paste(icon, (0, 0))
@@ -45,14 +46,19 @@ def main():
     y = 170
     draw.text((x, y), TITLE, font=bold, fill=TEXT)
     y += 110
-    for line in LINES:
+    for line in lines:
         draw.text((x, y), line, font=regular, fill=TEXT)
         y += 54
-    draw.text((x, y + 40), FOOTER, font=small, fill=MUTED)
+    draw.text((x, y + 40), footer, font=small, fill=MUTED)
 
     image = image.quantize(colors=128, method=Image.Quantize.MEDIANCUT)
-    image.save(OUT, optimize=True)
-    print(f"{OUT.relative_to(ROOT)}: {OUT.stat().st_size // 1024} KB")
+    image.save(out, optimize=True)
+    print(f"{out.relative_to(ROOT)}: {out.stat().st_size // 1024} KB")
+
+
+def main():
+    for name, (lines, footer) in VERSIONS.items():
+        make(ROOT / "static" / "images" / name, lines, footer)
 
 
 if __name__ == "__main__":

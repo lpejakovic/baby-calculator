@@ -1,10 +1,12 @@
 import json
 import re
 import struct
+from html import unescape
 
 import pytest
 
 import app as app_module
+from i18n import PAGE_TEXT
 
 
 def post(client, **data):
@@ -161,3 +163,68 @@ def test_service_worker_changes_with_assets(client, monkeypatch):
     after = client.get("/sw.js").get_data(as_text=True)
     cache_name = re.compile(r"const CACHE = '(bc-[0-9a-f]+)'")
     assert cache_name.search(before).group(1) != cache_name.search(after).group(1)
+
+
+# --- English page
+
+NGINX = {"Host": "bc.luka-pejakovic.from.hr", "X-Forwarded-Proto": "https", "X-Forwarded-For": "1.2.3.4"}
+
+
+def page_meta(html):
+    return {name: unescape(value) for name, value in re.findall(r'<meta (?:property|name)="([^"]+)" content="([^"]*)"', html)}
+
+
+def test_page_texts_match():
+    assert PAGE_TEXT["hr"].keys() == PAGE_TEXT["en"].keys()
+    assert all(PAGE_TEXT["en"].values())
+
+
+def test_english_page(client):
+    html = client.get("/en/", headers=NGINX).get_data(as_text=True)
+    assert '<html lang="en">' in html
+    assert "Baby is born" in html and "Beba je rođena" not in html
+    meta = page_meta(html)
+    assert meta["og:url"] == "https://bc.luka-pejakovic.from.hr/en/"
+    assert meta["og:locale"] == "en_US"
+    assert meta["description"] == PAGE_TEXT["en"]["description"] == meta["og:description"]
+    assert re.fullmatch(r"https://bc\.luka-pejakovic\.from\.hr/static/images/og-image-en\.png\?v=\d+", meta["og:image"])
+    image = client.get(meta["og:image"].removeprefix("https://bc.luka-pejakovic.from.hr")).get_data()
+    assert png_size(image) == (1200, 630)
+    assert re.search(r'<link rel="manifest" href="/static/manifest-en\.json\?v=\d+">', html)
+
+
+@pytest.mark.parametrize("path, lang, other", [("/", "hr", "en"), ("/en/", "en", "hr")])
+def test_alternate_links_and_switch(client, path, lang, other):
+    html = client.get(path, headers=NGINX).get_data(as_text=True)
+    urls = {"hr": "https://bc.luka-pejakovic.from.hr/", "en": "https://bc.luka-pejakovic.from.hr/en/"}
+    assert f'<link rel="canonical" href="{urls[lang]}">' in html
+    for code, url in urls.items():
+        assert f'<link rel="alternate" hreflang="{code}" href="{url}">' in html
+    assert f'<link rel="alternate" hreflang="x-default" href="{urls["hr"]}">' in html
+    switch = re.search(r'<nav class="lang-switch"[^>]*>\s*<a href="([^"]+)" hreflang="([^"]+)" lang="([^"]+)">', html)
+    assert switch.groups() == (urls[other], other, other)
+
+
+def test_english_without_slash_redirects(client):
+    response = client.get("/en")
+    assert response.status_code == 308
+    assert response.headers["Location"].endswith("/en/")
+
+
+def test_english_manifest(client):
+    manifest = json.loads(client.get("/static/manifest-en.json").get_data())
+    assert (manifest["id"], manifest["start_url"], manifest["lang"]) == ("/en/", "/en/", "en")
+    croatian = json.loads(client.get("/static/manifest.json").get_data())
+    assert manifest["icons"] == croatian["icons"]
+    assert manifest["id"] != croatian["id"]  # installs as a separate app
+
+
+def test_service_worker_covers_both_languages(client):
+    sw = client.get("/sw.js").get_data(as_text=True)
+    precache = json.loads(re.search(r"const PRECACHE = (\[.*?\]);", sw).group(1))
+    pages = json.loads(re.search(r"const PAGES = (\[.*?\]);", sw).group(1))
+    assert pages == ["/", "/en/"]
+    for path in pages:
+        html = client.get(path).get_data(as_text=True)
+        assert set(re.findall(r'(?:href|src)="(/static/[^"]+)"', html)) <= set(precache), path
+    assert set(pages) <= set(precache)

@@ -53,6 +53,24 @@ body {
     border-radius: 16px;
     box-shadow: var(--shadow);
 }
+.lang-switch {
+    display: flex;
+    justify-content: flex-end;
+    margin: -8px -8px 0 0;
+}
+.lang-switch a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 8px;
+    font-size: .875rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+.lang-switch a:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
 h1 {
     margin: 0 0 20px;
     font-size: 1.75rem;

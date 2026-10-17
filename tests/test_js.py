@@ -333,3 +333,80 @@ def test_share_url_with_name(js):
     url = js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '08:30', 'Ana Marija')")
     assert url == "https://bc.example/?d=2026-09-01T08:30&n=Ana%20Marija"
     assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})")["name"] == "Ana Marija"
+
+
+# --- English texts
+
+def test_text_keys_match(js):
+    # Same keys (and nested keys) in both languages
+    shape = "(o) => Object.keys(o).sort().map(k => typeof o[k] === 'object' ? [k, Object.keys(o[k]).sort()] : k)"
+    assert call(js, f"({shape})(M.TEXT.hr)") == call(js, f"({shape})(M.TEXT.en)")
+
+
+@pytest.mark.parametrize("n, key, expected", [
+    (0, "day", "0 days"), (1, "day", "1 day"), (2, "day", "2 days"), (21, "day", "21 days"),
+    (1, "week", "1 week"), (11, "month", "11 months"), (1, "year", "1 year"), (59, "second", "59 seconds"),
+])
+def test_english_units(js, n, key, expected):
+    assert js.eval(f"M.unit({n}, '{key}', 'en')") == expected
+
+
+@pytest.mark.parametrize("parts, expected", [
+    ([[1, "year"], [7, "month"], [13, "day"]], "1 year, 7 months and 13 days"),
+    ([[84, "week"], [4, "day"]], "84 weeks and 4 days"),
+    ([[0, "week"], [0, "day"]], "0 days"),
+])
+def test_english_join(js, parts, expected):
+    assert js.eval(f"M.joinParts({json.dumps(parts)}, 'en')") == expected
+
+
+@pytest.mark.parametrize("days, expected", [(0, "today"), (1, "tomorrow"), (2, "in 2 days"), (21, "in 21 days")])
+def test_english_countdown(js, days, expected):
+    assert js.eval(f"M.countdown({days}, 'en')") == expected
+
+
+@pytest.mark.parametrize("days, expected", [(-1, "1 day ago"), (-3, "3 days ago"), (5, "in 5 days")])
+def test_english_due_countdown(js, days, expected):
+    assert js.eval(f"M.dueCountdown({days}, 'en')") == expected
+
+
+def test_english_birthday_ordinals(js):
+    birth = datetime(2000, 6, 15)
+    labels = {}
+    for years in [1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111, 112]:
+        now = datetime(2000 + years, 6, 15)
+        labels[years] = call(js, f"M.upcomingMilestones({ms(birth)}, {ms(now)}, 1, 'en')")[0]["label"]
+    assert labels == {1: "1st birthday", 2: "2nd birthday", 3: "3rd birthday", 4: "4th birthday", 11: "11th birthday",
+                      12: "12th birthday", 13: "13th birthday", 21: "21st birthday", 22: "22nd birthday",
+                      23: "23rd birthday", 101: "101st birthday", 111: "111th birthday", 112: "112th birthday"}
+
+
+def test_english_dates(js):
+    assert js.eval(f"M.formatDate({ms(datetime(2025, 3, 4))}, 'en')") == "4 Mar 2025"
+    assert js.eval(f"M.formatDate({ms(datetime(2026, 12, 25))}, 'en')") == "25 Dec 2026"
+    assert js.eval(f"M.formatBirth({ms(datetime(2025, 3, 4, 17, 5))}, true, 'en')") == "4 Mar 2025 at 17:05"
+    assert js.eval(f"M.formatBirth({ms(datetime(2025, 3, 4, 17, 5))}, true)") == "04.03.2025. u 17:05"
+
+
+def test_english_milestones(js):
+    result = call(js, f"M.upcomingMilestones({ms(datetime(2026, 9, 1, 8, 30))}, {ms(datetime(2026, 10, 17, 15, 30))}, 3, 'en')")
+    assert [m["label"] for m in result] == ["2 months", "3 months", "100 days"]
+    lmp = datetime(2026, 9, 1)
+    labels = [m["label"] for m in call(js, f"M.pregnancyMilestones({ms(lmp)}, {ms(datetime(2026, 9, 10))}, 5, 'en')")]
+    assert labels == ["Second trimester", "Halfway", "Third trimester", "Full term", "Due date"]
+
+
+def test_english_pregnancy_texts(js):
+    status = call(js, f"M.pregnancyStatus({ms(datetime(2026, 3, 1))}, {ms(datetime(2026, 10, 17))})")
+    assert js.eval(f"M.TEXT.en.pregnancyDetail({json.dumps(status)})") == "32+6 · week 33 · third trimester"
+    assert js.eval(f"M.TEXT.hr.pregnancyDetail({json.dumps(status)})") == "32+6 · 33. tjedan · 3. tromjesečje"
+    now = datetime(2026, 10, 17, 12)
+    assert call(js, f"M.pregnancyError('lmp', {ms(datetime(2026, 10, 18))}, {ms(now)}, 'en')") == \
+        "The first day of the last period can’t be in the future."
+    assert call(js, f"M.pregnancyError('due', {ms(datetime(2025, 12, 1))}, {ms(now)}, 'en')") == \
+        "The due date was more than two weeks ago. If the baby is born, choose “Baby is born”."
+
+
+def test_english_child_label_and_fallback(js):
+    assert js.eval("M.childLabel({name: ''}, 1, 'en')") == "Child 2"
+    assert js.eval("M.childLabel({name: ''}, 1, 'de')") == "Dijete 2"  # unknown language: Croatian

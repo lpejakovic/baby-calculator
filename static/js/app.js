@@ -11,13 +11,7 @@
     const DAY = 24 * 60 * 60 * 1000;
     const DAY_MILESTONES = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000];
     const PREGNANCY_DAYS = 280; // due date = first day of the last period + 280 days (Naegele's rule)
-    const PREGNANCY_MILESTONES = [
-        [14, '2. tromjesečje'],
-        [20, 'Polovica trudnoće'],
-        [28, '3. tromjesečje'],
-        [37, 'Donošena trudnoća'],
-        [40, 'Termin poroda'],
-    ];
+    const PREGNANCY_MILESTONES = [[14, 'second'], [20, 'half'], [28, 'third'], [37, 'term'], [40, 'due']];
 
     // Croatian forms: [1, 21, 31…], [2–4, 22–24…], [0, 5–20, 25–30…]
     const FORMS = {
@@ -38,16 +32,115 @@
         return forms[2];
     }
 
-    function unit(n, key) {
-        return `${n} ${plural(n, FORMS[key])}`;
+    const MONTH_NAMES_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const pad = (n) => String(n).padStart(2, '0');
+
+    function ordinalEn(n) {
+        const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+        return `${n}${suffix}`;
     }
 
-    // "a", "a i b", "a, b i c"; zero parts are left out unless all are zero
-    function joinParts(parts) {
+    // All texts shown by the script. Page texts are in i18n.py.
+    const TEXT = {
+        hr: {
+            word: (n, key) => plural(n, FORMS[key]),
+            and: 'i',
+            today: 'danas',
+            tomorrow: 'sutra',
+            inDays: (days) => `za ${days}`,
+            ago: (days) => `prije ${days}`,
+            birthday: (y) => `${y}. rođendan`,
+            pregnancyMilestone: {
+                second: '2. tromjesečje', half: 'Polovica trudnoće', third: '3. tromjesečje',
+                term: 'Donošena trudnoća', due: 'Termin poroda',
+            },
+            date: (d) => `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}.`,
+            at: 'u',
+            child: (n) => `Dijete ${n}`,
+            childAgeHeading: 'Dob djeteta',
+            born: 'Rođenje',
+            age: 'Dob',
+            or: 'odnosno',
+            pregnancy: 'Trudnoća',
+            dueDate: 'Termin',
+            pregnancyDetail: (s) => `${s.weeks}+${s.weekDays} · ${s.week}.\u00a0tjedan · ${s.trimester}.\u00a0tromjesečje`,
+            week: (n) => `${n}. tjedan`,
+            progress: (percent) => `${percent} % trudnoće`,
+            dateLabel: { lmp: 'Prvi dan zadnje menstruacije', due: 'Termin poroda' },
+            errors: {
+                birthMissing: 'Unesite datum rođenja.',
+                birthInvalid: 'Neispravan datum ili vrijeme rođenja.',
+                birthFuture: 'Datum rođenja ne može biti u budućnosti. Za trudnoću odaberite „Trudnoća”.',
+                dateMissing: 'Unesite datum.',
+                dateInvalid: 'Neispravan datum.',
+                lmpFuture: 'Datum zadnje menstruacije ne može biti u budućnosti.',
+                dueTooFar: 'Termin je predaleko u budućnosti (više od 40 tjedana).',
+                lmpTooOld: 'Zadnja menstruacija je prije više od 42 tjedna. Ako je beba rođena, odaberite „Beba je rođena”.',
+                duePassed: 'Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”.',
+            },
+            linkCopied: 'Poveznica je kopirana.',
+            textCopied: 'Tekst je kopiran.',
+            copyFailed: 'Kopiranje nije uspjelo.',
+            confirmRemove: (label) => `Ukloniti „${label}” s popisa?`,
+        },
+        en: {
+            word: (n, key) => (n === 1 ? key : `${key}s`),
+            and: 'and',
+            today: 'today',
+            tomorrow: 'tomorrow',
+            inDays: (days) => `in ${days}`,
+            ago: (days) => `${days} ago`,
+            birthday: (y) => `${ordinalEn(y)} birthday`,
+            pregnancyMilestone: {
+                second: 'Second trimester', half: 'Halfway', third: 'Third trimester',
+                term: 'Full term', due: 'Due date',
+            },
+            date: (d) => `${d.getUTCDate()} ${MONTH_NAMES_EN[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
+            at: 'at',
+            child: (n) => `Child ${n}`,
+            childAgeHeading: 'Child’s age',
+            born: 'Born',
+            age: 'Age',
+            or: 'or',
+            pregnancy: 'Pregnancy',
+            dueDate: 'Due date',
+            pregnancyDetail: (s) => `${s.weeks}+${s.weekDays} · week\u00a0${s.week} · ${['first', 'second', 'third'][s.trimester - 1]}\u00a0trimester`,
+            week: (n) => `week ${n}`,
+            progress: (percent) => `${percent}% of pregnancy`,
+            dateLabel: { lmp: 'First day of last period', due: 'Due date' },
+            errors: {
+                birthMissing: 'Enter the date of birth.',
+                birthInvalid: 'Invalid date or time of birth.',
+                birthFuture: 'The date of birth can’t be in the future. For a pregnancy, choose “Pregnancy”.',
+                dateMissing: 'Enter a date.',
+                dateInvalid: 'Invalid date.',
+                lmpFuture: 'The first day of the last period can’t be in the future.',
+                dueTooFar: 'The due date is too far in the future (more than 40 weeks).',
+                lmpTooOld: 'The last period was more than 42 weeks ago. If the baby is born, choose “Baby is born”.',
+                duePassed: 'The due date was more than two weeks ago. If the baby is born, choose “Baby is born”.',
+            },
+            linkCopied: 'Link copied.',
+            textCopied: 'Text copied.',
+            copyFailed: 'Copying failed.',
+            confirmRemove: (label) => `Remove “${label}” from the list?`,
+        },
+    };
+
+    // Unknown values (including the extra arguments Array.map passes) fall back to Croatian
+    function texts(lang) {
+        return lang === 'en' ? TEXT.en : TEXT.hr;
+    }
+
+    function unit(n, key, lang = 'hr') {
+        return `${n} ${texts(lang).word(n, key)}`;
+    }
+
+    // "a", "a i b", "a, b i c" ("a, b and c"); zero parts are left out unless all are zero
+    function joinParts(parts, lang = 'hr') {
         const shown = parts.filter(([n]) => n > 0);
-        const list = (shown.length ? shown : parts.slice(-1)).map(([n, key]) => unit(n, key));
+        const list = (shown.length ? shown : parts.slice(-1)).map(([n, key]) => unit(n, key, lang));
         if (list.length === 1) return list[0];
-        return `${list.slice(0, -1).join(', ')} i ${list[list.length - 1]}`;
+        return `${list.slice(0, -1).join(', ')} ${texts(lang).and} ${list[list.length - 1]}`;
     }
 
     // All math is done on wall-clock time stored as UTC milliseconds, so DST
@@ -108,15 +201,15 @@
 
     // Upcoming month birthdays (1–23 months), birthdays and day counts, nearest first.
     // Dates only: a milestone is "today" for the whole day.
-    function upcomingMilestones(birth, now, count = 3) {
+    function upcomingMilestones(birth, now, count = 3, lang = 'hr') {
         const birthDay = startOfDay(birth);
         const today = startOfDay(now);
-        const all = DAY_MILESTONES.map((n) => ({ date: birthDay + n * DAY, label: unit(n, 'day') }));
+        const all = DAY_MILESTONES.map((n) => ({ date: birthDay + n * DAY, label: unit(n, 'day', lang) }));
         for (let m = 1; m < 24; m++) {
-            if (m % 12) all.push({ date: addMonths(birthDay, m), label: unit(m, 'month') });
+            if (m % 12) all.push({ date: addMonths(birthDay, m), label: unit(m, 'month', lang) });
         }
         for (let y = 1; y <= 120; y++) {
-            all.push({ date: addMonths(birthDay, y * 12), label: `${y}. rođendan` });
+            all.push({ date: addMonths(birthDay, y * 12), label: texts(lang).birthday(y) });
         }
         return all
             .filter((m) => m.date >= today)
@@ -125,28 +218,25 @@
             .map((m) => ({ ...m, daysLeft: Math.round((m.date - today) / DAY) }));
     }
 
-    function countdown(daysLeft) {
-        if (daysLeft === 0) return 'danas';
-        if (daysLeft === 1) return 'sutra';
-        return `za ${unit(daysLeft, 'day')}`;
+    function countdown(daysLeft, lang = 'hr') {
+        const t = texts(lang);
+        if (daysLeft === 0) return t.today;
+        if (daysLeft === 1) return t.tomorrow;
+        return t.inDays(unit(daysLeft, 'day', lang));
     }
 
-    function formatDate(ms) {
-        const d = new Date(ms);
-        const pad = (n) => String(n).padStart(2, '0');
-        return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}.`;
+    function formatDate(ms, lang = 'hr') {
+        return texts(lang).date(new Date(ms));
     }
 
-    function formatBirth(ms, hasTime) {
+    function formatBirth(ms, hasTime, lang = 'hr') {
         const d = new Date(ms);
-        const pad = (n) => String(n).padStart(2, '0');
-        const date = formatDate(ms);
-        return hasTime ? `${date} u ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}` : date;
+        const date = formatDate(ms, lang);
+        return hasTime ? `${date} ${texts(lang).at} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}` : date;
     }
 
     function todayValue() {
         const d = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     }
 
@@ -176,33 +266,30 @@
     }
 
     // Error message, or null when the date makes sense for an ongoing pregnancy (up to 42 weeks)
-    function pregnancyError(basis, lmp, now) {
+    function pregnancyError(basis, lmp, now, lang = 'hr') {
+        const errors = texts(lang).errors;
         const days = Math.round((startOfDay(now) - lmp) / DAY);
         if (days < 0) {
-            return basis === 'lmp'
-                ? 'Datum zadnje menstruacije ne može biti u budućnosti.'
-                : 'Termin je predaleko u budućnosti (više od 40 tjedana).';
+            return basis === 'lmp' ? errors.lmpFuture : errors.dueTooFar;
         }
         if (days > 42 * 7) {
-            return basis === 'lmp'
-                ? 'Zadnja menstruacija je prije više od 42 tjedna. Ako je beba rođena, odaberite „Beba je rođena”.'
-                : 'Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”.';
+            return basis === 'lmp' ? errors.lmpTooOld : errors.duePassed;
         }
         return null;
     }
 
-    function pregnancyMilestones(lmp, now, count = 3) {
+    function pregnancyMilestones(lmp, now, count = 3, lang = 'hr') {
         const today = startOfDay(now);
         return PREGNANCY_MILESTONES
-            .map(([weeks, label]) => ({ date: lmp + weeks * 7 * DAY, label }))
+            .map(([weeks, key]) => ({ date: lmp + weeks * 7 * DAY, label: texts(lang).pregnancyMilestone[key] }))
             .filter((m) => m.date >= today)
             .slice(0, count)
             .map((m) => ({ ...m, daysLeft: Math.round((m.date - today) / DAY) }));
     }
 
-    function dueCountdown(daysToDue) {
-        if (daysToDue < 0) return `prije ${unit(-daysToDue, 'day')}`;
-        return countdown(daysToDue);
+    function dueCountdown(daysToDue, lang = 'hr') {
+        if (daysToDue < 0) return texts(lang).ago(unit(-daysToDue, 'day', lang));
+        return countdown(daysToDue, lang);
     }
 
     // ?t=YYYY-MM-DD (due date)
@@ -258,8 +345,8 @@
         return children.reduce((max, c) => Math.max(max, c.id), 0) + 1;
     }
 
-    function childLabel(child, index) {
-        return child.name || `Dijete ${index + 1}`;
+    function childLabel(child, index, lang = 'hr') {
+        return child.name || texts(lang).child(index + 1);
     }
 
     // A shared child selects an existing child with the same birth, otherwise it is added
@@ -313,6 +400,9 @@
 
     if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', function () {
         const $ = (id) => document.getElementById(id);
+        // The /en/ page has <html lang="en">
+        const lang = document.documentElement.lang === 'en' ? 'en' : 'hr';
+        const t = texts(lang);
         const modeInputs = document.querySelectorAll('input[name="mode"]');
         const basisInputs = document.querySelectorAll('input[name="basis"]');
         const form = $('birth-form');
@@ -380,7 +470,7 @@
                 input.value = String(child.id);
                 input.checked = child.id === activeId;
                 input.addEventListener('change', () => selectChild(child.id));
-                label.append(input, childLabel(child, index));
+                label.append(input, childLabel(child, index, lang));
                 return label;
             }));
         }
@@ -403,7 +493,7 @@
 
         function resultHeading() {
             const child = activeChild();
-            return child ? childLabel(child, children.indexOf(child)) : '';
+            return child ? childLabel(child, children.indexOf(child), lang) : '';
         }
 
         dateInput.max = todayValue();
@@ -444,8 +534,8 @@
                 when.className = 'milestone-when';
                 const time = document.createElement('time');
                 time.dateTime = isoDate(m.date);
-                time.textContent = formatDate(m.date);
-                when.append(time, ` · ${countdown(m.daysLeft)}`);
+                time.textContent = formatDate(m.date, lang);
+                when.append(time, ` · ${countdown(m.daysLeft, lang)}`);
                 li.append(label, when);
                 return li;
             }));
@@ -456,13 +546,13 @@
             // Milestones only change at midnight
             if (startOfDay(now) !== milestonesDay) {
                 milestonesDay = startOfDay(now);
-                renderMilestoneList(out.milestones, upcomingMilestones(birth, now));
+                renderMilestoneList(out.milestones, upcomingMilestones(birth, now, 3, lang));
             }
             const age = calculateAge(birth, now);
-            out.weeks.textContent = joinParts([[age.weeks, 'week'], [age.weekDays, 'day']]);
-            out.calendar.textContent = joinParts([[age.years, 'year'], [age.months, 'month'], [age.days, 'day']]);
+            out.weeks.textContent = joinParts([[age.weeks, 'week'], [age.weekDays, 'day']], lang);
+            out.calendar.textContent = joinParts([[age.years, 'year'], [age.months, 'month'], [age.days, 'day']], lang);
             out.total.textContent = joinParts([[age.totalDays, 'day'], [age.hours, 'hour'],
-                [age.minutes, 'minute'], [age.seconds, 'second']]);
+                [age.minutes, 'minute'], [age.seconds, 'second']], lang);
             return age;
         }
 
@@ -471,24 +561,22 @@
             if (startOfDay(now) === milestonesDay) return; // everything here changes once a day
             milestonesDay = startOfDay(now);
             const status = pregnancyStatus(lmp, now);
-            preg.duration.textContent = joinParts([[status.weeks, 'week'], [status.weekDays, 'day']]);
-            // Non-breaking spaces keep "3. tromjesečje" together when the line wraps
-            preg.detail.textContent = `${status.weeks}+${status.weekDays} · ${status.week}.\u00a0tjedan · ${status.trimester}.\u00a0tromjesečje`;
-            preg.due.textContent = formatDate(status.due);
+            preg.duration.textContent = joinParts([[status.weeks, 'week'], [status.weekDays, 'day']], lang);
+            // Non-breaking spaces keep "3. tromjesečje" / "third trimester" together when the line wraps
+            preg.detail.textContent = t.pregnancyDetail(status);
+            preg.due.textContent = formatDate(status.due, lang);
             preg.due.dateTime = isoDate(status.due);
-            preg.countdown.textContent = dueCountdown(status.daysToDue);
+            preg.countdown.textContent = dueCountdown(status.daysToDue, lang);
             preg.progress.value = status.progress;
-            preg.progressText.textContent = `${Math.round(status.progress / PREGNANCY_DAYS * 100)} % trudnoće`;
-            renderMilestoneList(preg.milestones, pregnancyMilestones(lmp, now));
+            preg.progressText.textContent = t.progress(Math.round(status.progress / PREGNANCY_DAYS * 100));
+            renderMilestoneList(preg.milestones, pregnancyMilestones(lmp, now, 3, lang));
         }
 
         function calculate() {
             const birth = parseBirth(dateInput.value, timeInput.value);
-            if (!dateInput.value) return showError('Unesite datum rođenja.');
-            if (birth === null) return showError('Neispravan datum ili vrijeme rođenja.');
-            if (birth > wallClockNow()) {
-                return showError('Datum rođenja ne može biti u budućnosti. Za trudnoću odaberite „Trudnoća”.');
-            }
+            if (!dateInput.value) return showError(t.errors.birthMissing);
+            if (birth === null) return showError(t.errors.birthInvalid);
+            if (birth > wallClockNow()) return showError(t.errors.birthFuture);
 
             const entry = { name: nameInput.value, date: dateInput.value, time: timeInput.value };
             if (activeChild()) {
@@ -500,16 +588,16 @@
             saveChildren();
             renderChildren();
             show(result);
-            out.bornAt.textContent = `Rođenje: ${formatBirth(birth, Boolean(timeInput.value))}`;
+            out.bornAt.textContent = `${t.born}: ${formatBirth(birth, Boolean(timeInput.value), lang)}`;
             // Named children get a visible heading; otherwise it stays for screen readers only
             const named = activeChild().name;
-            resultTitle.textContent = named || 'Dob djeteta';
+            resultTitle.textContent = named || t.childAgeHeading;
             resultTitle.classList.toggle('visually-hidden', !named);
 
             current = { mode: 'baby', birth };
             milestonesDay = null;
             render(birth);
-            announce.textContent = `${named ? `${named}: ` : 'Dob: '}${out.calendar.textContent}, odnosno ${out.weeks.textContent}.`;
+            announce.textContent = `${named || t.age}: ${out.calendar.textContent}, ${t.or} ${out.weeks.textContent}.`;
 
             clearInterval(timer);
             timer = setInterval(() => render(birth), 1000);
@@ -517,10 +605,10 @@
 
         function calculatePregnancy() {
             const date = parseBirth(pregnancyDate.value, '');
-            if (!pregnancyDate.value) return showError('Unesite datum.');
-            if (date === null) return showError('Neispravan datum.');
+            if (!pregnancyDate.value) return showError(t.errors.dateMissing);
+            if (date === null) return showError(t.errors.dateInvalid);
             const lmp = lmpFrom(basis(), date);
-            const problem = pregnancyError(basis(), lmp, wallClockNow());
+            const problem = pregnancyError(basis(), lmp, wallClockNow(), lang);
             if (problem) return showError(problem);
 
             store(PREGNANCY_KEY, { basis: basis(), date: pregnancyDate.value });
@@ -529,7 +617,7 @@
             current = { mode: 'pregnancy', lmp };
             milestonesDay = null;
             renderPregnancy(lmp);
-            announce.textContent = `Trudnoća: ${preg.duration.textContent}, termin ${preg.due.textContent}`;
+            announce.textContent = `${t.pregnancy}: ${preg.duration.textContent}, ${t.dueDate.toLowerCase()} ${preg.due.textContent}`;
 
             clearInterval(timer);
             timer = setInterval(() => renderPregnancy(lmp), 60 * 1000);
@@ -538,11 +626,11 @@
         function updateBasis() {
             const today = parseBirth(todayValue(), '');
             if (basis() === 'lmp') {
-                pregnancyDateLabel.textContent = 'Prvi dan zadnje menstruacije';
+                pregnancyDateLabel.textContent = t.dateLabel.lmp;
                 pregnancyDate.min = isoDate(today - 42 * 7 * DAY);
                 pregnancyDate.max = isoDate(today);
             } else {
-                pregnancyDateLabel.textContent = 'Termin poroda';
+                pregnancyDateLabel.textContent = t.dateLabel.due;
                 pregnancyDate.min = isoDate(today - 14 * DAY);
                 pregnancyDate.max = isoDate(today + PREGNANCY_DAYS * DAY);
             }
@@ -564,11 +652,12 @@
         function summary() {
             if (current && current.mode === 'pregnancy') {
                 const status = pregnancyStatus(current.lmp, wallClockNow());
-                return `Trudnoća: ${preg.duration.textContent} (${status.week}. tjedan). Termin: ${preg.due.textContent}`;
+                const due = preg.due.textContent;
+                return `${t.pregnancy}: ${preg.duration.textContent} (${t.week(status.week)}). ${t.dueDate}: ${due}${due.endsWith('.') ? '' : '.'}`;
             }
             const born = out.bornAt.textContent;
             const child = activeChild();
-            const prefix = child && child.name ? `${child.name}: ` : 'Dob: ';
+            const prefix = `${child && child.name ? child.name : t.age}: `;
             return `${prefix}${out.calendar.textContent} (${out.weeks.textContent}). ${born}${born.endsWith('.') ? '' : '.'}`;
         }
 
@@ -615,11 +704,11 @@
                     if (e.name === 'AbortError') return;
                 }
             }
-            showStatus(await copy(url) ? 'Poveznica je kopirana.' : 'Kopiranje nije uspjelo.');
+            showStatus(await copy(url) ? t.linkCopied : t.copyFailed);
         });
 
         copyButton.addEventListener('click', async function () {
-            showStatus(await copy(summary()) ? 'Tekst je kopiran.' : 'Kopiranje nije uspjelo.');
+            showStatus(await copy(summary()) ? t.textCopied : t.copyFailed);
         });
 
         form.addEventListener('submit', function (event) {
@@ -635,7 +724,7 @@
             renderChildren();
             if (!result.hidden) {
                 const named = activeChild().name;
-                resultTitle.textContent = named || 'Dob djeteta';
+                resultTitle.textContent = named || t.childAgeHeading;
                 resultTitle.classList.toggle('visually-hidden', !named);
             }
         });
@@ -646,7 +735,7 @@
         removeChildButton.addEventListener('click', function () {
             const child = activeChild();
             if (!child) return;
-            if (!confirm(`Ukloniti „${childLabel(child, children.indexOf(child))}” s popisa?`)) return;
+            if (!confirm(t.confirmRemove(childLabel(child, children.indexOf(child), lang)))) return;
             const next = removeChild(children, child.id);
             children = next.children;
             saveChildren();
@@ -733,6 +822,7 @@
             plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate,
             readSharedBirth, buildShareUrl, lmpFrom, pregnancyStatus, pregnancyError, pregnancyMilestones, dueCountdown,
             readSharedPregnancy, normalizeChildren, nextChildId, childLabel, addSharedChild, removeChild,
+            TEXT, unit, formatBirth,
         };
     }
 })();

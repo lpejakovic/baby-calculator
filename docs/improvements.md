@@ -1,9 +1,6 @@
 # Improvements
 
-_Review started 2026-10-17. Items are removed from this file as they are done; when it is empty, the review is complete._
+_Review started and completed on 2026-10-17. Every item from the review is done; see the version history in
+[project_digest.md](project_digest.md)._
 
-Each new feature should come with tests in `tests/` (see the README).
-
-## New features
-
-1. **Language:** HR/EN switch; the page title is still English.
+New ideas go here as a numbered list. Each new feature should come with tests in `tests/` (see the README).
