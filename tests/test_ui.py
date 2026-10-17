@@ -53,10 +53,12 @@ def open_page(browser, base_url):
     assert errors == []
 
 
-def calculate(page, date=BIRTH_DATE, time=BIRTH_TIME):
+def calculate(page, date=BIRTH_DATE, time=BIRTH_TIME, name=None):
+    if name is not None:
+        page.fill("#child-name", name)
     page.fill("#birth-date", date)
     page.fill("#birth-time", time)
-    page.click("button")
+    page.click("#birth-form button[type=submit]")
 
 
 def test_result_and_live_counter(open_page):
@@ -90,7 +92,8 @@ def test_opens_shared_link(browser, base_url):
     assert page.input_value("#birth-time") == "08:30"
     assert page.is_visible("#result")
     assert page.url == base_url  # parameter removed after loading
-    assert page.evaluate("localStorage.getItem('birth')") == '{"date":"2026-09-01","time":"08:30"}'
+    assert page.evaluate("JSON.parse(localStorage.getItem('children'))") == [
+        {"id": 1, "name": "", "date": "2026-09-01", "time": "08:30"}]
     context.close()
 
 
@@ -252,6 +255,112 @@ def test_pregnancy_layout(open_page, width):
     assert min(layout["targets"]) >= 44, layout["targets"]
 
 
+def chips(page):
+    return page.locator("#child-list .chip").all_text_contents()
+
+
+def active_chip(page):
+    return page.locator("#child-list .chip:has(input:checked)").text_content()
+
+
+def test_several_children(open_page):
+    page = open_page()
+    assert page.is_hidden("#children")
+    calculate(page, "2025-03-04", "17:45", name="Ana")
+    assert chips(page) == ["Ana"] and page.text_content("#result-title") == "Ana"
+    page.click("#add-child")
+    assert page.input_value("#child-name") == "" and page.input_value("#birth-date") == ""
+    assert page.is_hidden("#result") and page.is_hidden("#remove-child")
+    calculate(page, "2026-09-01", "08:30", name="Marko")
+    assert chips(page) == ["Ana", "Marko"] and active_chip(page) == "Marko"
+    marko_weeks = page.text_content("#age-weeks")
+
+    page.click("#child-list >> text=Ana")
+    assert page.input_value("#child-name") == "Ana" and page.input_value("#birth-date") == "2025-03-04"
+    assert page.text_content("#result-title") == "Ana"
+    assert page.text_content("#age-weeks") != marko_weeks
+
+    page.reload()  # the selected child is remembered
+    assert chips(page) == ["Ana", "Marko"] and active_chip(page) == "Ana"
+    assert page.is_visible("#result")
+
+
+def test_rename_and_unnamed_child(open_page):
+    page = open_page()
+    calculate(page)
+    assert chips(page) == ["Dijete 1"]
+    # No name: the heading is only for screen readers
+    assert "visually-hidden" in page.get_attribute("#result-title", "class")
+    page.fill("#child-name", "Iva")
+    assert chips(page) == ["Iva"] and page.text_content("#result-title") == "Iva"
+    assert "visually-hidden" not in page.get_attribute("#result-title", "class")
+
+
+def test_remove_child(open_page):
+    page = open_page()
+    page.on("dialog", lambda dialog: dialog.accept())
+    calculate(page, "2025-03-04", name="Ana")
+    page.click("#add-child")
+    calculate(page, "2026-09-01", name="Marko")
+    page.click("#remove-child")
+    assert chips(page) == ["Ana"] and page.input_value("#child-name") == "Ana"
+    page.click("#remove-child")
+    assert page.is_hidden("#children") and page.is_hidden("#result")
+    assert page.input_value("#birth-date") == ""
+    assert page.evaluate("localStorage.getItem('children')") == "[]"
+
+
+def test_remove_child_can_be_cancelled(open_page):
+    page = open_page()
+    page.on("dialog", lambda dialog: dialog.dismiss())
+    calculate(page, name="Ana")
+    page.click("#remove-child")
+    assert chips(page) == ["Ana"]
+
+
+def test_migrates_single_saved_birth(open_page):
+    page = open_page()
+    page.evaluate("localStorage.clear(); localStorage.setItem('birth', JSON.stringify({date: '2026-09-01', time: '08:30'}))")
+    page.reload()
+    assert chips(page) == ["Dijete 1"] and page.is_visible("#result")
+    assert page.input_value("#birth-time") == "08:30"
+    assert page.evaluate("localStorage.getItem('birth')") is None
+
+
+def test_shared_link_adds_child(open_page, base_url):
+    page = open_page()
+    calculate(page, "2025-03-04", name="Ana")
+    page.goto(base_url + "?d=2026-09-01T08:30&n=Marko")
+    assert chips(page) == ["Ana", "Marko"] and active_chip(page) == "Marko"
+    page.goto(base_url + "?d=2026-09-01T08:30&n=Marko")  # opening it again doesn't duplicate
+    assert chips(page) == ["Ana", "Marko"]
+
+
+def test_named_child_copy_and_share(open_page, base_url):
+    page = open_page(permissions=["clipboard-read", "clipboard-write"])
+    calculate(page, "2025-03-04", "", name="Ana Marija")
+    page.click("#copy-text")
+    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    copied = page.evaluate("navigator.clipboard.readText()")
+    assert re.fullmatch(r"Ana Marija: .+ \(.+\)\. Rođenje: 04\.03\.2025\.", copied), copied
+    page.evaluate("delete Navigator.prototype.share; delete navigator.share")
+    page.click("#share-link")
+    page.wait_for_function("document.getElementById('share-status').textContent === 'Poveznica je kopirana.'")
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "?d=2025-03-04&n=Ana%20Marija"
+
+
+@pytest.mark.parametrize("width", [320, 360, 1280])
+def test_children_layout(open_page, width):
+    page = open_page(viewport={"width": width, "height": 900})
+    for name in ["Ana", "Marko Antonio Petrović", "Iva", "Dijete s vrlo dugim imenom za test"]:
+        calculate(page, "2025-03-04", name=name)
+        page.click("#add-child")
+    overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    heights = page.evaluate("[...document.querySelectorAll('.chip')].map(c => Math.round(c.getBoundingClientRect().height))")
+    assert not overflow
+    assert len(heights) == 5 and min(heights) >= 44
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)
@@ -268,7 +377,9 @@ def test_migrates_legacy_cookie(open_page, base_url):
     assert page.input_value("#birth-date") == "2026-08-15"
     assert page.input_value("#birth-time") == "22:10"
     assert page.context.cookies() == []
-    assert page.evaluate("localStorage.getItem('birth')") == '{"date":"2026-08-15","time":"22:10"}'
+    assert page.evaluate("JSON.parse(localStorage.getItem('children'))") == [
+        {"id": 1, "name": "", "date": "2026-08-15", "time": "22:10"}]
+    assert page.evaluate("localStorage.getItem('birth')") is None
 
 
 def test_future_date_is_rejected(open_page):
@@ -304,8 +415,8 @@ def test_responsive_layout(open_page, width, height, columns, scheme):
         const box = document.querySelector('.container').getBoundingClientRect();
         return {
             overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-            top: box.top, left: box.left, right: innerWidth - box.right,
-            button: document.querySelector('button').getBoundingClientRect().height,
+            top: box.top + scrollY, left: box.left, right: innerWidth - box.right,  // top in page coordinates
+            button: document.querySelector('#birth-form button[type=submit]').getBoundingClientRect().height,
             actions: [...document.querySelectorAll('.actions button')].map(b => b.getBoundingClientRect().height),
             // Visible text/date inputs, and the labels that act as radio buttons
             inputs: [...document.querySelectorAll('input:not([type=radio]), .mode-switch label, .basis label')]

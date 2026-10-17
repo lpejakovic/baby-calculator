@@ -162,10 +162,14 @@ def test_countdown(js, days, expected):
 
 
 @pytest.mark.parametrize("search, expected", [
-    ("?d=2026-09-01", {"date": "2026-09-01", "time": ""}),
-    ("?d=2026-09-01T08:30", {"date": "2026-09-01", "time": "08:30"}),
-    ("?d=2026-09-01T08%3A30", {"date": "2026-09-01", "time": "08:30"}),
-    ("?x=1&d=2026-09-01&y=2", {"date": "2026-09-01", "time": ""}),
+    ("?d=2026-09-01", {"date": "2026-09-01", "time": "", "name": ""}),
+    ("?d=2026-09-01T08:30", {"date": "2026-09-01", "time": "08:30", "name": ""}),
+    ("?d=2026-09-01T08%3A30", {"date": "2026-09-01", "time": "08:30", "name": ""}),
+    ("?x=1&d=2026-09-01&y=2", {"date": "2026-09-01", "time": "", "name": ""}),
+    ("?d=2026-09-01&n=Ana", {"date": "2026-09-01", "time": "", "name": "Ana"}),
+    ("?d=2026-09-01&n=Ana+Marija", {"date": "2026-09-01", "time": "", "name": "Ana Marija"}),
+    ("?d=2026-09-01&n=%C4%8Ce%C5%A1%C4%87i%C4%87", {"date": "2026-09-01", "time": "", "name": "Češćić"}),
+    ("?d=2026-09-01&n=%E0%A4%A", {"date": "2026-09-01", "time": "", "name": ""}),  # malformed escape
     ("?d=2026-02-30", None),
     ("?d=2026-09-01T25:00", None),
     ("?d=", None),
@@ -183,7 +187,7 @@ def test_build_share_url(js):
 
 def test_share_url_round_trip(js):
     url = js.eval("M.buildShareUrl('https://bc.example/', '2024-02-29', '23:59')")
-    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})") == {"date": "2024-02-29", "time": "23:59"}
+    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})") == {"date": "2024-02-29", "time": "23:59", "name": ""}
 
 
 # --- Pregnancy mode
@@ -264,3 +268,68 @@ def test_due_countdown(js, days, expected):
 ])
 def test_read_shared_pregnancy(js, search, expected):
     assert call(js, f"M.readSharedPregnancy({json.dumps(search)})") == expected
+
+
+# --- Several children
+
+def child(id, date="2026-09-01", time="", name=""):
+    return {"id": id, "name": name, "date": date, "time": time}
+
+
+def test_normalize_children_migrates_single_birth(js):
+    legacy = {"date": "2026-09-01", "time": "08:30"}
+    assert call(js, f"M.normalizeChildren(null, {json.dumps(legacy)})") == [child(1, time="08:30")]
+    # Existing children win over the old single entry
+    stored = [child(4, "2025-01-01", name="Ana")]
+    assert call(js, f"M.normalizeChildren({json.dumps(stored)}, {json.dumps(legacy)})") == stored
+    assert call(js, "M.normalizeChildren(null, null)") == []
+
+
+def test_normalize_children_cleans_storage(js):
+    stored = [
+        {"id": 2, "name": "  Ana  ", "date": "2026-09-01"},   # no time, name with spaces
+        {"id": 2, "name": "Marko", "date": "2025-01-01", "time": "10:00"},  # duplicate id
+        {"id": 3, "name": "Bad", "date": "2026-02-30"},       # invalid date: dropped
+        "junk",
+        {"id": 5, "name": "x" * 60, "date": "2024-01-01"},
+    ]
+    assert call(js, f"M.normalizeChildren({json.dumps(stored)}, null)") == [
+        child(1, name="Ana"), child(2, "2025-01-01", "10:00", "Marko"), child(3, "2024-01-01", name="x" * 40)]
+
+
+def test_child_ids_and_labels(js):
+    children = [child(1, name="Ana"), child(7)]
+    assert js.eval(f"M.nextChildId({json.dumps(children)})") == 8
+    assert js.eval("M.nextChildId([])") == 1
+    assert call(js, f"{json.dumps(children)}.map(M.childLabel)") == ["Ana", "Dijete 2"]
+
+
+def test_add_shared_child(js):
+    children = [child(1, "2025-01-01", name="Ana"), child(2, "2026-09-01", "08:30")]
+    # New birth: added with the next id and selected
+    added = call(js, f"M.addSharedChild({json.dumps(children)}, {json.dumps({'date': '2024-05-05', 'time': '', 'name': 'Iva'})})")
+    assert added == {"children": children + [child(3, "2024-05-05", name="Iva")], "activeId": 3}
+    # Same birth: selected, not duplicated; an unnamed child takes the shared name
+    same = call(js, f"M.addSharedChild({json.dumps(children)}, {json.dumps({'date': '2026-09-01', 'time': '08:30', 'name': 'Marko'})})")
+    assert same == {"children": [children[0], child(2, "2026-09-01", "08:30", "Marko")], "activeId": 2}
+    # A named child keeps its name
+    kept = call(js, f"M.addSharedChild({json.dumps(children)}, {json.dumps({'date': '2025-01-01', 'time': '', 'name': 'Other'})})")
+    assert kept == {"children": children, "activeId": 1}
+
+
+@pytest.mark.parametrize("remove, expected_ids, active", [(2, [1, 3], 3), (3, [1, 2], 2), (1, [2, 3], 2)])
+def test_remove_child(js, remove, expected_ids, active):
+    children = [child(1), child(2), child(3)]
+    result = call(js, f"M.removeChild({json.dumps(children)}, {remove})")
+    assert [c["id"] for c in result["children"]] == expected_ids
+    assert result["activeId"] == active
+
+
+def test_remove_last_child(js):
+    assert call(js, f"M.removeChild({json.dumps([child(1)])}, 1)") == {"children": [], "activeId": None}
+
+
+def test_share_url_with_name(js):
+    url = js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '08:30', 'Ana Marija')")
+    assert url == "https://bc.example/?d=2026-09-01T08:30&n=Ana%20Marija"
+    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})")["name"] == "Ana Marija"

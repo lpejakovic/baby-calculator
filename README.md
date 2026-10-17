@@ -13,7 +13,7 @@ A **pregnancy mode** ("Trudnoća") works from the due date or the first day of t
 the pregnancy as weeks + days (`32+6 · 33. tjedan · 3. tromjesečje`), the due date with a countdown and progress bar,
 and upcoming pregnancy milestones (14, 20, 28, 37 and 40 weeks).
 
-The UI is in Croatian. Current version: **v2.5**.
+The UI is in Croatian. Current version: **v2.6**.
 
 ## Features
 
@@ -25,11 +25,13 @@ The UI is in Croatian. Current version: **v2.5**.
 - Installable app (PWA) that works offline: manifest, service worker, and an "Instaliraj aplikaciju" button
   where the browser supports it
 - Link preview (Open Graph): title, description and a 1200×630 image for Viber, WhatsApp, Facebook and others
-- Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` opens the page with that birth date, `?t=2026-12-10` opens
+- Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` (optionally `&n=Ana`) adds that child next to the visitor's own
+  children (or selects it if it's already there), `?t=2026-12-10` opens
   pregnancy mode with that due date. "Podijeli" opens the phone's
   share sheet (or copies the link), and "Kopiraj tekst" copies a one-line summary
-- The last entered birth date is kept in `localStorage` and the result is shown straight away on the next visit
-  (a v1.x cookie is moved over automatically)
+- Several children: optional names, a chip per child to switch between them, "+ Dodaj dijete" and "Ukloni dijete"
+- The children are kept in `localStorage` and the result is shown straight away on the next visit
+  (a v2.x single saved date and a v1.x cookie are moved over automatically)
 - Responsive layout (phone to desktop), dark mode, WCAG AA contrast, keyboard focus styles, screen-reader announcements
 - No external scripts or libraries
 - Optional JSON API (`POST /calculate`), rate limited via Flask-Limiter (`1/second; 8/minute; 32/hour` per IP); the page itself is not limited
@@ -78,6 +80,7 @@ python app.py            # development server at http://127.0.0.1:5000 (debug=Tr
 ## Tests
 
 ```bash
+python3 -m venv .venv && source .venv/bin/activate   # .venv/ is git-ignored
 pip install -r requirements-dev.txt
 python -m playwright install --only-shell chromium   # once, for the browser tests
 pytest                                               # all tests
@@ -88,8 +91,8 @@ pytest -m "not ui"                                   # without the browser tests
 - `tests/test_api.py`: page, link preview, manifest and icons, service worker, and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
 - `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
   plus month ends, leap years and DST; milestones against a `relativedelta` reference on 500 random dates;
-  share links; pregnancy weeks, trimesters, due date, limits and milestones; plurals, date parsing and text joining
-- `tests/test_ui.py`: headless Chromium: live counter, milestones, pregnancy mode, share link and copy buttons, offline use,
+  share links; saved children (migration, cleaning, adding shared, removing); pregnancy weeks, trimesters, due date, limits and milestones; plurals, date parsing and text joining
+- `tests/test_ui.py`: headless Chromium: live counter, milestones, several children, pregnancy mode, share link and copy buttons, offline use,
   install button, saved date, cookie migration, future dates, visitor time zone,
   and layout at 320–1280 px in light and dark mode (no sideways scrolling, 16 px edges, 44 px touch targets)
 

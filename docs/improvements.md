@@ -6,5 +6,4 @@ Each new feature should come with tests in `tests/` (see the README).
 
 ## New features
 
-1. **Several children:** save names and dates in `localStorage` and switch between them.
-2. **Language:** HR/EN switch; the page title is still English.
+1. **Language:** HR/EN switch; the page title is still English.

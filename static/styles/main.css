@@ -133,6 +133,82 @@ h1 {
     color: var(--primary);
     font-weight: 600;
 }
+.children {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+.children legend {
+    margin-bottom: 4px;
+    padding: 0;
+    font-weight: 600;
+}
+.chips,
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: normal;
+    color: var(--text);
+    background: transparent;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+.chip input {
+    /* Hidden but still focusable and announced as radio buttons */
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+.chip:has(input:checked) {
+    border-color: var(--primary);
+    color: var(--on-primary);
+    background: var(--primary);
+    font-weight: 600;
+}
+.chip:has(input:focus-visible) {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
+.chip-add {
+    border-style: dashed;
+    color: var(--primary);
+}
+.chip-add:hover {
+    color: var(--primary);
+    background: var(--surface-accent);
+}
+.button-link {
+    align-self: center;
+    min-height: 44px;
+    padding: 8px 16px;
+    font-weight: normal;
+    color: var(--muted);
+    background: transparent;
+    text-decoration: underline;
+}
+.button-link:hover {
+    color: var(--error);
+    background: transparent;
+}
+.result-title {
+    margin: 0 0 12px;
+    font-size: 1.25rem;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
 form {
     display: flex;
     flex-direction: column;

@@ -1,7 +1,10 @@
 (function () {
     'use strict';
 
-    const STORAGE_KEY = 'birth';
+    const STORAGE_KEY = 'birth'; // v2.0–2.5: a single child; moved into CHILDREN_KEY on first load
+    const CHILDREN_KEY = 'children';
+    const ACTIVE_CHILD_KEY = 'activeChild';
+    const NAME_MAX = 40;
     const MODE_KEY = 'mode';
     const PREGNANCY_KEY = 'pregnancy';
     const LEGACY_COOKIE = 'datetime';
@@ -210,38 +213,88 @@
         return parseBirth(date, '') === null ? null : { basis: 'due', date };
     }
 
-    // ?d=YYYY-MM-DD or ?d=YYYY-MM-DDTHH:MM
+    // ?d=YYYY-MM-DD or ?d=YYYY-MM-DDTHH:MM, optionally &n=<name>
     function readSharedBirth(search) {
         const match = /[?&]d=([^&#]*)/.exec(search || '');
         if (!match) return null;
         const [date, time = ''] = decodeURIComponent(match[1]).split('T');
-        return parseBirth(date, time) === null ? null : { date, time };
-    }
-
-    function buildShareUrl(base, date, time) {
-        return `${base}?d=${date}${time ? `T${time}` : ''}`;
-    }
-
-    function load() {
+        if (parseBirth(date, time) === null) return null;
+        const nameMatch = /[?&]n=([^&#]*)/.exec(search);
+        let name = '';
         try {
-            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-            if (saved && saved.date) return saved;
-        } catch (e) { /* storage unavailable */ }
+            name = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, ' ')).trim().slice(0, NAME_MAX) : '';
+        } catch (e) { /* malformed escape: ignore the name */ }
+        return { date, time, name };
+    }
 
-        // v1.x kept "YYYY-MM-DDTHH:MM" in a cookie; move it to localStorage once
+    function buildShareUrl(base, date, time, name = '') {
+        const n = name ? `&n=${encodeURIComponent(name)}` : '';
+        return `${base}?d=${date}${time ? `T${time}` : ''}${n}`;
+    }
+
+    // --- Several children: [{ id, name, date, time }] ---
+
+    function cleanChild(child) {
+        return {
+            id: child.id,
+            name: String(child.name || '').trim().slice(0, NAME_MAX),
+            date: child.date,
+            time: child.time || '',
+        };
+    }
+
+    // Valid children from storage; a v2.x single saved birth becomes the first child
+    function normalizeChildren(stored, legacyBirth) {
+        const valid = (c) => c && typeof c.date === 'string' && parseBirth(c.date, c.time || '') !== null;
+        let list = Array.isArray(stored) ? stored.filter(valid) : [];
+        if (!list.length && valid(legacyBirth)) list = [{ name: '', ...legacyBirth }];
+        // Ids must be unique positive integers; renumber if storage was edited by hand
+        const ids = list.map((c) => c.id);
+        const ok = ids.every((id) => Number.isInteger(id) && id > 0) && new Set(ids).size === ids.length;
+        return list.map((c, i) => cleanChild({ ...c, id: ok ? c.id : i + 1 }));
+    }
+
+    function nextChildId(children) {
+        return children.reduce((max, c) => Math.max(max, c.id), 0) + 1;
+    }
+
+    function childLabel(child, index) {
+        return child.name || `Dijete ${index + 1}`;
+    }
+
+    // A shared child selects an existing child with the same birth, otherwise it is added
+    function addSharedChild(children, shared) {
+        const same = children.find((c) => c.date === shared.date && c.time === (shared.time || ''));
+        if (same) {
+            const updated = children.map((c) => (c === same && !c.name && shared.name ? { ...c, name: shared.name } : c));
+            return { children: updated.map(cleanChild), activeId: same.id };
+        }
+        const child = cleanChild({ id: nextChildId(children), ...shared });
+        return { children: [...children, child], activeId: child.id };
+    }
+
+    function removeChild(children, id) {
+        const index = children.findIndex((c) => c.id === id);
+        const rest = children.filter((c) => c.id !== id);
+        const next = rest[Math.min(Math.max(index, 0), rest.length - 1)];
+        return { children: rest, activeId: next ? next.id : null };
+    }
+
+    // Children from storage; migrates the v2.x single 'birth' entry and the v1.x cookie
+    function loadChildren() {
+        let legacy = restore(STORAGE_KEY);
         const match = document.cookie.match(new RegExp(`(?:^|; )${LEGACY_COOKIE}=([^;]*)`));
         if (match) {
             document.cookie = `${LEGACY_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
             const [date, time] = decodeURIComponent(match[1]).split('T');
-            const saved = { date, time: time || '' };
-            save(saved);
-            return saved;
+            legacy = legacy || { date, time: time || '' };
         }
-        return null;
-    }
-
-    function save(value) {
-        store(STORAGE_KEY, value);
+        const children = normalizeChildren(restore(CHILDREN_KEY), legacy);
+        store(CHILDREN_KEY, children);
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+        } catch (e) { /* storage unavailable */ }
+        return children;
     }
 
     function store(key, value) {
@@ -265,6 +318,12 @@
         const form = $('birth-form');
         const dateInput = $('birth-date');
         const timeInput = $('birth-time');
+        const nameInput = $('child-name');
+        const childrenBox = $('children');
+        const childList = $('child-list');
+        const addChildButton = $('add-child');
+        const removeChildButton = $('remove-child');
+        const resultTitle = $('result-title');
         const pregnancyForm = $('pregnancy-form');
         const pregnancyDate = $('pregnancy-date');
         const pregnancyDateLabel = $('pregnancy-date-label');
@@ -297,6 +356,55 @@
         let milestonesDay = null;
         let mode = 'baby';
         let current = null; // what is shown: { mode: 'baby', birth } or { mode: 'pregnancy', lmp }
+        let children = [];
+        let activeId = null; // null: a new child is being entered
+
+        function activeChild() {
+            return children.find((c) => c.id === activeId) || null;
+        }
+
+        function saveChildren() {
+            store(CHILDREN_KEY, children);
+            store(ACTIVE_CHILD_KEY, activeId);
+        }
+
+        function renderChildren() {
+            childrenBox.hidden = children.length === 0;
+            removeChildButton.hidden = activeChild() === null;
+            childList.replaceChildren(...children.map((child, index) => {
+                const label = document.createElement('label');
+                label.className = 'chip';
+                const input = document.createElement('input');
+                input.type = 'radio';
+                input.name = 'child';
+                input.value = String(child.id);
+                input.checked = child.id === activeId;
+                input.addEventListener('change', () => selectChild(child.id));
+                label.append(input, childLabel(child, index));
+                return label;
+            }));
+        }
+
+        function selectChild(id) {
+            activeId = id;
+            const child = activeChild();
+            store(ACTIVE_CHILD_KEY, activeId);
+            nameInput.value = child ? child.name : '';
+            dateInput.value = child ? child.date : '';
+            timeInput.value = child ? child.time : '';
+            renderChildren();
+            if (child) {
+                calculate();
+            } else {
+                error.hidden = true;
+                hideResults();
+            }
+        }
+
+        function resultHeading() {
+            const child = activeChild();
+            return child ? childLabel(child, children.indexOf(child)) : '';
+        }
 
         dateInput.max = todayValue();
 
@@ -382,14 +490,26 @@
                 return showError('Datum rođenja ne može biti u budućnosti. Za trudnoću odaberite „Trudnoća”.');
             }
 
-            save({ date: dateInput.value, time: timeInput.value });
+            const entry = { name: nameInput.value, date: dateInput.value, time: timeInput.value };
+            if (activeChild()) {
+                children = children.map((c) => (c.id === activeId ? cleanChild({ ...c, ...entry }) : c));
+            } else {
+                activeId = nextChildId(children);
+                children = [...children, cleanChild({ id: activeId, ...entry })];
+            }
+            saveChildren();
+            renderChildren();
             show(result);
             out.bornAt.textContent = `Rođenje: ${formatBirth(birth, Boolean(timeInput.value))}`;
+            // Named children get a visible heading; otherwise it stays for screen readers only
+            const named = activeChild().name;
+            resultTitle.textContent = named || 'Dob djeteta';
+            resultTitle.classList.toggle('visually-hidden', !named);
 
             current = { mode: 'baby', birth };
             milestonesDay = null;
             render(birth);
-            announce.textContent = `Dob: ${out.calendar.textContent}, odnosno ${out.weeks.textContent}.`;
+            announce.textContent = `${named ? `${named}: ` : 'Dob: '}${out.calendar.textContent}, odnosno ${out.weeks.textContent}.`;
 
             clearInterval(timer);
             timer = setInterval(() => render(birth), 1000);
@@ -447,7 +567,9 @@
                 return `Trudnoća: ${preg.duration.textContent} (${status.week}. tjedan). Termin: ${preg.due.textContent}`;
             }
             const born = out.bornAt.textContent;
-            return `Dob: ${out.calendar.textContent} (${out.weeks.textContent}). ${born}${born.endsWith('.') ? '' : '.'}`;
+            const child = activeChild();
+            const prefix = child && child.name ? `${child.name}: ` : 'Dob: ';
+            return `${prefix}${out.calendar.textContent} (${out.weeks.textContent}). ${born}${born.endsWith('.') ? '' : '.'}`;
         }
 
         function shareUrl() {
@@ -455,7 +577,8 @@
             if (current && current.mode === 'pregnancy') {
                 return `${base}?t=${isoDate(current.lmp + PREGNANCY_DAYS * DAY)}`;
             }
-            return buildShareUrl(base, dateInput.value, timeInput.value);
+            const child = activeChild();
+            return buildShareUrl(base, dateInput.value, timeInput.value, child ? child.name : '');
         }
 
         function showStatus(message) {
@@ -504,6 +627,31 @@
             calculate();
         });
         dateInput.addEventListener('change', () => dateInput.value && calculate());
+        nameInput.addEventListener('input', function () {
+            const child = activeChild();
+            if (!child) return; // a new child gets its name when it is calculated
+            children = children.map((c) => (c.id === activeId ? cleanChild({ ...c, name: nameInput.value }) : c));
+            saveChildren();
+            renderChildren();
+            if (!result.hidden) {
+                const named = activeChild().name;
+                resultTitle.textContent = named || 'Dob djeteta';
+                resultTitle.classList.toggle('visually-hidden', !named);
+            }
+        });
+        addChildButton.addEventListener('click', function () {
+            selectChild(null);
+            nameInput.focus();
+        });
+        removeChildButton.addEventListener('click', function () {
+            const child = activeChild();
+            if (!child) return;
+            if (!confirm(`Ukloniti „${childLabel(child, children.indexOf(child))}” s popisa?`)) return;
+            const next = removeChild(children, child.id);
+            children = next.children;
+            saveChildren();
+            selectChild(next.activeId);
+        });
         timeInput.addEventListener('change', () => dateInput.value && calculate());
 
         pregnancyForm.addEventListener('submit', function (event) {
@@ -523,10 +671,15 @@
         modeInputs.forEach((input) => input.addEventListener('change', () => setMode(input.value)));
 
         // Shared links are saved like normal entries, so they aren't needed after this
+        children = loadChildren();
+        const savedActive = restore(ACTIVE_CHILD_KEY);
+        activeId = children.some((c) => c.id === savedActive) ? savedActive : (children[0] ? children[0].id : null);
         const sharedBirth = readSharedBirth(location.search);
         const sharedPregnancy = readSharedPregnancy(location.search);
         if (sharedBirth) {
-            save(sharedBirth);
+            // Added next to the visitor's own children (or selected if already there), never overwriting them
+            ({ children, activeId } = addSharedChild(children, sharedBirth));
+            saveChildren();
             store(MODE_KEY, 'baby');
         } else if (sharedPregnancy) {
             store(PREGNANCY_KEY, sharedPregnancy);
@@ -557,11 +710,14 @@
         });
         window.addEventListener('appinstalled', () => { installButton.hidden = true; });
 
-        const saved = load();
-        if (saved) {
-            dateInput.value = saved.date;
-            timeInput.value = saved.time || '';
+        const child = activeChild();
+        if (child) {
+            nameInput.value = child.name;
+            dateInput.value = child.date;
+            timeInput.value = child.time;
         }
+        store(ACTIVE_CHILD_KEY, activeId);
+        renderChildren();
         const savedPregnancy = restore(PREGNANCY_KEY);
         if (savedPregnancy && savedPregnancy.date) {
             basisInputs.forEach((input) => { input.checked = input.value === savedPregnancy.basis; });
@@ -576,7 +732,7 @@
         module.exports = {
             plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate,
             readSharedBirth, buildShareUrl, lmpFrom, pregnancyStatus, pregnancyError, pregnancyMilestones, dueCountdown,
-            readSharedPregnancy,
+            readSharedPregnancy, normalizeChildren, nextChildId, childLabel, addSharedChild, removeChild,
         };
     }
 })();

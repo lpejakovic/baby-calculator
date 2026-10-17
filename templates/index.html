@@ -36,6 +36,18 @@
         </fieldset>
 
         <form id="birth-form">
+            <fieldset class="children" id="children" hidden>
+                <legend>Dijete</legend>
+                <div class="chips">
+                    <div class="chip-list" id="child-list"></div>
+                    <button type="button" class="chip chip-add" id="add-child">+ Dodaj dijete</button>
+                </div>
+            </fieldset>
+            <div class="field">
+                <label for="child-name">Ime djeteta</label>
+                <input type="text" id="child-name" name="name" maxlength="40" autocomplete="off" aria-describedby="name-hint">
+                <small id="name-hint" class="hint">Nije obavezno</small>
+            </div>
             <div class="fields">
                 <div class="field">
                     <label for="birth-date">Datum rođenja</label>
@@ -48,6 +60,7 @@
                 </div>
             </div>
             <button type="submit">Izračunaj dob</button>
+            <button type="button" class="button-link" id="remove-child" hidden>Ukloni dijete</button>
         </form>
 
         <form id="pregnancy-form" hidden>
@@ -66,7 +79,7 @@
         <p id="error" class="error-text" role="alert" hidden></p>
 
         <section id="result" aria-labelledby="result-title" hidden>
-            <h2 id="result-title" class="visually-hidden">Dob djeteta</h2>
+            <h2 id="result-title" class="result-title visually-hidden">Dob djeteta</h2>
             <div class="cards">
                 <div class="card card-primary">
                     <p class="card-label">Tjedni</p>

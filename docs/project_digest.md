@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 165 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 188 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -38,7 +38,7 @@ Dependencies are pinned in `requirements.txt`.
 | `templates/index.html`   | Form, result cards, meta and Open Graph tags (absolute `og:image` via `_external=True`) |
 | `templates/sw.js`        | Service worker template: precache list and cache name come from the current versioned asset URLs |
 | `static/manifest.json`   | Web app manifest (standalone, icons 192/512/maskable) |
-| `static/js/app.js`       | Date parsing, `calculateAge()`, `upcomingMilestones()`, pregnancy functions, share links, Croatian plurals, live counter, `localStorage` |
+| `static/js/app.js`       | Date parsing, `calculateAge()`, `upcomingMilestones()`, children, pregnancy functions, share links, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
 | `static/favicon.ico`     | Favicon, 16 and 32 px (3.9 KB) |
 | `static/apple-touch-icon.png` | Home-screen icon, 180 px |
@@ -49,9 +49,12 @@ Dependencies are pinned in `requirements.txt`.
 ## Page flow
 
 1. `GET /` renders `index.html` with `APP_VERSION`. `app.js` loads with `defer`.
-2. On load, a valid `?d=YYYY-MM-DD[THH:MM]` share parameter is saved like a normal entry and removed from the address bar.
-   The script then reads the saved birth date from `localStorage` (or moves a v1.x `datetime` cookie there)
-   and, if one exists, fills the inputs and calculates straight away.
+2. On load, the script reads the children from `localStorage` (`children`: `[{id, name, date, time}]`, `activeChild`).
+   `normalizeChildren()` drops invalid entries and renumbers duplicate ids; a v2.x single `birth` entry or a v1.x
+   `datetime` cookie becomes the first child and the old key is removed. A valid `?d=YYYY-MM-DD[THH:MM][&n=name]`
+   link is added with `addSharedChild()` (or selects a child with the same birth) and removed from the address bar.
+   The selected child is filled in and calculated straight away. Chips switch children; "+ Dodaj dijete" clears the
+   form and the next calculation creates a child; "Ukloni dijete" asks for confirmation and selects a neighbour.
 3. On submit or when an input changes, the script validates the date (required, real calendar date, not in the future),
    saves it and renders three cards. A 1-second timer re-renders them, so the total ticks live.
 4. All date math uses wall-clock time stored as UTC milliseconds, so it uses the visitor's time zone and isn't shifted by DST.
@@ -119,6 +122,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.3**: link preview image |
 | 2026-10-17 | **v2.4**: installable app (PWA), works offline |
 | 2026-10-17 | **v2.5**: pregnancy mode |
+| 2026-10-17 | **v2.6**: several children |
 
 ## Observations and issues
 
@@ -137,7 +141,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 165 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 188 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps
