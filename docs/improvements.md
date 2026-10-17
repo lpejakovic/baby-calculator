@@ -10,20 +10,18 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## Plan
 
-1. **Workflow:** restart without a password, Dependabot, uptime check.
+1. **Workflow:** Dependabot, uptime check.
 2. **Features:** corrected age for premature babies, backup and restore, calendar export.
 3. **Then:** linting and accessibility audit in CI, API improvements, split `app.js`.
 
 ## 1. Workflow and operations
 
-1. **Restart without a password:** a sudoers rule allowing only `systemctl restart baby-calculator`, or a `deploy.sh`
-   that restarts and checks the site.
-2. **Separate editing from the live site:** this folder is both the working copy and what the site runs. Work in a
+1. **Separate editing from the live site:** this folder is both the working copy and what the site runs. Work in a
    separate checkout or branch and deploy only after CI passes.
-3. **Dependabot** for pip packages and GitHub Actions.
-4. **Uptime check:** a `/health` endpoint and a scheduled check.
-5. **Linting:** `ruff` for Python and a JavaScript linter, in CI.
-6. **Accessibility audit in CI:** run axe-core in the browser tests.
+2. **Dependabot** for pip packages and GitHub Actions.
+3. **Uptime check:** a `/health` endpoint and a scheduled check.
+4. **Linting:** `ruff` for Python and a JavaScript linter, in CI.
+5. **Accessibility audit in CI:** run axe-core in the browser tests.
 
 ## 2. Small site fixes
 

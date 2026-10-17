@@ -67,6 +67,7 @@ scripts/make_og_image.py     Regenerates the preview images (needs Pillow and De
 docs/project_digest.md       Project digest / technical overview
 docs/improvements.md         Improvement list (the 2026-10-17 review is complete)
 deploy/                      systemd unit and nginx site config
+setup-sudoers.sh             Allows `sudo systemctl restart baby-calculator` without a password
 .github/workflows/tests.yml  CI
 ```
 
@@ -157,7 +158,8 @@ sudo systemctl daemon-reload && sudo systemctl restart baby-calculator
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-After code changes, only `sudo systemctl restart baby-calculator` is needed.
+After code changes, only `sudo systemctl restart baby-calculator` is needed. `./setup-sudoers.sh` (run once) allows
+exactly that command without a password, for the user who runs it; nothing else is allowed.
 
 ## Notes
 
