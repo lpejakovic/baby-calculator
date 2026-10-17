@@ -37,6 +37,9 @@ PAGE_TEXT = {
         "share": "Podijeli",
         "copy_text": "Kopiraj tekst",
         "install": "Instaliraj aplikaciju",
+        "not_found_title": "Stranica nije pronađena",
+        "not_found_text": "Ova stranica ne postoji. Možda je poveznica pogrešna ili zastarjela.",
+        "back_home": "Natrag na kalkulator",
     },
     "en": {
         "locale": "en_US",
@@ -72,5 +75,8 @@ PAGE_TEXT = {
         "share": "Share",
         "copy_text": "Copy text",
         "install": "Install app",
+        "not_found_title": "Page not found",
+        "not_found_text": "This page doesn't exist. The link may be wrong or out of date.",
+        "back_home": "Back to the calculator",
     },
 }

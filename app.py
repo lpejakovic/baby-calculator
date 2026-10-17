@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, make_response, url_for
+from flask import Flask, Response, render_template, request, jsonify, make_response, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -11,7 +11,7 @@ from i18n import LANGUAGES, PAGE_TEXT
 from utils_dt import (YEARS, MONTHS, WEEKS, DAYS, HOURS, MINUTES, SECONDS,
                       plural, format_datetime, calculate_date_difference)
 
-APP_VERSION = "2.7"
+APP_VERSION = "2.7.1"
 
 # Cached by the service worker for offline use (besides the page itself)
 PRECACHED_STATIC = ["styles/main.css", "js/app.js", "favicon.ico", "apple-touch-icon.png",
@@ -56,6 +56,23 @@ def index():
 @limiter.exempt
 def index_en():
     return render_page("en")
+
+@app.route('/robots.txt')
+@limiter.exempt
+def robots():
+    body = f"User-agent: *\nDisallow: /calculate\n\nSitemap: {url_for('sitemap', _external=True)}\n"
+    return Response(body, mimetype='text/plain')
+
+@app.route('/sitemap.xml')
+@limiter.exempt
+def sitemap():
+    page_urls = {code: url_for(PAGE_ENDPOINTS[code], _external=True) for code in LANGUAGES}
+    return Response(render_template('sitemap.xml', page_urls=page_urls), mimetype='application/xml')
+
+@app.errorhandler(404)
+def not_found(e):
+    lang = "en" if request.path.startswith("/en/") else "hr"
+    return render_template('404.html', lang=lang, t=PAGE_TEXT[lang], home=url_for(PAGE_ENDPOINTS[lang])), 404
 
 @app.route('/sw.js')
 @limiter.exempt

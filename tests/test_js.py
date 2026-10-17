@@ -38,7 +38,7 @@ def expected_age(birth, now):
     diff = now - birth
     return {
         "years": rd.years, "months": rd.months, "days": rd.days,
-        "weeks": diff.days // 7, "weekDays": diff.days % 7, "totalDays": diff.days,
+        "weeks": diff.days // 7, "weekDays": diff.days % 7, "totalDays": diff.days, "elapsedDays": diff.days,
         "hours": diff.seconds // 3600, "minutes": diff.seconds % 3600 // 60, "seconds": diff.seconds % 60,
     }
 
@@ -54,6 +54,15 @@ def expected_age(birth, now):
 ])
 def test_calculate_age_edge_cases(js, birth, now):
     assert call(js, f"M.calculateAge({ms(birth)}, {ms(now)})") == expected_age(birth, now)
+
+
+def test_calculate_age_uses_real_elapsed_time(js):
+    # Born in summer time (CEST), now in winter time (CET): one more real hour has passed than the clocks show
+    birth, now = datetime(2026, 7, 1, 12, 0), datetime(2026, 12, 1, 12, 0)
+    elapsed = (now - birth + timedelta(hours=1)).total_seconds() * 1000
+    age = call(js, f"M.calculateAge({ms(birth)}, {ms(now)}, {elapsed})")
+    assert (age["totalDays"], age["weeks"], age["weekDays"], age["months"], age["days"]) == (153, 21, 6, 5, 0)
+    assert (age["elapsedDays"], age["hours"], age["minutes"], age["seconds"]) == (153, 1, 0, 0)
 
 
 def test_calculate_age_matches_relativedelta(js):

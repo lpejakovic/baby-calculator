@@ -364,6 +364,19 @@ def test_children_layout(open_page, width):
 CROATIAN = re.compile(r"[čćžšđČĆŽŠĐ]|\\b(dana?|tjedn|mjesec|godin|sati?|minut|sekund|rođ|danas|sutra)", re.I)
 
 
+@pytest.mark.parametrize("path, title, home", [("nope", "Stranica nije pronađena", "/"), ("en/nope", "Page not found", "/en/")])
+def test_not_found_page(browser, base_url, path, title, home):
+    # Not open_page: the browser logs the 404 itself as a console error, which is expected here
+    context = browser.new_context()
+    page = context.new_page()
+    response = page.goto(base_url + path)
+    assert response.status == 404
+    assert page.text_content("h1") == title
+    page.click("a.button")
+    assert page.url == base_url + home.lstrip("/")
+    context.close()
+
+
 def test_english_page(open_page, base_url):
     page = open_page()
     page.goto(base_url + "en/")
@@ -454,6 +467,33 @@ def test_english_layout(open_page, base_url, width):
         .filter(el => el.offsetParent !== null).map(el => Math.round(el.getBoundingClientRect().height))""")
     assert not overflow
     assert min(targets) >= 44, targets
+
+
+@pytest.mark.parametrize("now, expected", [
+    ("2026-12-01T12:00:00+01:00", "153 dana i 1 sat"),        # winter time: one more real hour
+    ("2026-08-01T12:00:00+02:00", "31 dan"),                  # same summer time: no difference
+    ("2027-07-01T12:00:00+02:00", "365 dana"),                # back in summer time a year later
+])
+def test_total_uses_real_time_across_clock_changes(open_page, now, expected):
+    page = open_page(timezone_id="Europe/Zagreb")
+    page.clock.set_fixed_time(now)
+    calculate(page, "2026-07-01", "12:00")
+    assert page.text_content("#age-total") == expected
+
+
+def test_date_limits_move_with_today(browser, base_url):
+    context = browser.new_context(timezone_id="Europe/Zagreb")
+    page = context.new_page()
+    page.clock.install(time="2026-10-17T22:00:00+02:00")
+    page.goto(base_url)
+    assert page.get_attribute("#birth-date", "max") == "2026-10-17"
+    page.clock.fast_forward("05:00:00")  # past midnight, page still open
+    page.focus("#birth-date")
+    assert page.get_attribute("#birth-date", "max") == "2026-10-18"
+    page.click("text=Trudnoća")
+    page.focus("#pregnancy-date")
+    assert page.get_attribute("#pregnancy-date", "min") == "2026-10-04"  # due date: up to 14 days ago
+    context.close()
 
 
 def test_restores_saved_date(open_page):

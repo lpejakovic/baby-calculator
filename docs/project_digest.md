@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 228 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 240 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -27,7 +27,7 @@ Dependencies are pinned in `requirements.txt`.
 
 | File                     | Purpose |
 |--------------------------|---------|
-| `app.py`                 | Flask app, `APP_VERSION`, Limiter setup, routes `/`, `/en/`, `/sw.js` and `/calculate` |
+| `app.py`                 | Flask app, `APP_VERSION`, Limiter setup, routes `/`, `/en/`, `/sw.js`, `/robots.txt`, `/sitemap.xml` and `/calculate`, 404 handler |
 | `i18n.py`                | Page texts (`PAGE_TEXT`) in Croatian and English |
 | `utils_dt.py`            | API only: `plural()` and Croatian word forms, `format_datetime()`, `calculate_date_difference()` |
 | `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
@@ -37,6 +37,8 @@ Dependencies are pinned in `requirements.txt`.
 | `requirements-dev.txt`   | Test dependencies |
 | `.github/workflows/tests.yml` | CI: unit job and browser job |
 | `templates/index.html`   | Form, result cards, meta and Open Graph tags (absolute `og:image` via `_external=True`) |
+| `templates/404.html`     | Not-found page in the language of the URL (`/en/…` is English), `noindex` |
+| `templates/sitemap.xml`  | Both pages with `hreflang` alternates |
 | `templates/sw.js`        | Service worker template: precache list and cache name come from the current versioned asset URLs |
 | `static/manifest.json`   | Web app manifest (standalone, icons 192/512/maskable); `manifest-en.json` for `/en/` |
 | `static/js/app.js`       | Date parsing, `calculateAge()`, `upcomingMilestones()`, children, pregnancy functions, share links, Croatian plurals, live counter, `localStorage` |
@@ -58,7 +60,9 @@ Dependencies are pinned in `requirements.txt`.
    form and the next calculation creates a child; "Ukloni dijete" asks for confirmation and selects a neighbour.
 3. On submit or when an input changes, the script validates the date (required, real calendar date, not in the future),
    saves it and renders three cards. A 1-second timer re-renders them, so the total ticks live.
-4. All date math uses wall-clock time stored as UTC milliseconds, so it uses the visitor's time zone and isn't shifted by DST.
+4. Calendar values (years, months, days, weeks) use wall-clock time stored as UTC milliseconds, so they use the visitor's
+   time zone and aren't shifted by DST. The "Ukupno" total uses the real elapsed time (`wallToReal()` turns the birth
+   into a real moment in the visitor's zone), so it is one hour longer across a summer-to-winter time change.
    `calculateAge()` uses the same month clipping as `relativedelta` (31 Jan + 1 month = 28/29 Feb).
 5. `upcomingMilestones()` lists month birthdays (1–23 months), birthdays (`N. rođendan`) and day counts (100 … 10,000 days)
    by date only, keeps those from today on and shows the nearest three with "danas" / "sutra" / "za N dana".
@@ -131,6 +135,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.5**: pregnancy mode |
 | 2026-10-17 | **v2.6**: several children |
 | 2026-10-17 | **v2.7**: English version and language switch; the improvement review is complete |
+| 2026-10-17 | **v2.7.1**: real elapsed time in "Ukupno", 404 page, `robots.txt`, `sitemap.xml`, date limits follow today |
 
 ## Observations and issues
 
@@ -149,9 +154,9 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 228 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 240 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps
 
-The 2026-10-17 improvement review is complete. New ideas go in [improvements.md](improvements.md).
+A second improvement review is in progress; see [improvements.md](improvements.md).

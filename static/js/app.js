@@ -173,14 +173,24 @@
         return target.getTime();
     }
 
-    function calculateAge(birth, now) {
+    // The real moment of a wall-clock time, in the visitor's time zone
+    function wallToReal(ms) {
+        const d = new Date(ms);
+        return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
+            d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()).getTime();
+    }
+
+    // birth and now are wall-clock times, right for calendar values (years, months, days, weeks).
+    // elapsed is the real time in between; it differs by an hour when a summer/winter time change
+    // lies in between, so the elapsed days, hours, minutes and seconds use it.
+    function calculateAge(birth, now, elapsed = now - birth) {
         const b = new Date(birth);
         const n = new Date(now);
         let months = (n.getUTCFullYear() - b.getUTCFullYear()) * 12 + n.getUTCMonth() - b.getUTCMonth();
         if (addMonths(birth, months) > now) months--;
 
-        const diff = now - birth;
-        const totalDays = Math.floor(diff / DAY);
+        const totalDays = Math.floor((now - birth) / DAY);
+        const real = Math.max(elapsed, 0);
         return {
             years: Math.floor(months / 12),
             months: months % 12,
@@ -188,9 +198,10 @@
             weeks: Math.floor(totalDays / 7),
             weekDays: totalDays % 7,
             totalDays,
-            hours: Math.floor(diff / 3600000) % 24,
-            minutes: Math.floor(diff / 60000) % 60,
-            seconds: Math.floor(diff / 1000) % 60,
+            elapsedDays: Math.floor(real / DAY),
+            hours: Math.floor(real / 3600000) % 24,
+            minutes: Math.floor(real / 60000) % 60,
+            seconds: Math.floor(real / 1000) % 60,
         };
     }
 
@@ -496,7 +507,17 @@
             return child ? childLabel(child, children.indexOf(child), lang) : '';
         }
 
-        dateInput.max = todayValue();
+        // "Today" moves on while the page or installed app stays open, so the date limits are
+        // refreshed whenever a date field is used and when the app comes back to the foreground
+        function refreshDateLimits() {
+            dateInput.max = todayValue();
+            updateBasis();
+        }
+        [dateInput, pregnancyDate].forEach((input) => {
+            input.addEventListener('focus', refreshDateLimits);
+            input.addEventListener('click', refreshDateLimits);
+        });
+        document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && refreshDateLimits());
 
         function basis() {
             return document.querySelector('input[name="basis"]:checked').value;
@@ -548,10 +569,10 @@
                 milestonesDay = startOfDay(now);
                 renderMilestoneList(out.milestones, upcomingMilestones(birth, now, 3, lang));
             }
-            const age = calculateAge(birth, now);
+            const age = calculateAge(birth, now, Date.now() - wallToReal(birth));
             out.weeks.textContent = joinParts([[age.weeks, 'week'], [age.weekDays, 'day']], lang);
             out.calendar.textContent = joinParts([[age.years, 'year'], [age.months, 'month'], [age.days, 'day']], lang);
-            out.total.textContent = joinParts([[age.totalDays, 'day'], [age.hours, 'hour'],
+            out.total.textContent = joinParts([[age.elapsedDays, 'day'], [age.hours, 'hour'],
                 [age.minutes, 'minute'], [age.seconds, 'second']], lang);
             return age;
         }
@@ -812,7 +833,7 @@
             basisInputs.forEach((input) => { input.checked = input.value === savedPregnancy.basis; });
             pregnancyDate.value = savedPregnancy.date;
         }
-        updateBasis();
+        refreshDateLimits();
         setMode(restore(MODE_KEY) === 'pregnancy' ? 'pregnancy' : 'baby');
     });
 

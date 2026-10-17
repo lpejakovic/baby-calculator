@@ -228,3 +228,37 @@ def test_service_worker_covers_both_languages(client):
         html = client.get(path).get_data(as_text=True)
         assert set(re.findall(r'(?:href|src)="(/static/[^"]+)"', html)) <= set(precache), path
     assert set(pages) <= set(precache)
+
+
+def test_robots_txt(client):
+    response = client.get("/robots.txt", headers=NGINX)
+    assert response.status_code == 200 and response.mimetype == "text/plain"
+    assert response.get_data(as_text=True) == (
+        "User-agent: *\nDisallow: /calculate\n\nSitemap: https://bc.luka-pejakovic.from.hr/sitemap.xml\n")
+
+
+def test_sitemap(client):
+    import xml.etree.ElementTree as ET
+    response = client.get("/sitemap.xml", headers=NGINX)
+    assert response.status_code == 200 and response.mimetype == "application/xml"
+    ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9", "x": "http://www.w3.org/1999/xhtml"}
+    urls = ET.fromstring(response.get_data()).findall("s:url", ns)
+    pages = ["https://bc.luka-pejakovic.from.hr/", "https://bc.luka-pejakovic.from.hr/en/"]
+    assert [u.find("s:loc", ns).text for u in urls] == pages
+    for url in urls:
+        alternates = {link.get("hreflang"): link.get("href") for link in url.findall("x:link", ns)}
+        assert alternates == {"hr": pages[0], "en": pages[1], "x-default": pages[0]}
+
+
+@pytest.mark.parametrize("path, lang, title, home", [
+    ("/nope", "hr", "Stranica nije pronađena", "/"),
+    ("/en/nope", "en", "Page not found", "/en/"),
+    ("/static/missing.css", "hr", "Stranica nije pronađena", "/"),
+])
+def test_not_found(client, path, lang, title, home):
+    response = client.get(path)
+    assert response.status_code == 404
+    html = response.get_data(as_text=True)
+    assert f'<html lang="{lang}">' in html and f"<h1>{title}</h1>" in html
+    assert f'<a class="button" href="{home}">' in html
+    assert '<meta name="robots" content="noindex">' in html

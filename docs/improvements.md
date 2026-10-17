@@ -1,6 +1,40 @@
 # Improvements
 
-_Review started and completed on 2026-10-17. Every item from the review is done; see the version history in
-[project_digest.md](project_digest.md)._
+_First review: started and completed on 2026-10-17 (see the version history in [project_digest.md](project_digest.md))._
+_Second review: started on 2026-10-17. Items are removed from this file as they are done; when it is empty, the review is complete._
 
-New ideas go here as a numbered list. Each new feature should come with tests in `tests/` (see the README).
+Each new feature should come with tests in `tests/` (see the README).
+
+Baseline for this review: axe-core found 0 accessibility issues (WCAG 2.2 AA and best practices) in both languages,
+light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzipped; all packages are current.
+
+## Plan
+
+1. **Workflow:** restart without a password, Dependabot, uptime check.
+2. **Features:** corrected age for premature babies, backup and restore, calendar export.
+3. **Then:** linting and accessibility audit in CI, API improvements, split `app.js`.
+
+## 1. Workflow and operations
+
+1. **Restart without a password:** a sudoers rule allowing only `systemctl restart baby-calculator`, or a `deploy.sh`
+   that restarts and checks the site.
+2. **Separate editing from the live site:** this folder is both the working copy and what the site runs. Work in a
+   separate checkout or branch and deploy only after CI passes.
+3. **Dependabot** for pip packages and GitHub Actions.
+4. **Uptime check:** a `/health` endpoint and a scheduled check.
+5. **Linting:** `ruff` for Python and a JavaScript linter, in CI.
+6. **Accessibility audit in CI:** run axe-core in the browser tests.
+
+## 2. Small site fixes
+
+1. **Better API:** plain numbers (`years`, `months`, `weeks`, `total_days`…) next to the text, and `lang=en`.
+2. **Split `app.js`** (828 lines) into modules: date math, texts and page code.
+
+## 3. New features
+
+1. **Corrected age for premature babies** ("korigirana dob"): with the due date entered too, show both ages.
+2. **Backup and restore:** export children and pregnancy as a file or link, and import on another device.
+3. **Add milestones to a calendar** (`.ics` download).
+4. **Privacy note:** "Podaci ostaju samo na vašem uređaju".
+5. **Remember the language:** open the chosen language next time, or suggest English once to English-language browsers.
+6. **More pregnancy dating options:** IVF transfer date, or a date from an ultrasound.

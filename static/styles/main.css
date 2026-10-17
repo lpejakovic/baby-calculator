@@ -404,6 +404,35 @@ progress {
     color: var(--muted);
     text-align: center;
 }
+.not-found {
+    text-align: center;
+}
+.not-found-code {
+    margin: 0;
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--primary);
+}
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    color: var(--on-primary);
+    background: var(--primary);
+    text-decoration: none;
+}
+.button:hover {
+    background: var(--primary-hover);
+}
+.button:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
 .visually-hidden {
     position: absolute;
     width: 1px;
