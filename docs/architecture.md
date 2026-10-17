@@ -9,15 +9,15 @@ Flask serves two pages (`/` Croatian, `/en/` English) from one template, a servi
 |---|---|
 | Server | `app.py` (routes, rate limits, `APP_VERSION`), `i18n.py` (page texts, API errors), `utils_dt.py` (API date math and word forms), `wsgi.py` |
 | Page | `templates/index.html`, `templates/404.html`, `static/styles/main.css` |
-| Script | `static/js/texts.js`, `dates.js`, `calendar.js`, `data.js` (pure: no DOM or storage) and `app.js` (page code) |
+| Script | `static/js/texts.js`, `dates.js`, `calendar.js`, `data.js`, `card.js` (pure: no DOM or storage) and `app.js` (page code) |
 | Offline | `templates/sw.js` (rendered with the current asset URLs), `static/manifest.json`, `manifest-en.json` |
 | Deployment | `deploy/` (systemd unit, nginx template, `deploy.sh`, tested in `tests/test_deploy.py`) |
 | Tests | `tests/` (pytest; QuickJS for the pure scripts; Playwright and axe-core in the browser) |
 
 ## Script
 
-The five scripts are plain files sharing one namespace, `BC`, loaded in order with `defer`: `texts.js`, `dates.js`,
-`calendar.js`, `data.js`, `app.js`. There is no build step. The pure files are what the QuickJS tests load; a test also
+The six scripts are plain files sharing one namespace, `BC`, loaded in order with `defer`: `texts.js`, `dates.js`,
+`calendar.js`, `data.js`, `card.js`, `app.js`. There is no build step. The pure files are what the QuickJS tests load; a test also
 checks that `app.js` finds everything it takes from `BC`.
 
 - **Time.** Calendar values (years, months, days, weeks) use wall-clock time stored as UTC milliseconds, so they follow
@@ -33,6 +33,10 @@ checks that `app.js` finds everything it takes from `BC`.
   `convertPregnancy()` keeps the same pregnancy when the basis is switched. Accepted: 0 to 42 weeks.
 - **Calendar.** `buildIcs()` writes RFC 5545: all-day, non-blocking events with a 9:00 reminder, CRLF, escaped text,
   lines folded at 75 bytes. Event ids come from the birth (or LMP) date and the milestone key, so re-importing updates.
+- **Share picture.** `card.js`: `layoutCard()` wraps and fits the text (title, age, details, footer) into a 1080×1080
+  square, shrinking everything until it fits above the footer, with the text measure passed in (canvas in the page,
+  a stand-in in the tests); `drawCard()` paints it. The page shares the PNG as a file, or downloads it where sharing
+  files isn't supported.
 - **Texts.** `TEXT.hr` / `TEXT.en` in `texts.js` (same keys, checked by a test); pure functions take an optional `lang`
   that defaults to Croatian. The page texts are in `i18n.py`.
 

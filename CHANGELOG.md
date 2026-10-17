@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.16 – 2026-10-17
+- "Podijeli sliku": a 1080×1080 picture of the age or pregnancy, drawn in the browser, for messaging apps.
+
 ## 2.15 – 2026-10-17
 - After something is saved, the app asks the browser to keep its data when space runs low.
 - MIT license.

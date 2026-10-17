@@ -6,7 +6,7 @@
     const {
         BACKUP_MAX_BYTES, DAY, PREGNANCY_DAYS, addSharedChild, babyCalendarEvents, buildBackupLink, buildIcs,
         buildShareUrl, calculateAge, childLabel, cleanChild, convertPregnancy, correctedAge, correctedAgeError,
-        countdown, dueCountdown, formatBirth, formatDate, isoDate, joinParts, makeBackup, mergeChildren,
+        countdown, drawCard, dueCountdown, formatBirth, layoutCard, formatDate, isoDate, joinParts, makeBackup, mergeChildren,
         nextChildId, normalizeChildren, parseBackup, parseBirth, pregnancyCalendarEvents, pregnancyError,
         pregnancyLmp, pregnancyMilestones, pregnancyStatus, readBackupLink, readSharedBirth,
         readSharedPregnancy, removeChild, startOfDay, texts, todayValue, upcomingMilestones, validPregnancy,
@@ -241,6 +241,7 @@
             result.hidden = section !== result;
             pregnancyResult.hidden = section !== pregnancyResult;
             share.hidden = false;
+            loadCardIcon(); // ready before "Podijeli sliku" is pressed, so sharing stays within the user's gesture
         }
 
         function renderMilestoneList(list, items) {
@@ -596,6 +597,71 @@
             store(MODE_KEY, merged.added || merged.changed || !pregnancyChanged ? 'baby' : 'pregnancy');
             return t.backupRestored;
         }
+
+        // --- Share picture (card.js) ---
+        const pictureButton = $('share-picture');
+        let cardIcon = null;
+
+        function loadCardIcon() {
+            if (!cardIcon) {
+                const image = new Image();
+                image.src = pictureButton.dataset.icon;
+                cardIcon = image.decode().then(() => image).catch(() => null); // the card works without the icon
+            }
+            return cardIcon;
+        }
+
+        function cardContent() {
+            const footer = location.host;
+            if (current && current.mode === 'pregnancy') {
+                return {
+                    title: t.pregnancy, main: preg.duration.textContent,
+                    lines: [preg.detail.textContent, `${t.dueDate}: ${preg.due.textContent}`], footer,
+                };
+            }
+            const child = activeChild();
+            const lines = [out.weeks.textContent];
+            if (!corrected.card.hidden && /\d/.test(corrected.value.textContent)) {
+                lines.push(`${t.corrected}: ${corrected.value.textContent}`);
+            }
+            lines.push(out.bornAt.textContent);
+            return { title: child && child.name ? child.name : t.childAgeHeading, main: out.calendar.textContent, lines, footer };
+        }
+
+        function pictureName() {
+            if (current && current.mode === 'pregnancy') {
+                return `baby-calculator-pregnancy-${isoDate(current.lmp + PREGNANCY_DAYS * DAY)}.png`;
+            }
+            const child = activeChild();
+            return `baby-calculator-${child ? child.date : todayValue()}.png`;
+        }
+
+        pictureButton.addEventListener('click', async function () {
+            if (!current) return;
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const measure = (text, font) => {
+                ctx.font = font;
+                return ctx.measureText(text).width;
+            };
+            drawCard(canvas, layoutCard(cardContent(), measure), await loadCardIcon());
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            if (!blob) {
+                showStatus(t.pictureFailed);
+                return;
+            }
+            const file = new File([blob], pictureName(), { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: 'Baby Calculator' });
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                }
+            }
+            downloadFile(file.name, blob, 'image/png');
+            showStatus(t.pictureSaved);
+        });
 
         function downloadFile(name, content, type) {
             const link = document.createElement('a');
