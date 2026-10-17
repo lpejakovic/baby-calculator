@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+from datetime import date
 
 from flask import Flask, Response, jsonify, make_response, redirect, render_template, request, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -9,7 +10,8 @@ from api import api
 from extensions import limiter
 from i18n import LANGUAGE_NAMES, LANGUAGES, PAGE_TEXT
 
-APP_VERSION = "2.23"
+APP_VERSION = "2.24"
+SOURCE_URL = "https://github.com/lpejakovic/baby-calculator"
 
 # Cached by the service worker for offline use (besides the page itself)
 SCRIPTS = ["texts", "dates", "who-growth", "growth", "calendar", "data", "card", "app"]  # load order
@@ -46,7 +48,8 @@ def page_urls():
 
 def render_page(lang):
     return render_template('index.html', version=APP_VERSION, lang=lang, t=PAGE_TEXT[lang], scripts=SCRIPTS,
-                           page_urls=page_urls(), language_names=LANGUAGE_NAMES)
+                           page_urls=page_urls(), language_names=LANGUAGE_NAMES, year=date.today().year,
+                           source_url=SOURCE_URL)
 
 @app.route('/')
 @limiter.exempt

@@ -370,7 +370,14 @@
         return `${list.slice(0, -1).join(', ')} ${texts(lang).and} ${list[list.length - 1]}`;
     }
 
+    // Like a clock: every part shown, numbers at least two digits ("592 dana, 03 sata, 00 minuta i 07 sekundi");
+    // the word still follows the real number
+    function joinClock(parts, lang = 'hr') {
+        const list = parts.map(([n, key]) => `${pad(n)} ${texts(lang).word(n, key)}`);
+        return `${list.slice(0, -1).join(', ')} ${texts(lang).and} ${list[list.length - 1]}`;
+    }
+
     Object.assign(BC, {
-        FORMS, plural, MONTH_NAMES_EN, pad, ordinalEn, TEXT, texts, unit, joinParts,
+        FORMS, plural, MONTH_NAMES_EN, pad, ordinalEn, TEXT, texts, unit, joinParts, joinClock,
     });
 })(globalThis.BC = globalThis.BC || {});

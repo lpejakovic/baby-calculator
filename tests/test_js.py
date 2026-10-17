@@ -123,6 +123,22 @@ def test_join_parts(js, parts, expected):
     assert js.eval(f"M.joinParts({json.dumps(parts)})") == expected
 
 
+CLOCK = [[592, "day"], [3, "hour"], [0, "minute"], [7, "second"]]
+
+
+@pytest.mark.parametrize("lang, parts, expected", [
+    ("hr", CLOCK, "592 dana, 03 sata, 00 minuta i 07 sekundi"),
+    ("hr", [[0, "day"], [1, "hour"], [21, "minute"], [2, "second"]], "00 dana, 01 sat, 21 minuta i 02 sekunde"),
+    ("en", CLOCK, "592 days, 03 hours, 00 minutes and 07 seconds"),
+    ("en", [[1, "day"], [1, "hour"], [1, "minute"], [1, "second"]], "01 day, 01 hour, 01 minute and 01 second"),
+    ("de", CLOCK, "592 Tage, 03 Stunden, 00 Minuten und 07 Sekunden"),
+    ("it", CLOCK, "592 giorni, 03 ore, 00 minuti e 07 secondi"),
+])
+def test_join_clock(js, lang, parts, expected):
+    # The live total: every part shown, two digits at least, words by the real number
+    assert js.eval(f"M.joinClock({json.dumps(parts)}, '{lang}')") == expected
+
+
 DAY_MILESTONES = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000]
 NOMINATIVE = {"day": ("dan", "dana", "dana"), "month": ("mjesec", "mjeseca", "mjeseci")}
 

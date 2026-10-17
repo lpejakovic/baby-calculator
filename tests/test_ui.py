@@ -421,7 +421,7 @@ def test_english_page(open_page, base_url):
     for item in page.locator("#milestones li").all():
         when = item.locator(".milestone-when").text_content()
         assert re.fullmatch(r"\d{1,2} [A-Z][a-z]{2} \d{4} · (today|tomorrow|in \d+ days)", when), when
-    text = page.text_content("main")
+    text = page.text_content("main").replace("Pejaković", "")  # the author's name in the footer
     assert not CROATIAN.search(text), CROATIAN.search(text)
 
 
@@ -508,9 +508,9 @@ def test_english_layout(open_page, base_url, width):
 
 
 @pytest.mark.parametrize("now, expected", [
-    ("2026-12-01T12:00:00+01:00", "153 dana i 1 sat"),        # winter time: one more real hour
-    ("2026-08-01T12:00:00+02:00", "31 dan"),                  # same summer time: no difference
-    ("2027-07-01T12:00:00+02:00", "365 dana"),                # back in summer time a year later
+    ("2026-12-01T12:00:00+01:00", "153 dana, 01 sat, 00 minuta i 00 sekundi"),  # winter time: one more real hour
+    ("2026-08-01T12:00:00+02:00", "31 dan, 00 sati, 00 minuta i 00 sekundi"),   # same summer time: no difference
+    ("2027-07-01T12:00:00+02:00", "365 dana, 00 sati, 00 minuta i 00 sekundi"),  # back in summer time a year later
 ])
 def test_total_uses_real_time_across_clock_changes(open_page, now, expected):
     page = open_page(timezone_id="Europe/Zagreb")
@@ -1152,7 +1152,7 @@ def test_uses_visitor_time_zone(open_page):
     birth = tokyo_now - timedelta(hours=1)
     page = open_page(timezone_id="Asia/Tokyo")
     calculate(page, birth.strftime("%Y-%m-%d"), birth.strftime("%H:%M"))
-    assert page.text_content("#age-total").startswith("1 sat")
+    assert page.text_content("#age-total").startswith("00 dana, 01 sat, ")
 
 
 @pytest.mark.parametrize("width, height, columns", [
@@ -1248,7 +1248,8 @@ def test_compact_header_and_footer(open_page):
     # Title and language switch on one line
     tops = page.evaluate("[...document.querySelectorAll('h1, .lang-switch')].map(e => Math.round(e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2))")
     assert abs(tops[0] - tops[1]) <= 4, tops
-    assert re.fullmatch(r"Baby Calculator v\d+\.\d+(\.\d+)?", page.text_content(".site-footer .version-text"))
+    footer = " ".join(page.text_content(".site-footer .version-text").split())
+    assert re.fullmatch(r"© 2024–\d{4} Luka Pejaković · v\d+\.\d+(\.\d+)? · Izvorni kod", footer), footer
     assert page.text_content("h1") == "Baby Calculator"
 
 
