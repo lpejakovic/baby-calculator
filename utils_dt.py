@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 def generate_years_string(number):
@@ -73,20 +72,6 @@ def generate_seconds_string(number):
 
 def format_datetime(dt, format_string="%d.%m.%Y %H:%M:%S"):
     return dt.strftime(format_string)
-    year_diff = end_date.year - start_date.year
-    month_diff = end_date.month - start_date.month
-    day_diff = end_date.day - start_date.day
-
-    if day_diff < 0:
-        month_diff -= 1
-        last_day_of_prev_month = (end_date.replace(day=1) - timedelta(days=1)).day
-        day_diff += last_day_of_prev_month
-
-    if month_diff < 0:
-        year_diff -= 1
-        month_diff += 12
-
-    return year_diff, month_diff, day_diff
 
 def calculate_date_difference(start_date, end_date):
     difference = relativedelta(end_date, start_date)

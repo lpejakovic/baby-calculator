@@ -28,12 +28,13 @@ templates/index.html   Page, form and jQuery AJAX logic
 static/styles/main.css Styles
 static/favicon.ico     Favicon
 docs/project_digest.md Project digest / technical overview
+docs/improvements.md   Open improvements and review
 ```
 
 ## Requirements
 
 - Python 3.12
-- Flask 3.0, Flask-Limiter 3.7, python-dateutil 2.9, Gunicorn 22 (for production)
+- Flask 3.1, Flask-Limiter 4.1, python-dateutil 2.9, Gunicorn 26 (for production); exact versions in `requirements.txt`
 
 ## Running locally
 
@@ -75,6 +76,7 @@ nginx proxies requests to the `bc-calculator.sock` Unix socket.
 
 ## Notes
 
+- Birth dates in the future are rejected (HTTP 400).
 - Times are calculated with the server's local time (`datetime.now()`), not the browser's time zone.
 - Rate-limit counters are kept in memory, so they reset when the service restarts and are not shared between workers.
 

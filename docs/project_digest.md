@@ -13,11 +13,11 @@ no tests, and runs in production under Gunicorn + nginx via systemd.
 
 | Layer      | Technology                                                    |
 |------------|---------------------------------------------------------------|
-| Backend    | Python 3.12, Flask 3.0.3                                       |
+| Backend    | Python 3.12, Flask 3.1.3, Werkzeug 3.1.9, Jinja2 3.1.6                                       |
 | Date math  | python-dateutil 2.9 (`relativedelta`)                          |
-| Rate limit | Flask-Limiter 3.7.0 (in-memory storage)                        |
+| Rate limit | Flask-Limiter 4.1.1 (in-memory storage)                        |
 | Frontend   | Jinja2 template, jQuery 3.6.0 (from code.jquery.com), plain CSS |
-| Serving    | Gunicorn 22, 1 worker, Unix socket `bc-calculator.sock`, nginx (`ProxyFix`) |
+| Serving    | Gunicorn 26, 1 worker, Unix socket `bc-calculator.sock`, nginx (`ProxyFix`) |
 
 Dependencies are pinned in `requirements.txt`.
 
@@ -80,19 +80,16 @@ Checked against the running code with Flask's test client:
 
 1. **Bad input** (fixed): an invalid or missing `datetime` returns 400 with `{"error": "..."}`, and rate-limited
    `/calculate` requests return 429 with a JSON message. The page shows the message in red under the form.
-2. **Future dates give confusing output.** For a date about 2.5 months ahead the response is
-   `-76 dana, 14 sati, …`, `-11 tjedana i 1 dan` and `0 godina, -2 mjeseca i -14 dana`. A commit message says
-   unborn children are handled, but the current code does not handle them.
+2. **Future dates** (fixed): rejected with 400 `Datum rođenja ne može biti u budućnosti.`, and the input has a `max` of the current time.
 3. **Time zone.** `datetime.now()` uses the server's local time, while the browser sends local time without a zone.
    Visitors in another time zone (or around DST changes) get results that are off by hours.
-4. **Dead code in `utils_dt.py`.** After `return` in `format_datetime()` there is an unreachable block (an old manual
-   date-difference implementation that uses `start_date`/`end_date`, which are undefined there). It is safe but should be removed.
+4. **Dead code in `utils_dt.py`** (fixed): removed.
 5. **`from utils_dt import *`** in `app.py`. Explicit imports would be clearer.
 6. **Repetitive helpers.** The six three-form plural functions are identical apart from their words and could be one
    `plural(n, one, few, many)` function.
 7. **Repo hygiene** (fixed): `wsgi.py` and `requirements.txt` are committed, and `.gitignore` covers `__pycache__/`, `bc-env/` and `*.sock`.
    The working tree still has file-mode-only changes (644 → 755) on some tracked files.
-8. **Template details.** `lang="en"` on a Croatian page. The version string `v1.3` is hard-coded in HTML.
+8. **Template details.** The version string `v1.3` is hard-coded in HTML.
    Results are inserted with `.html()`; this is safe today because the server returns only numbers and fixed words.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit runs Gunicorn as `User=root`; a non-root user (e.g. `www-data`) would be safer.
@@ -100,7 +97,8 @@ Checked against the running code with Flask's test client:
 
 ## Suggested next steps
 
-1. Decide how to handle future dates (e.g. "do poroda je preostalo …") or reject them.
-2. Remove the dead code and replace the plural helpers with one generic function.
-3. Add pytest tests for the plural rules and for edge cases (month ends, leap years).
-4. Consider running the service as a non-root user.
+1. Replace the plural helpers with one generic function.
+2. Add pytest tests for the plural rules and for edge cases (month ends, leap years).
+3. Consider running the service as a non-root user.
+
+The full list of open improvements is in [improvements.md](improvements.md).

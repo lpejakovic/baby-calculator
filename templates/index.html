@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,7 +16,7 @@
             <input type="datetime-local" id="datetime" name="datetime" required>
             <button type="submit" id="calculate-button">Izračunaj razliku</button>
         </form>
-        <div id="result"></div>
+        <div id="result" aria-live="polite"></div>
     </div>
 
     <script>
@@ -43,7 +43,15 @@
             return "";
         }
 
+        function toLocalInputValue(date) {
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+                `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
+
         $(document).ready(function() {
+            $('#datetime').attr('max', toLocalInputValue(new Date()));
+
             const savedDateTime = getCookie('datetime');
             if (savedDateTime) {
                 $('#datetime').val(savedDateTime);

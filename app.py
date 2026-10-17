@@ -28,8 +28,11 @@ def calculate():
         input_datetime = datetime.strptime(request.form.get('datetime', ''), '%Y-%m-%dT%H:%M')
     except ValueError:
         return jsonify({"error": "Neispravan datum i vrijeme rođenja."}), 400
-    
+
     current_datetime = datetime.now()
+    if input_datetime > current_datetime:
+        return jsonify({"error": "Datum rođenja ne može biti u budućnosti."}), 400
+
     difference = current_datetime - input_datetime
 
     days = difference.days
