@@ -746,6 +746,78 @@ def test_share_link_keeps_hash_through_language_redirect(open_page, base_url):
     assert chips(page) == ["Ana"] and page.text_content("#age-weeks").endswith("days")
 
 
+def days_ago(days):
+    return (date.today() - timedelta(days=days)).isoformat()
+
+
+def choose_basis(page, label):
+    page.click("text=Trudnoća")
+    page.click(f"#pregnancy-form label.radio:has-text('{label}')")
+
+
+def test_pregnancy_from_ivf_transfer(open_page):
+    page = open_page()
+    choose_basis(page, "Transferu zametka (IVF)")
+    assert page.is_visible("#embryo-days") and page.is_hidden("#ga-weeks")
+    assert page.text_content("#pregnancy-date-label") == "Datum transfera zametka"
+    page.fill("#pregnancy-date", days_ago(30))
+    page.click("#pregnancy-form button[type=submit]")
+    assert page.text_content("#pregnancy-duration") == "7 tjedana"  # 30 + 14 + 5 = 49 days
+    page.select_option("#embryo-days", "3")
+    assert page.text_content("#pregnancy-duration") == "6 tjedana i 5 dana"  # 30 + 14 + 3 = 47 days
+    page.reload()
+    assert page.is_checked("input[value=ivf]") and page.input_value("#embryo-days") == "3"
+    assert page.text_content("#pregnancy-duration") == "6 tjedana i 5 dana"
+
+
+def test_pregnancy_from_ultrasound(open_page):
+    page = open_page()
+    choose_basis(page, "Ultrazvuku")
+    assert page.is_visible("#ga-weeks") and page.is_hidden("#embryo-days")
+    page.fill("#pregnancy-date", days_ago(10))
+    page.fill("#ga-weeks", "8")
+    page.fill("#ga-days", "3")
+    page.click("#pregnancy-form button[type=submit]")
+    assert page.text_content("#pregnancy-duration") == "9 tjedana i 6 dana"  # 59 + 10 = 69 days
+    page.fill("#ga-days", "7")
+    page.click("#pregnancy-form button[type=submit]")
+    assert page.text_content("#error") == "Unesite tjedne (0–42) i dane (0–6) s ultrazvuka."
+
+
+def test_switching_basis_keeps_pregnancy(open_page):
+    page = open_page()
+    calculate_pregnancy(page, due_in(50))
+    expected = page.text_content("#pregnancy-duration")
+    for label in ["Transferu zametka (IVF)", "Ultrazvuku", "Zadnjoj menstruaciji", "Terminu poroda"]:
+        page.click(f"#pregnancy-form label.radio:has-text('{label}')")
+        assert page.text_content("#pregnancy-duration") == expected, label
+    page.click("#pregnancy-form label.radio:has-text('Ultrazvuku')")
+    assert page.input_value("#pregnancy-date") == date.today().isoformat()
+    assert (page.input_value("#ga-weeks"), page.input_value("#ga-days")) == ("32", "6")
+
+
+def test_future_transfer_is_rejected_and_english(open_page, base_url):
+    page = open_page()
+    page.goto(base_url + "en/")
+    page.click("text=Pregnancy")
+    page.click("#pregnancy-form label.radio:has-text('Embryo transfer (IVF)')")
+    assert page.text_content("#pregnancy-date-label") == "Embryo transfer date"
+    page.evaluate("document.getElementById('pregnancy-date').removeAttribute('max')")
+    page.fill("#pregnancy-date", due_in(3))
+    page.click("#pregnancy-form button[type=submit]")
+    assert page.text_content("#error") == "The date can’t be in the future."
+
+
+@pytest.mark.parametrize("width", [320, 1280])
+def test_pregnancy_dating_layout(open_page, width):
+    page = open_page(viewport={"width": width, "height": 900})
+    choose_basis(page, "Ultrazvuku")
+    overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    heights = page.evaluate("""[...document.querySelectorAll('#pregnancy-form label.radio, #pregnancy-form input:not([type=radio]), #pregnancy-form select, #pregnancy-form button')]
+        .filter(el => el.offsetParent !== null).map(el => Math.round(el.getBoundingClientRect().height))""")
+    assert not overflow and min(heights) >= 44, heights
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)

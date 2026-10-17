@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 329 automated tests and linting in CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 360 automated tests and linting in CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -73,8 +73,11 @@ Dependencies are pinned in `requirements.txt`.
 6. "Podijeli" calls `navigator.share()` with the link and a summary, or copies the link where sharing isn't available;
    "Kopiraj tekst" copies the summary. Both use the Clipboard API with a `textarea` fallback, and report in a `role="status"` line.
 7. A visually hidden `aria-live` region announces the result once; the ticking counter is not announced.
-8. **Pregnancy mode** ("Trudnoća"): the date is a due date or the first day of the last period (LMP); `lmpFrom()` converts
-   with the 280-day rule. `pregnancyStatus()` gives completed weeks + days, the current week, trimester (1: to 13+6,
+8. **Pregnancy mode** ("Trudnoća"): the pregnancy is dated from a due date, the first day of the last period (LMP), an
+   IVF embryo transfer (date and embryo age 3/5/6 days: LMP = transfer − 14 − embryo age) or an ultrasound (scan date
+   and the measured gestational age: LMP = scan − age). `validPregnancy()` checks the stored state, `lmpFrom()` /
+   `pregnancyLmp()` give the LMP with the 280-day rule, and `convertPregnancy()` keeps the same pregnancy when the
+   basis is switched. `pregnancyStatus()` gives completed weeks + days, the current week, trimester (1: to 13+6,
    2: to 27+6, 3: from 28+0), due date, days to due and progress. `pregnancyError()` accepts LMP from today back to
    42 weeks. `pregnancyMilestones()` lists 14, 20, 28, 37 and 40 weeks. Mode and pregnancy data are stored under the
    `mode` and `pregnancy` keys; `?t=YYYY-MM-DD` shares a due date. Pregnancy values change once a day, so they are
@@ -165,6 +168,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | Separate development clone, pull requests, `deploy/deploy.sh`; heavy tests only in CI; branch protection |
 | 2026-10-17 | **v2.11**: API with plain numbers, JSON input, `lang=en`, real elapsed time |
 | 2026-10-17 | **v2.12**: privacy note, share links after `#` (never sent to the server), remembered language |
+| 2026-10-17 | **v2.13**: pregnancy dating from an IVF transfer or an ultrasound |
 
 ## Observations and issues
 
@@ -183,7 +187,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 329 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 360 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps

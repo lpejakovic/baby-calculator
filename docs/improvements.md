@@ -15,7 +15,3 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 ## 1. Small site fixes
 
 1. **Split `app.js`** (about 1,300 lines) into modules: date math, texts and page code.
-
-## 2. New features
-
-1. **More pregnancy dating options:** IVF transfer date, or a date from an ultrasound.

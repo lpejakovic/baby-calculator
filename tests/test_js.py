@@ -625,3 +625,78 @@ def test_pregnancy_calendar(js):
     assert events[1]["date"] == ms(lmp + timedelta(days=280))
     assert events[1]["uid"] == "pregnancy-2026-03-01-due@bc.luka-pejakovic.from.hr"
     assert events[0]["description"] == "Baby Calculator · https://bc.example/en/"
+
+
+# --- Pregnancy dating: IVF transfer and ultrasound
+
+@pytest.mark.parametrize("embryo_days, days_to_due", [(3, 263), (5, 261), (6, 260)])
+def test_lmp_from_ivf(js, embryo_days, days_to_due):
+    transfer = datetime(2026, 5, 10)
+    lmp = js.eval(f"M.lmpFrom('ivf', {ms(transfer)}, {{embryoDays: {embryo_days}}})")
+    assert lmp == ms(transfer - timedelta(days=14 + embryo_days))
+    assert lmp + 280 * 86400000 == ms(transfer + timedelta(days=days_to_due))  # the usual IVF due dates
+
+
+def test_lmp_from_ultrasound(js):
+    scan = datetime(2026, 6, 1)
+    assert js.eval(f"M.lmpFrom('ultrasound', {ms(scan)}, {{gaWeeks: 8, gaDays: 3}})") == ms(scan - timedelta(days=59))
+
+
+@pytest.mark.parametrize("state, expected", [
+    ({"basis": "due", "date": "2026-12-06"}, {"basis": "due", "date": "2026-12-06"}),
+    ({"basis": "due", "date": "2026-12-06", "embryoDays": 5}, {"basis": "due", "date": "2026-12-06"}),  # extras dropped
+    ({"basis": "ivf", "date": "2026-05-10", "embryoDays": 3}, {"basis": "ivf", "date": "2026-05-10", "embryoDays": 3}),
+    ({"basis": "ivf", "date": "2026-05-10", "embryoDays": 4}, None),
+    ({"basis": "ivf", "date": "2026-05-10"}, None),
+    ({"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 3},
+     {"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 3}),
+    ({"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 43, "gaDays": 0}, None),
+    ({"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 7}, None),
+    ({"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8.5, "gaDays": 1}, None),
+    ({"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": None, "gaDays": 1}, None),
+    ({"basis": "other", "date": "2026-06-01"}, None),
+    ({"basis": "lmp", "date": "2026-02-30"}, None),
+])
+def test_valid_pregnancy(js, state, expected):
+    assert call(js, f"M.validPregnancy({json.dumps(state)})") == expected
+
+
+def test_convert_pregnancy_keeps_the_pregnancy(js):
+    now = ms(datetime(2026, 10, 17, 12))
+    start = {"basis": "due", "date": "2026-12-06"}
+    lmp = call(js, f"M.pregnancyLmp({json.dumps(start)})")
+    states = [start]
+    for basis in ["lmp", "ivf", "ultrasound", "due", "ultrasound", "ivf"]:
+        states.append(call(js, f"M.convertPregnancy({json.dumps(states[-1])}, '{basis}', {now})"))
+    assert all(call(js, f"M.pregnancyLmp({json.dumps(s)})") == lmp for s in states), states
+    assert states[2] == {"basis": "ivf", "date": "2026-03-20", "embryoDays": 5}
+    # Ultrasound from another basis: a scan today with the matching age (32+6 on 17 Oct)
+    assert states[3] == {"basis": "ultrasound", "date": "2026-10-17", "gaWeeks": 32, "gaDays": 6}
+
+
+def test_convert_ultrasound_keeps_scan_and_embryo_age(js):
+    now = ms(datetime(2026, 10, 17, 12))
+    scan = {"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 3}
+    assert call(js, f"M.convertPregnancy({json.dumps(scan)}, 'ultrasound', {now})") == scan
+    ivf = {"basis": "ivf", "date": "2026-05-10", "embryoDays": 3}
+    assert call(js, f"M.convertPregnancy({json.dumps(ivf)}, 'ivf', {now})") == ivf
+
+
+@pytest.mark.parametrize("basis, extra, event_offset, lmp_days_ago, expected", [
+    ("ivf", {"embryoDays": 5}, 1, 0, "Datum ne može biti u budućnosti."),
+    ("ultrasound", {"gaWeeks": 8, "gaDays": 0}, 1, 55, "Datum ne može biti u budućnosti."),
+    ("ultrasound", {"gaWeeks": 42, "gaDays": 6}, -30, 330, "Prema ovim podacima trudnoća traje više od 42 tjedna. "
+                                                           "Ako je beba rođena, odaberite „Beba je rođena”."),
+    ("ivf", {"embryoDays": 5}, -10, 29, None),
+])
+def test_pregnancy_error_for_new_bases(js, basis, extra, event_offset, lmp_days_ago, expected):
+    today = datetime(2026, 10, 17)
+    event, lmp = today + timedelta(days=event_offset), today - timedelta(days=lmp_days_ago)
+    result = call(js, f"M.pregnancyError('{basis}', {ms(lmp)}, {ms(today + timedelta(hours=12))}, 'hr', {ms(event)})")
+    assert result == expected
+
+
+def test_backup_keeps_new_pregnancy_details(js):
+    text = backup_json(children=[], pregnancy={"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 3})
+    assert call(js, f"M.parseBackup({json.dumps(text)})")["pregnancy"] == \
+        {"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 3}

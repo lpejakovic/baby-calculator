@@ -66,7 +66,10 @@
             pregnancyDetail: (s) => `${s.weeks}+${s.weekDays} · ${s.week}.\u00a0tjedan · ${s.trimester}.\u00a0tromjesečje`,
             week: (n) => `${n}. tjedan`,
             progress: (percent) => `${percent} % trudnoće`,
-            dateLabel: { lmp: 'Prvi dan zadnje menstruacije', due: 'Termin poroda' },
+            dateLabel: {
+                lmp: 'Prvi dan zadnje menstruacije', due: 'Termin poroda',
+                ivf: 'Datum transfera zametka', ultrasound: 'Datum ultrazvuka',
+            },
             errors: {
                 birthMissing: 'Unesite datum rođenja.',
                 birthInvalid: 'Neispravan datum ili vrijeme rođenja.',
@@ -76,6 +79,9 @@
                 lmpFuture: 'Datum zadnje menstruacije ne može biti u budućnosti.',
                 dueInvalid: 'Neispravan termin poroda.',
                 dueTooLate: 'Termin poroda može biti najviše 20 tjedana nakon rođenja.',
+                dateFuture: 'Datum ne može biti u budućnosti.',
+                pregnancyTooOld: 'Prema ovim podacima trudnoća traje više od 42 tjedna. Ako je beba rođena, odaberite „Beba je rođena”.',
+                gestationInvalid: 'Unesite tjedne (0–42) i dane (0–6) s ultrazvuka.',
                 dueTooFar: 'Termin je predaleko u budućnosti (više od 40 tjedana).',
                 lmpTooOld: 'Zadnja menstruacija je prije više od 42 tjedna. Ako je beba rođena, odaberite „Beba je rođena”.',
                 duePassed: 'Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”.',
@@ -121,7 +127,10 @@
             pregnancyDetail: (s) => `${s.weeks}+${s.weekDays} · week\u00a0${s.week} · ${['first', 'second', 'third'][s.trimester - 1]}\u00a0trimester`,
             week: (n) => `week ${n}`,
             progress: (percent) => `${percent}% of pregnancy`,
-            dateLabel: { lmp: 'First day of last period', due: 'Due date' },
+            dateLabel: {
+                lmp: 'First day of last period', due: 'Due date',
+                ivf: 'Embryo transfer date', ultrasound: 'Ultrasound date',
+            },
             errors: {
                 birthMissing: 'Enter the date of birth.',
                 birthInvalid: 'Invalid date or time of birth.',
@@ -131,6 +140,9 @@
                 lmpFuture: 'The first day of the last period can’t be in the future.',
                 dueInvalid: 'Invalid due date.',
                 dueTooLate: 'The due date can be at most 20 weeks after the birth.',
+                dateFuture: 'The date can’t be in the future.',
+                pregnancyTooOld: 'With these details the pregnancy would be over 42 weeks. If the baby is born, choose “Baby is born”.',
+                gestationInvalid: 'Enter the weeks (0–42) and days (0–6) from the ultrasound.',
                 dueTooFar: 'The due date is too far in the future (more than 40 weeks).',
                 lmpTooOld: 'The last period was more than 42 weeks ago. If the baby is born, choose “Baby is born”.',
                 duePassed: 'The due date was more than two weeks ago. If the baby is born, choose “Baby is born”.',
@@ -313,9 +325,59 @@
         return new Date(ms).toISOString().slice(0, 10);
     }
 
-    // basis: 'due' (due date) or 'lmp' (first day of the last period); returns the LMP date in ms
-    function lmpFrom(basis, dateMs) {
-        return basis === 'lmp' ? dateMs : dateMs - PREGNANCY_DAYS * DAY;
+    const PREGNANCY_BASES = ['due', 'lmp', 'ivf', 'ultrasound'];
+    const EMBRYO_DAYS = [3, 5, 6];
+
+    // The first day of the last period (LMP), in ms, from what is known:
+    //   due        due date − 280 days
+    //   lmp        the date itself
+    //   ivf        transfer date − 14 days − embryo age (3, 5 or 6 days); day 5 gives due = transfer + 261
+    //   ultrasound scan date − gestational age measured at the scan
+    function lmpFrom(basis, dateMs, extra = {}) {
+        switch (basis) {
+            case 'lmp': return dateMs;
+            case 'ivf': return dateMs - (14 + extra.embryoDays) * DAY;
+            case 'ultrasound': return dateMs - (extra.gaWeeks * 7 + extra.gaDays) * DAY;
+            default: return dateMs - PREGNANCY_DAYS * DAY;
+        }
+    }
+
+    // A pregnancy as stored: { basis, date, embryoDays?, gaWeeks?, gaDays? }; null if incomplete or invalid
+    function validPregnancy(p) {
+        if (!p || !PREGNANCY_BASES.includes(p.basis) || parseBirth(p.date, '') === null) return null;
+        const state = { basis: p.basis, date: p.date };
+        if (p.basis === 'ivf') {
+            if (!EMBRYO_DAYS.includes(p.embryoDays)) return null;
+            state.embryoDays = p.embryoDays;
+        }
+        if (p.basis === 'ultrasound') {
+            const weeks = p.gaWeeks;
+            const days = p.gaDays;
+            if (!Number.isInteger(weeks) || !Number.isInteger(days) || weeks < 0 || weeks > 42 || days < 0 || days > 6) {
+                return null;
+            }
+            Object.assign(state, { gaWeeks: weeks, gaDays: days });
+        }
+        return state;
+    }
+
+    function pregnancyLmp(state) {
+        return lmpFrom(state.basis, parseBirth(state.date, ''), state);
+    }
+
+    // The same pregnancy described with another basis (switching the radio buttons keeps the result)
+    function convertPregnancy(state, basis, now) {
+        const lmp = pregnancyLmp(state);
+        if (basis === 'due') return { basis, date: isoDate(lmp + PREGNANCY_DAYS * DAY) };
+        if (basis === 'lmp') return { basis, date: isoDate(lmp) };
+        if (basis === 'ivf') {
+            const embryoDays = state.embryoDays || 5;
+            return { basis, date: isoDate(lmp + (14 + embryoDays) * DAY), embryoDays };
+        }
+        // Ultrasound: keep a scan that was entered, otherwise a scan today with the matching age
+        const scan = state.basis === 'ultrasound' ? parseBirth(state.date, '') : startOfDay(now);
+        const age = Math.min(Math.max(Math.round((scan - lmp) / DAY), 0), 42 * 7 + 6);
+        return { basis, date: isoDate(scan), gaWeeks: Math.floor(age / 7), gaDays: age % 7 };
     }
 
     function pregnancyStatus(lmp, now) {
@@ -335,14 +397,15 @@
     }
 
     // Error message, or null when the date makes sense for an ongoing pregnancy (up to 42 weeks)
-    function pregnancyError(basis, lmp, now, lang = 'hr') {
+    // eventDate: the entered date (period, transfer or scan), which can't be in the future
+    function pregnancyError(basis, lmp, now, lang = 'hr', eventDate = lmp) {
         const errors = texts(lang).errors;
-        const days = Math.round((startOfDay(now) - lmp) / DAY);
-        if (days < 0) {
-            return basis === 'lmp' ? errors.lmpFuture : errors.dueTooFar;
-        }
+        const today = startOfDay(now);
+        if (basis !== 'due' && eventDate > today) return basis === 'lmp' ? errors.lmpFuture : errors.dateFuture;
+        const days = Math.round((today - lmp) / DAY);
+        if (days < 0) return basis === 'due' ? errors.dueTooFar : errors.dateFuture;
         if (days > 42 * 7) {
-            return basis === 'lmp' ? errors.lmpTooOld : errors.duePassed;
+            return { due: errors.duePassed, lmp: errors.lmpTooOld }[basis] || errors.pregnancyTooOld;
         }
         return null;
     }
@@ -515,11 +578,6 @@
     const BACKUP_APP = 'baby-calculator';
     const BACKUP_VERSION = 1;
     const BACKUP_MAX_BYTES = 100 * 1024;
-
-    function validPregnancy(p) {
-        return p && (p.basis === 'due' || p.basis === 'lmp') && parseBirth(p.date, '') !== null
-            ? { basis: p.basis, date: p.date } : null;
-    }
 
     function makeBackup(state, exportedAt) {
         return {
@@ -749,6 +807,30 @@
             return document.querySelector('input[name="basis"]:checked').value;
         }
 
+        const embryoDays = $('embryo-days');
+        const gaWeeks = $('ga-weeks');
+        const gaDays = $('ga-days');
+        let lastBasis = 'due';
+
+        function readPregnancyForm(basisValue = basis()) {
+            const number = (input) => (input.value.trim() === '' ? NaN : Number(input.value));
+            return {
+                basis: basisValue, date: pregnancyDate.value, embryoDays: Number(embryoDays.value),
+                gaWeeks: number(gaWeeks), gaDays: number(gaDays),
+            };
+        }
+
+        function fillPregnancyForm(state) {
+            basisInputs.forEach((input) => { input.checked = input.value === state.basis; });
+            pregnancyDate.value = state.date;
+            if (state.embryoDays) embryoDays.value = String(state.embryoDays);
+            if (state.basis === 'ultrasound') {
+                gaWeeks.value = String(state.gaWeeks);
+                gaDays.value = String(state.gaDays);
+            }
+            updateBasis();
+        }
+
         function hideResults() {
             clearInterval(timer);
             current = null;
@@ -879,11 +961,14 @@
             const date = parseBirth(pregnancyDate.value, '');
             if (!pregnancyDate.value) return showError(t.errors.dateMissing);
             if (date === null) return showError(t.errors.dateInvalid);
-            const lmp = lmpFrom(basis(), date);
-            const problem = pregnancyError(basis(), lmp, wallClockNow(), lang);
+            // With a valid date, only the ultrasound weeks and days can make the state invalid
+            const state = validPregnancy(readPregnancyForm());
+            if (!state) return showError(t.errors.gestationInvalid);
+            const lmp = pregnancyLmp(state);
+            const problem = pregnancyError(state.basis, lmp, wallClockNow(), lang, date);
             if (problem) return showError(problem);
 
-            store(PREGNANCY_KEY, { basis: basis(), date: pregnancyDate.value });
+            store(PREGNANCY_KEY, state);
             show(pregnancyResult);
 
             current = { mode: 'pregnancy', lmp };
@@ -897,15 +982,22 @@
 
         function updateBasis() {
             const today = parseBirth(todayValue(), '');
-            if (basis() === 'lmp') {
-                pregnancyDateLabel.textContent = t.dateLabel.lmp;
-                pregnancyDate.min = isoDate(today - 42 * 7 * DAY);
-                pregnancyDate.max = isoDate(today);
-            } else {
-                pregnancyDateLabel.textContent = t.dateLabel.due;
-                pregnancyDate.min = isoDate(today - 14 * DAY);
-                pregnancyDate.max = isoDate(today + PREGNANCY_DAYS * DAY);
-            }
+            const chosen = basis();
+            lastBasis = chosen;
+            pregnancyDateLabel.textContent = t.dateLabel[chosen];
+            $('ivf-fields').hidden = chosen !== 'ivf';
+            $('ultrasound-fields').hidden = chosen !== 'ultrasound';
+            gaWeeks.required = chosen === 'ultrasound';
+            gaDays.required = chosen === 'ultrasound';
+            // Dates that can give a pregnancy of 0 to 42 weeks today
+            const [min, max] = {
+                due: [today - 14 * DAY, today + PREGNANCY_DAYS * DAY],
+                lmp: [today - 42 * 7 * DAY, today],
+                ivf: [today - (42 * 7 - 14 - 3) * DAY, today],
+                ultrasound: [today - 42 * 7 * DAY, today],
+            }[chosen];
+            pregnancyDate.min = isoDate(min);
+            pregnancyDate.max = isoDate(max);
         }
 
         function setMode(next, recalculate = true) {
@@ -1025,12 +1117,16 @@
         });
         pregnancyDate.addEventListener('change', () => pregnancyDate.value && calculatePregnancy());
         basisInputs.forEach((input) => input.addEventListener('change', function () {
-            // Keep the same pregnancy: convert the entered date to the other basis
-            const date = parseBirth(pregnancyDate.value, '');
-            if (date !== null) {
-                pregnancyDate.value = isoDate(basis() === 'lmp' ? date - PREGNANCY_DAYS * DAY : date + PREGNANCY_DAYS * DAY);
+            // Keep the same pregnancy: describe what was entered with the newly chosen basis
+            const previous = validPregnancy(readPregnancyForm(lastBasis));
+            if (previous) {
+                fillPregnancyForm(convertPregnancy(previous, basis(), wallClockNow()));
+            } else {
+                updateBasis();
             }
-            updateBasis();
+            if (pregnancyDate.value) calculatePregnancy();
+        }));
+        [embryoDays, gaWeeks, gaDays].forEach((input) => input.addEventListener('change', function () {
             if (pregnancyDate.value) calculatePregnancy();
         }));
         modeInputs.forEach((input) => input.addEventListener('change', () => setMode(input.value)));
@@ -1097,7 +1193,7 @@
             let pregnancyChanged = false;
             if (backup.pregnancy) {
                 const local = restore(PREGNANCY_KEY);
-                const same = local && local.basis === backup.pregnancy.basis && local.date === backup.pregnancy.date;
+                const same = JSON.stringify(validPregnancy(local)) === JSON.stringify(backup.pregnancy);
                 if (!same && (!local || !local.date || confirm(t.backupReplacePregnancy))) {
                     store(PREGNANCY_KEY, backup.pregnancy);
                     pregnancyChanged = true;
@@ -1179,11 +1275,8 @@
             premature.open = Boolean(dueInput.value);
             store(ACTIVE_CHILD_KEY, activeId);
             renderChildren();
-            const savedPregnancy = restore(PREGNANCY_KEY);
-            if (savedPregnancy && savedPregnancy.date) {
-                basisInputs.forEach((input) => { input.checked = input.value === savedPregnancy.basis; });
-                pregnancyDate.value = savedPregnancy.date;
-            }
+            const savedPregnancy = validPregnancy(restore(PREGNANCY_KEY));
+            if (savedPregnancy) fillPregnancyForm(savedPregnancy);
             refreshDateLimits();
             setMode(restore(MODE_KEY) === 'pregnancy' ? 'pregnancy' : 'baby');
         }
@@ -1214,7 +1307,7 @@
         module.exports = {
             plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate,
             readSharedBirth, buildShareUrl, lmpFrom, pregnancyStatus, pregnancyError, pregnancyMilestones, dueCountdown,
-            readSharedPregnancy, normalizeChildren, nextChildId, childLabel, addSharedChild, removeChild,
+            readSharedPregnancy, validPregnancy, pregnancyLmp, convertPregnancy, normalizeChildren, nextChildId, childLabel, addSharedChild, removeChild,
             babyMilestones, icsEscape, icsFold, buildIcs, babyCalendarEvents, pregnancyCalendarEvents,
             correctedAge, correctedAgeError, makeBackup, parseBackup, mergeChildren, buildBackupLink, readBackupLink,
             TEXT, unit, formatBirth,

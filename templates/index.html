@@ -84,11 +84,32 @@
                 <legend>{{ t.basis_legend }}</legend>
                 <label class="radio"><input type="radio" name="basis" value="due" checked> {{ t.basis_due }}</label>
                 <label class="radio"><input type="radio" name="basis" value="lmp"> {{ t.basis_lmp }}</label>
+                <label class="radio"><input type="radio" name="basis" value="ivf"> {{ t.basis_ivf }}</label>
+                <label class="radio"><input type="radio" name="basis" value="ultrasound"> {{ t.basis_ultrasound }}</label>
             </fieldset>
             <div class="field">
                 <label for="pregnancy-date" id="pregnancy-date-label">{{ t.due_date }}</label>
                 <input type="date" id="pregnancy-date" name="pregnancy-date" required>
             </div>
+            <div class="field" id="ivf-fields" hidden>
+                <label for="embryo-days">{{ t.embryo_age }}</label>
+                <select id="embryo-days" name="embryo-days">
+                    {%- for days in (3, 5, 6) %}
+                    <option value="{{ days }}"{% if days == 5 %} selected{% endif %}>{{ t.embryo_days.format(days) }}</option>
+                    {%- endfor %}
+                </select>
+            </div>
+            <fieldset class="gestation" id="ultrasound-fields" hidden>
+                <legend>{{ t.ga_legend }}</legend>
+                <div class="field">
+                    <label for="ga-weeks">{{ t.ga_weeks }}</label>
+                    <input type="number" id="ga-weeks" name="ga-weeks" min="0" max="42" step="1" inputmode="numeric">
+                </div>
+                <div class="field">
+                    <label for="ga-days">{{ t.ga_days }}</label>
+                    <input type="number" id="ga-days" name="ga-days" min="0" max="6" step="1" inputmode="numeric">
+                </div>
+            </fieldset>
             <button type="submit">{{ t.calculate_pregnancy }}</button>
         </form>
 

@@ -128,6 +128,20 @@ h1 {
     padding: 0;
     border: none;
 }
+.gestation {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+.gestation legend {
+    grid-column: 1 / -1;
+    margin-bottom: 4px;
+    padding: 0;
+    font-weight: 600;
+}
 .basis legend {
     margin-bottom: 4px;
     padding: 0;
@@ -321,7 +335,8 @@ label {
     color: var(--muted);
     font-size: .875rem;
 }
-input {
+input,
+select {
     width: 100%;
     min-height: 44px;
     padding: 10px;
@@ -348,6 +363,7 @@ button:hover {
     background: var(--primary-hover);
 }
 input:focus-visible,
+select:focus-visible,
 button:focus-visible {
     outline: 3px solid var(--primary);
     outline-offset: 2px;
