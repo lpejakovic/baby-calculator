@@ -27,8 +27,13 @@ FORMS = {
     "hr": {"year": YEARS, "month": MONTHS, "week": WEEKS, "day": DAYS, "hour": HOURS,
            "minute": MINUTES, "second": SECONDS},
     "en": {key: (key, f"{key}s") for key in ("year", "month", "week", "day", "hour", "minute", "second")},
+    "de": {"year": ("Jahr", "Jahre"), "month": ("Monat", "Monate"), "week": ("Woche", "Wochen"), "day": ("Tag", "Tage"),
+           "hour": ("Stunde", "Stunden"), "minute": ("Minute", "Minuten"), "second": ("Sekunde", "Sekunden")},
+    "it": {"year": ("anno", "anni"), "month": ("mese", "mesi"), "week": ("settimana", "settimane"),
+           "day": ("giorno", "giorni"), "hour": ("ora", "ore"), "minute": ("minuto", "minuti"),
+           "second": ("secondo", "secondi")},
 }
-AND = {"hr": "i", "en": "and"}
+AND = {"hr": "i", "en": "and", "de": "und", "it": "e"}
 MONTH_NAMES_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
@@ -47,7 +52,9 @@ def join_units(parts, lang="hr"):
 def format_datetime(dt, lang="hr"):
     if lang == "en":
         return f"{dt.day} {MONTH_NAMES_EN[dt.month - 1]} {dt.year} {dt:%H:%M:%S}"
-    return f"{dt:%d.%m.%Y %H:%M:%S}"
+    if lang == "it":
+        return f"{dt:%d/%m/%Y %H:%M:%S}"
+    return f"{dt:%d.%m.%Y %H:%M:%S}"  # Croatian and German
 
 def calculate_date_difference(start_date, end_date):
     difference = relativedelta(end_date, start_date)

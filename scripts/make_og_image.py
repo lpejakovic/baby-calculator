@@ -1,4 +1,4 @@
-"""Generate the 1200x630 link preview images: static/images/og-image.png (Croatian) and og-image-en.png.
+"""Generate the 1200x630 link preview images: static/images/og-image.png (Croatian) and og-image-<lang>.png.
 
 Needs Pillow and the DejaVu Sans fonts (Debian/Ubuntu package fonts-dejavu-core):
 
@@ -22,6 +22,9 @@ TITLE = "Baby Calculator"
 VERSIONS = {
     "og-image.png": (["Dob bebe u tjednima,", "mjesecima i danima"], "uživo do sekunde · prekretnice"),
     "og-image-en.png": (["A baby's age in weeks,", "months and days"], "live to the second · milestones"),
+    "og-image-de.png": (["Das Alter Ihres Babys in", "Wochen, Monaten und Tagen"],
+                        "live auf die Sekunde · Meilensteine"),
+    "og-image-it.png": (["L’età del tuo bambino in", "settimane, mesi e giorni"], "in tempo reale · tappe"),
 }
 
 
@@ -40,7 +43,13 @@ def make(out, lines, footer):
         if x + draw.textlength(TITLE, font=bold) <= WIDTH - margin:
             break
         size -= 2
-    regular = ImageFont.truetype(str(FONTS / "DejaVuSans.ttf"), 38)
+    # Subtitle lines: also the largest size (up to 38) that keeps the right margin free
+    size = 38
+    while True:
+        regular = ImageFont.truetype(str(FONTS / "DejaVuSans.ttf"), size)
+        if all(x + draw.textlength(line, font=regular) <= WIDTH - margin for line in lines):
+            break
+        size -= 1
     small = ImageFont.truetype(str(FONTS / "DejaVuSans.ttf"), 28)
 
     y = 170

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Flask serves two pages (`/` Croatian, `/en/` English) from one template, a service worker, `robots.txt`, `sitemap.xml`,
+Flask serves one page per language (`/` Croatian, `/en/`, `/de/`, `/it/`) from one template, a service worker, `robots.txt`, `sitemap.xml`,
 `/health` and the JSON API. Everything a visitor enters is calculated and stored in the browser; there is no database.
 
 | Part | Files |
@@ -37,8 +37,11 @@ checks that `app.js` finds everything it takes from `BC`.
   square, shrinking everything until it fits above the footer, with the text measure passed in (canvas in the page,
   a stand-in in the tests); `drawCard()` paints it. The page shares the PNG as a file, or downloads it where sharing
   files isn't supported.
-- **Texts.** `TEXT.hr` / `TEXT.en` in `texts.js` (same keys, checked by a test); pure functions take an optional `lang`
-  that defaults to Croatian. The page texts are in `i18n.py`.
+- **Texts.** `TEXT.hr`, `.en`, `.de`, `.it` in `texts.js` (same keys, checked by a test), each with its own plural
+  rule, list word, ordinals, date format and countdown forms (German uses the dative: "in 5 Tagen"); pure functions
+  take an optional `lang` that defaults to Croatian. Page texts and API messages are in `i18n.py`; adding a language
+  means a `TEXT` entry, a `PAGE_TEXT` and `API_ERRORS` entry, a manifest and a preview image
+  (`scripts/make_og_image.py`).
 
 ## Data in the browser
 
@@ -47,7 +50,7 @@ checks that `app.js` finds everything it takes from `BC`.
 | `children` | `[{id, name, date, time, due}]`; `activeChild` is the selected id |
 | `pregnancy` | `{basis: "due" \| "lmp" \| "ivf" \| "ultrasound", date, embryoDays?, gaWeeks?, gaDays?}` |
 | `mode` | `"baby"` or `"pregnancy"` |
-| `lang` cookie | `hr` or `en`, set by the language switch; `/` redirects to `/en/` for `en` |
+| `lang` cookie | `hr`, `en`, `de` or `it`, set by the language switch; `/` redirects to that language's page |
 
 After the visitor saves something, the page asks the browser to keep this data (`navigator.storage.persist()`), at
 most once per visit and never on page load, since Firefox shows a prompt for it.
@@ -65,13 +68,13 @@ pregnancy. Older `?d=` / `?t=` links still work.
 
 ## Offline and install
 
-`/sw.js` is rendered with the two pages and every versioned static URL, so any change to a static file gives a new
+`/sw.js` is rendered with all language pages and every versioned static URL, so any change to a static file gives a new
 cache name; old caches are deleted on activation. Pages are network-first with a cached fallback, static files
 cache-first, and the API is never cached. Each language has its own manifest and start URL.
 
 ## API
 
-`POST /calculate` reads form fields or JSON (`datetime`, optional `tz` defaulting to `Europe/Zagreb`, optional `lang`).
+`POST /calculate` reads form fields or JSON (`datetime`, optional `tz` defaulting to `Europe/Zagreb`, optional `lang`: `hr`, `en`, `de`, `it`).
 It returns the original text fields (`current`, `day_diff`, `week_diff`, `year_diff`) and plain numbers: `age.calendar`
 and `age.weeks` on the wall clock, `age.elapsed` as real elapsed time. Errors are 400 with a message in the requested
 language.

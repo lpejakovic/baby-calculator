@@ -909,6 +909,49 @@ def test_share_picture_downloads_without_file_sharing(open_page, base_url, tmp_p
     keep_artifact(list(data), "share-card-pregnancy-en.png")
 
 
+@pytest.mark.parametrize("lang, weeks, born", [
+    ("de", r"\d+ Wochen und \d+ Tage?", "Geburt: 4. März 2025 um 17:45"),
+    ("it", r"\d+ settimane e \d+ giorni?", "Nascita: 4 marzo 2025 alle 17:45"),
+])
+def test_german_and_italian_pages(open_page, base_url, lang, weeks, born):
+    page = open_page()
+    page.goto(base_url + f"{lang}/")
+    calculate(page, "2025-03-04", "17:45", name="Ana")
+    assert re.fullmatch(weeks, page.text_content("#age-weeks").replace("\u00a0", " "))
+    assert page.text_content("#born-at") == born
+    text = page.text_content("main")
+    # Words that only Croatian or English would use ("Minuten" / "minuti" share a start with "minuta")
+    leftover = re.search(r"\b(dana|tjedna|tjedana|mjesec\w*|godin\w*|rođ\w*|sutra|danas|weeks|days|months|Born|Due date)\b", text)
+    assert not leftover, leftover
+
+
+def test_german_pregnancy_and_language_choice(open_page, base_url):
+    page = open_page()
+    page.click(".lang-switch a[hreflang=de]")
+    assert page.url == base_url + "de/"
+    page.goto(base_url)  # remembered: "/" opens German
+    assert page.url == base_url + "de/"
+    page.click("text=Schwangerschaft")
+    page.fill("#pregnancy-date", due_in(50))
+    page.click("#pregnancy-form button[type=submit]")
+    assert page.text_content("#pregnancy-duration") == "32 Wochen und 6 Tage"
+    assert page.text_content("#pregnancy-countdown") == "in 50 Tagen"
+
+
+@pytest.mark.parametrize("width", [320, 360, 1280])
+@pytest.mark.parametrize("lang", ["", "en/", "de/", "it/"])
+def test_no_button_label_is_cut_off(open_page, base_url, lang, width):
+    page = open_page(viewport={"width": width, "height": 900})
+    page.goto(base_url + lang)
+    calculate(page, "2025-03-04", name="Ana")
+    page.click("#backup summary")
+    overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    cut = page.evaluate("""[...document.querySelectorAll('button, a, .chip, .mode-switch label, .basis label')]
+        .filter(el => el.offsetParent !== null && el.scrollWidth > el.clientWidth + 1)
+        .map(el => el.textContent.trim())""")
+    assert not overflow and cut == []
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)

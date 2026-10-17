@@ -1,7 +1,7 @@
 # baby-calculator
 
 A small web app that shows a baby's age live: in weeks and days, in years, months and days, and as the total time
-since birth, with the next milestones. It also follows a pregnancy. Croatian at `/`, English at `/en/`.
+since birth, with the next milestones. It also follows a pregnancy. In Croatian (`/`), English (`/en/`), German (`/de/`) and Italian (`/it/`).
 
 Live: <https://bc.luka-pejakovic.from.hr>
 

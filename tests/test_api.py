@@ -93,7 +93,7 @@ def test_calculate_bad_json(client, frozen_time, payload):
     ({"datetime": "bad", "lang": "en"}, "Invalid date and time of birth."),
     ({"datetime": "2026-10-18T10:00", "lang": "en"}, "The date of birth can't be in the future."),
     ({"datetime": "2026-09-01T08:30", "lang": "en", "tz": "Nope/Zone"}, "Unknown time zone."),
-    ({"datetime": "2026-09-01T08:30", "lang": "de"}, "Nepodržani jezik / Unsupported language (hr, en)."),
+    ({"datetime": "2026-09-01T08:30", "lang": "fr"}, "Nepodržani jezik / Unsupported language (hr, en, de, it)."),
 ])
 def test_calculate_errors_by_language(client, frozen_time, data, error):
     assert post(client, **data) == (400, {"error": error})
@@ -252,37 +252,63 @@ def test_english_page(client):
     assert re.search(r'<link rel="manifest" href="/static/manifest-en\.json\?v=\d+">', html)
 
 
-@pytest.mark.parametrize("path, lang, other", [("/", "hr", "en"), ("/en/", "en", "hr")])
-def test_alternate_links_and_switch(client, path, lang, other):
-    html = client.get(path, headers=NGINX).get_data(as_text=True)
-    urls = {"hr": "https://bc.luka-pejakovic.from.hr/", "en": "https://bc.luka-pejakovic.from.hr/en/"}
-    assert f'<link rel="canonical" href="{urls[lang]}">' in html
-    for code, url in urls.items():
+SITE = "https://bc.luka-pejakovic.from.hr"
+PAGES = {"hr": f"{SITE}/", "en": f"{SITE}/en/", "de": f"{SITE}/de/", "it": f"{SITE}/it/"}
+NAMES = {"hr": "Hrvatski", "en": "English", "de": "Deutsch", "it": "Italiano"}
+
+
+@pytest.mark.parametrize("lang", PAGES)
+def test_alternate_links_and_switch(client, lang):
+    html = client.get(PAGES[lang].removeprefix(SITE), headers=NGINX).get_data(as_text=True)
+    assert f'<link rel="canonical" href="{PAGES[lang]}">' in html
+    for code, url in PAGES.items():
         assert f'<link rel="alternate" hreflang="{code}" href="{url}">' in html
-    assert f'<link rel="alternate" hreflang="x-default" href="{urls["hr"]}">' in html
-    switch = re.search(r'<nav class="lang-switch"[^>]*>\s*<a href="([^"]+)" hreflang="([^"]+)" lang="([^"]+)">', html)
-    assert switch.groups() == (urls[other], other, other)
+    assert f'<link rel="alternate" hreflang="x-default" href="{PAGES["hr"]}">' in html
+    # The switch links to the three other languages, in their own words; the current one is marked, not a link
+    nav = re.search(r'<nav class="lang-switch"[^>]*>(.*?)</nav>', html, re.S).group(1)
+    links = re.findall(r'<a href="([^"]+)" hreflang="([^"]+)" lang="([^"]+)">([^<]+)</a>', nav)
+    assert links == [(PAGES[c], c, c, NAMES[c]) for c in PAGES if c != lang]
+    assert f'<span class="lang-current" lang="{lang}" aria-current="page">{NAMES[lang]}</span>' in nav
 
 
-def test_english_without_slash_redirects(client):
-    response = client.get("/en")
-    assert response.status_code == 308
-    assert response.headers["Location"].endswith("/en/")
+@pytest.mark.parametrize("lang, mode_baby, description", [
+    ("de", "Baby ist geboren", "Das Alter Ihres Babys in Wochen, Monaten und Tagen – live auf die Sekunde."),
+    ("it", "Il bambino è nato", "Calcola l’età del tuo bambino in settimane, mesi e giorni, in tempo reale al secondo."),
+])
+def test_german_and_italian_pages(client, lang, mode_baby, description):
+    html = client.get(f"/{lang}/", headers=NGINX).get_data(as_text=True)
+    assert f'<html lang="{lang}">' in html and mode_baby in html
+    meta = page_meta(html)
+    assert meta["description"] == description and meta["og:url"] == PAGES[lang]
+    assert re.fullmatch(rf"{SITE}/static/images/og-image-{lang}\.png\?v=\d+", meta["og:image"])
+    assert png_size(client.get(meta["og:image"].removeprefix(SITE)).get_data()) == (1200, 630)
+    assert f"manifest-{lang}.json" in html
 
 
-def test_english_manifest(client):
-    manifest = json.loads(client.get("/static/manifest-en.json").get_data())
-    assert (manifest["id"], manifest["start_url"], manifest["lang"]) == ("/en/", "/en/", "en")
+@pytest.mark.parametrize("lang", ["en", "de", "it"])
+def test_language_without_slash_redirects(client, lang):
+    response = client.get(f"/{lang}")
+    assert response.status_code == 308 and response.headers["Location"].endswith(f"/{lang}/")
+
+
+def test_unknown_language_is_not_found(client):
+    assert client.get("/fr/").status_code == 404
+
+
+@pytest.mark.parametrize("lang", ["en", "de", "it"])
+def test_language_manifest(client, lang):
+    manifest = json.loads(client.get(f"/static/manifest-{lang}.json").get_data())
+    assert (manifest["id"], manifest["start_url"], manifest["lang"]) == (f"/{lang}/", f"/{lang}/", lang)
     croatian = json.loads(client.get("/static/manifest.json").get_data())
     assert manifest["icons"] == croatian["icons"]
     assert manifest["id"] != croatian["id"]  # installs as a separate app
 
 
-def test_service_worker_covers_both_languages(client):
+def test_service_worker_covers_all_languages(client):
     sw = client.get("/sw.js").get_data(as_text=True)
     precache = json.loads(re.search(r"const PRECACHE = (\[.*?\]);", sw).group(1))
     pages = json.loads(re.search(r"const PAGES = (\[.*?\]);", sw).group(1))
-    assert pages == ["/", "/en/"]
+    assert pages == ["/", "/en/", "/de/", "/it/"]
     for path in pages:
         html = client.get(path).get_data(as_text=True)
         assert set(re.findall(r'(?:href|src)="(/static/[^"]+)"', html)) <= set(precache), path
@@ -303,16 +329,17 @@ def test_sitemap(client):
     assert response.status_code == 200 and response.mimetype == "application/xml"
     ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9", "x": "http://www.w3.org/1999/xhtml"}
     urls = ET.fromstring(response.get_data()).findall("s:url", ns)
-    pages = ["https://bc.luka-pejakovic.from.hr/", "https://bc.luka-pejakovic.from.hr/en/"]
-    assert [u.find("s:loc", ns).text for u in urls] == pages
+    assert [u.find("s:loc", ns).text for u in urls] == list(PAGES.values())
     for url in urls:
         alternates = {link.get("hreflang"): link.get("href") for link in url.findall("x:link", ns)}
-        assert alternates == {"hr": pages[0], "en": pages[1], "x-default": pages[0]}
+        assert alternates == {**PAGES, "x-default": PAGES["hr"]}
 
 
 @pytest.mark.parametrize("path, lang, title, home", [
     ("/nope", "hr", "Stranica nije pronađena", "/"),
     ("/en/nope", "en", "Page not found", "/en/"),
+    ("/de/nope", "de", "Seite nicht gefunden", "/de/"),
+    ("/it/nope", "it", "Pagina non trovata", "/it/"),
     ("/static/missing.css", "hr", "Stranica nije pronađena", "/"),
 ])
 def test_not_found(client, path, lang, title, home):
@@ -333,13 +360,14 @@ def test_health(limiter):
     assert response.headers["Cache-Control"] == "no-store"
 
 
-def test_language_cookie_redirects_to_english(client):
-    client.set_cookie("lang", "en")
+@pytest.mark.parametrize("lang", ["en", "de", "it"])
+def test_language_cookie_redirects(client, lang):
+    client.set_cookie("lang", lang)
     response = client.get("/")
-    assert response.status_code == 302 and response.headers["Location"] == "/en/"
+    assert response.status_code == 302 and response.headers["Location"] == f"/{lang}/"
     assert "Cookie" in response.headers["Vary"]
     response = client.get("/?d=2026-09-01")  # older share links keep their query
-    assert response.headers["Location"] == "/en/?d=2026-09-01"
+    assert response.headers["Location"] == f"/{lang}/?d=2026-09-01"
 
 
 @pytest.mark.parametrize("cookie", ["hr", "xx", None])
@@ -349,3 +377,17 @@ def test_croatian_page_without_english_cookie(client, cookie):
     response = client.get("/")
     assert response.status_code == 200 and '<html lang="hr">' in response.get_data(as_text=True)
     assert "Cookie" in response.headers["Vary"]
+
+
+@pytest.mark.parametrize("lang, expected", [
+    ("de", {"current": "17.10.2026 15:30:45", "day_diff": "46 Tage, 7 Stunden, 0 Minuten und 45 Sekunden",
+            "week_diff": "6 Wochen und 4 Tage", "year_diff": "0 Jahre, 1 Monat und 16 Tage"}),
+    ("it", {"current": "17/10/2026 15:30:45", "day_diff": "46 giorni, 7 ore, 0 minuti e 45 secondi",
+            "week_diff": "6 settimane e 4 giorni", "year_diff": "0 anni, 1 mese e 16 giorni"}),
+])
+def test_calculate_german_and_italian(client, frozen_time, lang, expected):
+    status, body = post(client, datetime="2026-09-01T08:30", lang=lang)
+    assert status == 200
+    assert {k: body[k] for k in expected} == expected
+    assert post(client, datetime="bad", lang=lang)[1]["error"] == {
+        "de": "Ungültiges Geburtsdatum oder ungültige Geburtszeit.", "it": "Data e ora di nascita non valide."}[lang]

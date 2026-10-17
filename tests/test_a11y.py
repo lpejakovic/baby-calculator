@@ -52,7 +52,7 @@ def audit(page):
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
-@pytest.mark.parametrize("path", ["", "en/"])
+@pytest.mark.parametrize("path", ["", "en/", "de/", "it/"])
 @pytest.mark.parametrize("state", STATES)
 def test_page_is_accessible(browser, base_url, path, scheme, state):
     context = browser.new_context(color_scheme=scheme, viewport={"width": 390, "height": 900},
@@ -67,7 +67,7 @@ def test_page_is_accessible(browser, base_url, path, scheme, state):
     context.close()
 
 
-@pytest.mark.parametrize("path", ["nope", "en/nope"])
+@pytest.mark.parametrize("path", ["nope", "en/nope", "de/nope", "it/nope"])
 def test_not_found_page_is_accessible(browser, base_url, path):
     context = browser.new_context()
     page = context.new_page()

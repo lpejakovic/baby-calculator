@@ -356,7 +356,9 @@ def test_share_url_with_name(js):
 def test_text_keys_match(js):
     # Same keys (and nested keys) in both languages
     shape = "(o) => Object.keys(o).sort().map(k => typeof o[k] === 'object' ? [k, Object.keys(o[k]).sort()] : k)"
-    assert call(js, f"({shape})(M.TEXT.hr)") == call(js, f"({shape})(M.TEXT.en)")
+    assert call(js, "Object.keys(M.TEXT)") == ["hr", "en", "de", "it"]
+    for lang in ["en", "de", "it"]:
+        assert call(js, f"({shape})(M.TEXT.hr)") == call(js, f"({shape})(M.TEXT.{lang})"), lang
 
 
 @pytest.mark.parametrize("n, key, expected", [
@@ -425,7 +427,8 @@ def test_english_pregnancy_texts(js):
 
 def test_english_child_label_and_fallback(js):
     assert js.eval("M.childLabel({name: ''}, 1, 'en')") == "Child 2"
-    assert js.eval("M.childLabel({name: ''}, 1, 'de')") == "Dijete 2"  # unknown language: Croatian
+    assert js.eval("M.childLabel({name: ''}, 1, 'fr')") == "Dijete 2"  # unknown language: Croatian
+    assert js.eval("M.childLabel({name: ''}, 1, 'constructor')") == "Dijete 2"  # not a key inherited by every object
 
 
 # --- Corrected age (premature babies)
@@ -789,3 +792,59 @@ def test_card_keeps_numbers_with_their_units(js, main):
 def test_keep_together(js):
     assert js.eval("M.keepTogether('1 godina, 7 mjeseci i 13 dana')") == "1\u00a0godina, 7\u00a0mjeseci i\u00a013\u00a0dana"
     assert js.eval("M.keepTogether('32+6 · week 33')") == "32+6 · week 33"  # numbers at the end stay as they are
+
+
+
+# --- German and Italian
+
+@pytest.mark.parametrize("lang, n, key, expected", [
+    ("de", 1, "day", "1 Tag"), ("de", 2, "day", "2 Tage"), ("de", 0, "week", "0 Wochen"), ("de", 1, "year", "1 Jahr"),
+    ("de", 7, "month", "7 Monate"), ("de", 21, "hour", "21 Stunden"),
+    ("it", 1, "day", "1 giorno"), ("it", 2, "day", "2 giorni"), ("it", 1, "week", "1 settimana"),
+    ("it", 3, "week", "3 settimane"), ("it", 1, "month", "1 mese"), ("it", 5, "hour", "5 ore"),
+])
+def test_units_de_it(js, lang, n, key, expected):
+    assert js.eval(f"M.unit({n}, '{key}', '{lang}')") == expected
+
+
+@pytest.mark.parametrize("lang, expected", [
+    ("de", "1 Jahr, 7 Monate und 13 Tage"), ("it", "1 anno, 7 mesi e 13 giorni"),
+])
+def test_join_de_it(js, lang, expected):
+    assert js.eval(f"M.joinParts([[1, 'year'], [7, 'month'], [13, 'day']], '{lang}')") == expected
+
+
+@pytest.mark.parametrize("lang, days, expected", [
+    ("de", 0, "heute"), ("de", 1, "morgen"), ("de", 2, "in 2 Tagen"), ("de", -1, "vor 1 Tag"), ("de", -5, "vor 5 Tagen"),
+    ("it", 0, "oggi"), ("it", 1, "domani"), ("it", 2, "tra 2 giorni"), ("it", -1, "1 giorno fa"), ("it", -5, "5 giorni fa"),
+])
+def test_countdown_de_it(js, lang, days, expected):
+    assert js.eval(f"M.dueCountdown({days}, '{lang}')") == expected
+
+
+@pytest.mark.parametrize("lang, birthday, date, at", [
+    ("de", "3. Geburtstag", "4. März 2025", "4. März 2025 um 17:05"),
+    ("it", "3° compleanno", "4 marzo 2025", "4 marzo 2025 alle 17:05"),
+])
+def test_dates_and_birthdays_de_it(js, lang, birthday, date, at):
+    birth = datetime(2000, 6, 15)
+    label = call(js, f"M.upcomingMilestones({ms(birth)}, {ms(datetime(2003, 6, 15))}, 1, '{lang}')")[0]["label"]
+    assert label == birthday
+    assert js.eval(f"M.formatDate({ms(datetime(2025, 3, 4))}, '{lang}')") == date
+    assert js.eval(f"M.formatBirth({ms(datetime(2025, 3, 4, 17, 5))}, true, '{lang}')") == at
+
+
+@pytest.mark.parametrize("lang, detail, milestones", [
+    ("de", "32+6 · 33.\u00a0SSW · 3.\u00a0Trimester", ["Termingerecht", "Geburtstermin"]),
+    ("it", "32+6 · 33ª\u00a0settimana · 3°\u00a0trimestre", ["A termine", "Data presunta del parto"]),
+])
+def test_pregnancy_texts_de_it(js, lang, detail, milestones):
+    lmp, now = datetime(2026, 3, 1), datetime(2026, 10, 17)
+    status = call(js, f"M.pregnancyStatus({ms(lmp)}, {ms(now)})")
+    assert js.eval(f"M.TEXT.{lang}.pregnancyDetail({json.dumps(status)})") == detail
+    assert [m["label"] for m in call(js, f"M.pregnancyMilestones({ms(lmp)}, {ms(now)}, 3, '{lang}')")] == milestones
+
+
+def test_card_keeps_units_together_de_it(js):
+    assert js.eval("M.keepTogether('1 Jahr, 7 Monate und 13 Tage')") == "1\u00a0Jahr, 7\u00a0Monate und\u00a013\u00a0Tage"
+    assert js.eval("M.keepTogether('7 mesi e 13 giorni')") == "7\u00a0mesi e\u00a013\u00a0giorni"
