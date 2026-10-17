@@ -5,8 +5,8 @@
 
     const {
         addSharedChild, ageInMonths, babyCalendarEvents, backupReminderDue, BACKUP_MAX_BYTES, buildBackupLink, buildIcs,
-        buildShareUrl, calculateAge, childLabel, cleanChild, convertPregnancy, correctedAge, correctedAgeError,
-        countdown, DAY, drawCard, dueCountdown, formatBirth, formatDate, formatPercentile, growthChart, isoDate,
+        buildShareUrl, calculateAge, chartMonths, childLabel, cleanChild, convertPregnancy, correctedAge, correctedAgeError,
+        countdown, DAY, drawCard, GROWTH_LYING_MONTHS, dueCountdown, formatBirth, formatDate, formatPercentile, growthChart, isoDate,
         joinClock, joinParts, layoutCard, makeBackup, measurePercentile, MEASURES, mergeChildren, nextChildId,
         normalizeChildren, parseBackup, parseBirth, PREGNANCY_DAYS, pregnancyCalendarEvents, pregnancyError,
         pregnancyLmp, pregnancyMilestones, pregnancyStatus, readBackupLink, readSharedBirth, readSharedPregnancy,
@@ -702,11 +702,17 @@
             saveChildren();
         }
 
-        // Age 0 on the WHO curves: the birth, or the due date for a baby born early (corrected age)
-        function growthStart(child) {
-            const birth = parseBirth(child.date, '');
+        // Age on the WHO curves at a date: for a baby born early the corrected age (from the due date), as is usual
+        // up to 2 years of actual age; otherwise, and after that, the actual age
+        function growthAge(child, dateMs) {
+            const birth = startOfDay(parseBirth(child.date, ''));
             const due = child.due ? parseBirth(child.due, '') : null;
-            return due !== null && due > birth ? { start: due, corrected: true } : { start: startOfDay(birth), corrected: false };
+            const actual = ageInMonths(birth, dateMs);
+            return due !== null && due > birth && actual < GROWTH_LYING_MONTHS ? ageInMonths(due, dateMs) : actual;
+        }
+
+        function bornEarly(child) {
+            return Boolean(child.due) && parseBirth(child.due, '') > parseBirth(child.date, '');
         }
 
         function formatNumber(value) {
@@ -749,11 +755,11 @@
         }
 
         // "P50", or why there is no percentile
-        function percentileText(table, start, date, value) {
-            const months = ageInMonths(start, parseBirth(date, ''));
+        function percentileText(table, child, date, value) {
+            const months = growthAge(child, parseBirth(date, ''));
             if (months < 0) return t.beforeTerm;
             const p = measurePercentile(table, months, value);
-            return p === null ? t.after24 : formatPercentile(p);
+            return p === null ? t.after60 : formatPercentile(p);
         }
 
         function renderGrowth() {
@@ -764,7 +770,6 @@
             growth.date.max = todayValue();
             if (!growth.date.value) growth.date.value = todayValue();
             const tables = child.sex ? WHO_GROWTH[child.sex === 'f' ? 'girls' : 'boys'] : null;
-            const { start, corrected } = growthStart(child);
             const measurements = child.measurements || [];
 
             // Newest first: date, then each value with its percentile under it
@@ -782,7 +787,7 @@
                     if (tables) {
                         const p = document.createElement('span');
                         p.className = 'percentile';
-                        p.textContent = percentileText(tables[key], start, m.date, m[key]);
+                        p.textContent = percentileText(tables[key], child, m.date, m[key]);
                         cell.append(p);
                     }
                     return cell;
@@ -806,7 +811,7 @@
             // Nothing measured yet: the form is all there is to do, so it is open
             if (!measurements.length) growth.add.open = true;
 
-            growth.corrected.hidden = !(tables && corrected);
+            growth.corrected.hidden = !(tables && bornEarly(child));
             growth.corrected.textContent = t.correctedNote;
             if (!tables) {
                 const hint = document.createElement('p');
@@ -817,11 +822,12 @@
             }
             const measure = chosenMeasure();
             const points = measurements.filter((m) => m[measure] !== undefined)
-                .map((m) => ({ months: ageInMonths(start, parseBirth(m.date, '')), value: m[measure] }));
+                .map((m) => ({ months: growthAge(child, parseBirth(m.date, '')), value: m[measure] }));
+            const months = chartMonths(ageInMonths(startOfDay(parseBirth(child.date, '')), wallClockNow()), points);
             // Drawn at the real width, so the text keeps its size on phones (a closed section has no width yet)
             const width = Math.max(280, Math.round(growth.chart.clientWidth || 600));
             const height = Math.round(Math.min(360, Math.max(240, width * 0.62)));
-            const model = growthChart(tables[measure], points, width, height);
+            const model = growthChart(tables[measure], points, width, height, months);
             growth.chart.replaceChildren(chartSvg(model, t.growthChartLabel(t.measures[measure])));
         }
 

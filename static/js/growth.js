@@ -1,4 +1,4 @@
-// Growth: WHO percentiles from the LMS data in who-growth.js (birth to 24 months) and the chart geometry.
+// Growth: WHO percentiles from the LMS data in who-growth.js (birth to 5 years) and the chart geometry.
 // Pure: no DOM or storage. Shared through the BC namespace; loaded before app.js (see templates/index.html).
 (function (BC) {
     'use strict';
@@ -6,11 +6,12 @@
     const { DAY, startOfDay } = BC;
 
     const DAYS_PER_MONTH = 365.25 / 12; // WHO's month: 30.4375 days
-    const MAX_MONTHS = 24;
+    const MAX_MONTHS = 60;
+    const LYING_MONTHS = 24; // length is measured lying down up to here, standing height after
     // Accepted measurements (anything outside is a typo, e.g. grams instead of kilograms)
     const MEASURES = {
         weight: { min: 0.3, max: 30, decimals: 2 },
-        length: { min: 25, max: 120, decimals: 1 },
+        length: { min: 25, max: 130, decimals: 1 },
         head: { min: 15, max: 60, decimals: 1 },
     };
     // Lines on the chart, with their z-scores
@@ -21,12 +22,16 @@
         return (startOfDay(dateMs) - startOfDay(startMs)) / DAY / DAYS_PER_MONTH;
     }
 
-    // L, M and S at an age in months, interpolated between completed months; null outside 0–24 months
+    // L, M and S at an age in months, interpolated between completed months; null outside 0–60 months.
+    // table: { rows: [[L, M, S] per month], lying24?: [L, M, S] } (length: lying down up to 24 months)
     function lmsAt(table, months) {
         if (!(months >= 0 && months <= MAX_MONTHS)) return null;
         const i = Math.min(Math.floor(months), MAX_MONTHS - 1);
         const f = months - i;
-        return [0, 1, 2].map((k) => table[i][k] + (table[i + 1][k] - table[i][k]) * f);
+        const lying = table.lying24 && months <= LYING_MONTHS;
+        const next = lying && i + 1 === LYING_MONTHS ? table.lying24 : table.rows[i + 1];
+        const row = lying && i === LYING_MONTHS ? table.lying24 : table.rows[i];
+        return [0, 1, 2].map((k) => row[k] + (next[k] - row[k]) * f);
     }
 
     function zScore(value, [L, M, S]) {
@@ -58,25 +63,30 @@
         return `P${rounded}`;
     }
 
-    // Percentile of one measured value, or null when the age is outside 0–24 months
+    // Percentile of one measured value, or null when the age is outside 0–60 months
     function measurePercentile(table, months, value) {
         const lms = lmsAt(table, months);
         return lms ? percentileOf(zScore(value, lms)) : null;
     }
 
+    // Months shown on the chart: the first two years while the child is younger (or measured only then), else five
+    function chartMonths(ageMonths, points) {
+        return Math.max(ageMonths, ...points.map((p) => p.months)) > LYING_MONTHS ? MAX_MONTHS : LYING_MONTHS;
+    }
+
     // Chart geometry in a width × height box: the percentile curves as SVG paths, the child's points, axis ticks.
-    // points: [{ months, value }] (outside 0–24 months they are left out)
-    function growthChart(table, points, width, height) {
+    // points: [{ months, value }] (outside 0–maxMonths they are left out)
+    function growthChart(table, points, width, height, maxMonths = LYING_MONTHS) {
         const pad = { left: 44, right: 40, top: 12, bottom: 30 };
         const ages = [];
-        for (let m = 0; m <= MAX_MONTHS; m += 0.25) ages.push(m);
-        const shown = points.filter((p) => p.months >= 0 && p.months <= MAX_MONTHS);
+        for (let m = 0; m <= maxMonths; m += maxMonths / 96) ages.push(m);
+        const shown = points.filter((p) => p.months >= 0 && p.months <= maxMonths);
         const low = Math.min(...ages.map((m) => valueAt(lmsAt(table, m), PERCENTILE_LINES[0][1])), ...shown.map((p) => p.value));
         const high = Math.max(...ages.map((m) => valueAt(lmsAt(table, m), PERCENTILE_LINES[4][1])), ...shown.map((p) => p.value));
         const step = niceStep((high - low) / 6);
         const yMin = Math.floor(low / step) * step;
         const yMax = Math.ceil(high / step) * step;
-        const x = (months) => pad.left + (months / MAX_MONTHS) * (width - pad.left - pad.right);
+        const x = (months) => pad.left + (months / maxMonths) * (width - pad.left - pad.right);
         const y = (value) => height - pad.bottom - ((value - yMin) / (yMax - yMin)) * (height - pad.top - pad.bottom);
         const round = (n) => Math.round(n * 10) / 10;
 
@@ -91,7 +101,10 @@
         });
         const yTicks = [];
         for (let v = yMin; v <= yMax + step / 2; v += step) yTicks.push({ value: round(v), y: round(y(v)) });
-        const xTicks = [0, 3, 6, 9, 12, 15, 18, 21, 24].map((m) => ({ months: m, x: round(x(m)) }));
+        // Every 3 months up to 2 years; every 6 (or 12 on a narrow chart) up to 5 years
+        const tickStep = maxMonths === LYING_MONTHS ? 3 : (width < 420 ? 12 : 6);
+        const xTicks = [];
+        for (let m = 0; m <= maxMonths; m += tickStep) xTicks.push({ months: m, x: round(x(m)) });
         return {
             width, height, pad, curves, yTicks, xTicks,
             points: shown.map((p) => ({ ...p, x: round(x(p.months)), y: round(y(p.value)) })),
@@ -123,7 +136,8 @@
     }
 
     Object.assign(BC, {
-        DAYS_PER_MONTH, GROWTH_MAX_MONTHS: MAX_MONTHS, MEASURES, PERCENTILE_LINES, ageInMonths, lmsAt, zScore,
-        valueAt, normalCdf, percentileOf, formatPercentile, measurePercentile, growthChart, niceStep, cleanMeasurements,
+        DAYS_PER_MONTH, GROWTH_MAX_MONTHS: MAX_MONTHS, GROWTH_LYING_MONTHS: LYING_MONTHS, MEASURES, PERCENTILE_LINES,
+        ageInMonths, lmsAt, zScore, valueAt, normalCdf, percentileOf, formatPercentile, measurePercentile,
+        chartMonths, growthChart, niceStep, cleanMeasurements,
     });
 })(globalThis.BC = globalThis.BC || {});

@@ -1373,3 +1373,25 @@ def test_no_install_hint_elsewhere(open_page):
     page = open_page()
     calculate(page)
     assert page.is_hidden("#ios-install")
+
+
+@pytest.mark.webkit
+def test_growth_up_to_5_years(open_page):
+    page = growth_page(open_page, viewport={"width": 390, "height": 900})  # "today" is 10 Jul 2026
+    edit(page)
+    page.fill("#child-name", "Ana")
+    page.fill("#birth-date", "2023-01-10")
+    page.click("#premature summary")
+    page.fill("#due-date", "2023-03-01")  # born early, but corrected age only counts up to 2 years
+    page.click("#birth-form button[type=submit]")
+    page.click("#growth > summary")
+    page.click("#growth label.radio:has-text('Djevojčica')")
+    add_measurement(page, "2026-01-10", weight="13,85", length="95,05")  # 36 months: the WHO medians
+    rows = measurement_rows(page)
+    # By actual age (by corrected age these would be P57 and P62)
+    assert rows == ["10.01.2026.: 13,85 kg (P50) · 95,05 cm (P50)"], rows
+    # The chart covers five years once the child is older than two
+    ticks = page.locator("#growth-chart text.axis").all_text_contents()
+    assert "60" in ticks and "48" in ticks
+    page.click("#growth label.radio:has-text('Duljina')")
+    keep_artifact(page.locator("#growth").screenshot(), "growth-5-years-hr-phone.png")

@@ -33,10 +33,12 @@ checks that `app.js` finds everything it takes from `BC`.
   `convertPregnancy()` keeps the same pregnancy when the basis is switched. Accepted: 0 to 42 weeks.
 - **Calendar.** `buildIcs()` writes RFC 5545: all-day, non-blocking events with a 9:00 reminder, CRLF, escaped text,
   lines folded at 75 bytes. Event ids come from the birth (or LMP) date and the milestone key, so re-importing updates.
-- **Growth.** `who-growth.js` holds the WHO Child Growth Standards (L, M, S per completed month, 0–24 months; made by
-  `scripts/make_growth_data.py`, which checks them against the published percentiles). `growth.js` interpolates
-  L, M and S between months, gives z-scores and percentiles (LMS method), and the chart geometry with percentiles 3,
-  15, 50, 85 and 97. Ages are by date in WHO months (30.4375 days), counted from the due date for babies born early.
+- **Growth.** `who-growth.js` holds the WHO Child Growth Standards (L, M, S per completed month, 0–60 months; made by
+  `scripts/make_growth_data.py` from WHO's tables, checked against the published percentiles). Length is lying down
+  up to 24 months and standing height after, so the length table also keeps the lying value at 24 months
+  (`lying24`). `growth.js` interpolates L, M and S between months, gives z-scores and percentiles (LMS method), and
+  the chart geometry with percentiles 3, 15, 50, 85 and 97, over 2 years or, for older children, 5 years. Ages are by
+  date in WHO months (30.4375 days); for babies born early from the due date, up to 2 years of actual age.
   A child stores `sex` and `measurements` only once they are used.
 - **Share picture.** `card.js`: `layoutCard()` wraps and fits the text (title, age, details, footer) into a 1080×1080
   square, shrinking everything until it fits above the footer, with the text measure passed in (canvas in the page,

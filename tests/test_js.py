@@ -879,8 +879,12 @@ def test_who_data_shape(js):
         assert call(js, f"Object.keys(M.WHO_GROWTH.{sex})") == ["weight", "length", "head"]
         for measure in ["weight", "length", "head"]:
             table = call(js, f"M.WHO_GROWTH.{sex}.{measure}")
-            assert len(table) == 25 and all(len(row) == 3 for row in table)
-            medians = [row[1] for row in table]
+            assert len(table["rows"]) == 61 and all(len(row) == 3 for row in table["rows"])  # 0–60 months
+            medians = [row[1] for row in table["rows"]]
+            if measure == "length":
+                # Lying down up to 24 months, standing height from 24 months (about 0.7 cm less)
+                assert 0.6 < table["lying24"][1] - medians[24] < 0.8
+                medians[24] = table["lying24"][1]
             assert medians == sorted(medians), (sex, measure)  # medians grow with age
 
 
@@ -897,11 +901,31 @@ def test_newborn_boy_weight_percentiles(js, value, expected):
 
 def test_lms_interpolation_and_range(js):
     table = call(js, "M.WHO_GROWTH.girls.length")
-    assert call(js, "M.lmsAt(M.WHO_GROWTH.girls.length, 6)") == pytest.approx(table[6])
-    mid = call(js, "M.lmsAt(M.WHO_GROWTH.girls.length, 6.5)")
-    assert mid == pytest.approx([(a + b) / 2 for a, b in zip(table[6], table[7], strict=True)])
-    assert call(js, "M.lmsAt(M.WHO_GROWTH.girls.length, 24)") == pytest.approx(table[24])
-    assert call(js, "[M.lmsAt(M.WHO_GROWTH.girls.length, -0.1), M.lmsAt(M.WHO_GROWTH.girls.length, 24.1)]") == [None, None]
+    rows, lying = table["rows"], table["lying24"]
+    at = lambda months: call(js, f"M.lmsAt(M.WHO_GROWTH.girls.length, {months})")  # noqa: E731
+    assert at(6) == pytest.approx(rows[6])
+    assert at(6.5) == pytest.approx([(a + b) / 2 for a, b in zip(rows[6], rows[7], strict=True)])
+    # Up to 24 months towards the lying value, after that the standing height
+    assert at(23.5) == pytest.approx([(a + b) / 2 for a, b in zip(rows[23], lying, strict=True)])
+    assert at(24) == pytest.approx(lying)
+    assert at(24.5) == pytest.approx([(a + b) / 2 for a, b in zip(rows[24], rows[25], strict=True)])
+    assert at(60) == pytest.approx(rows[60])
+    assert call(js, "[M.lmsAt(M.WHO_GROWTH.girls.length, -0.1), M.lmsAt(M.WHO_GROWTH.girls.length, 60.1)]") == [None, None]
+
+
+@pytest.mark.parametrize("sex, measure, months, median", [
+    ("boys", "weight", 60, 18.3366), ("girls", "weight", 60, 18.2193),   # WHO medians at 5 years
+    ("boys", "length", 60, 109.9638), ("boys", "length", 24.5, (87.1161 + 87.972) / 2),  # standing height
+])
+def test_who_medians_up_to_5_years(js, sex, measure, months, median):
+    assert call(js, f"M.lmsAt(M.WHO_GROWTH.{sex}.{measure}, {months})")[1] == pytest.approx(median)
+
+
+@pytest.mark.parametrize("age, points, expected", [
+    (5, [], 24), (24, [{"months": 20}], 24), (24.1, [], 60), (10, [{"months": 30}], 60),
+])
+def test_chart_months(js, age, points, expected):
+    assert js.eval(f"M.chartMonths({age}, {json.dumps(points)})") == expected
 
 
 def test_value_and_z_score_round_trip(js):
@@ -930,8 +954,13 @@ def test_growth_chart_geometry(js):
     for curve in chart["curves"]:
         ys = [float(part.split()[1]) for part in curve["d"].split(" L")]
         assert len(ys) == 97 and all(top - 0.1 <= y <= bottom + 0.1 for y in ys)
-    assert [p["months"] for p in chart["points"]] == [0, 6]  # the 30-month point is outside the chart
+    assert [p["months"] for p in chart["points"]] == [0, 6]  # the 30-month point is outside the 2-year chart
     assert chart["xTicks"][0]["months"] == 0 and chart["xTicks"][-1]["months"] == 24
+    five = call(js, f"M.growthChart(M.WHO_GROWTH.boys.weight, {json.dumps(points)}, 600, 360, 60)")
+    assert [p["months"] for p in five["points"]] == [0, 6, 30]
+    assert [t["months"] for t in five["xTicks"]] == list(range(0, 61, 6))
+    narrow = call(js, "M.growthChart(M.WHO_GROWTH.boys.weight, [], 320, 240, 60)")
+    assert [t["months"] for t in narrow["xTicks"]] == [0, 12, 24, 36, 48, 60]
     values = [t["value"] for t in chart["yTicks"]]
     assert values == sorted(values) and [t["y"] for t in chart["yTicks"]] == sorted([t["y"] for t in chart["yTicks"]], reverse=True)
 

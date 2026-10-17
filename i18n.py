@@ -87,7 +87,7 @@ PAGE_TEXT = {
         "boy": "Dječak",
         "measure_date": "Datum mjerenja",
         "weight_kg": "Težina (kg)",
-        "length_cm": "Duljina (cm)",
+        "length_cm": "Duljina/visina (cm)",
         "head_cm": "Opseg glave (cm)",
         "add_measurement": "Dodaj mjerenje",
         "measure_weight": "Težina",
@@ -95,7 +95,8 @@ PAGE_TEXT = {
         "measure_head": "Opseg glave",
         "chart_measure": "Krivulja",
         "growth_note": (
-            "Percentili 3, 15, 50, 85 i 97 prema WHO standardima rasta, od rođenja do 24 mjeseca. "
+            "Percentili 3, 15, 50, 85 i 97 prema WHO standardima rasta, od rođenja do 5 godina; "
+            "do 2. godine duljina ležeći, zatim visina stojeći. "
             "Samo za informaciju – ne zamjenjuje pregled kod pedijatra."
         ),
         "growth_source": "Izvor: WHO Child Growth Standards",
@@ -179,7 +180,7 @@ PAGE_TEXT = {
         "boy": "Boy",
         "measure_date": "Date measured",
         "weight_kg": "Weight (kg)",
-        "length_cm": "Length (cm)",
+        "length_cm": "Length/height (cm)",
         "head_cm": "Head circumference (cm)",
         "add_measurement": "Add measurement",
         "measure_weight": "Weight",
@@ -187,7 +188,8 @@ PAGE_TEXT = {
         "measure_head": "Head",
         "chart_measure": "Chart",
         "growth_note": (
-            "Percentiles 3, 15, 50, 85 and 97 of the WHO growth standards, from birth to 24 months. "
+            "Percentiles 3, 15, 50, 85 and 97 of the WHO growth standards, from birth to 5 years; "
+            "length lying down up to age 2, then standing height. "
             "For information only – not a substitute for a check-up with a paediatrician."
         ),
         "growth_source": "Source: WHO Child Growth Standards",
@@ -277,7 +279,7 @@ PAGE_TEXT = {
         "boy": "Junge",
         "measure_date": "Datum der Messung",
         "weight_kg": "Gewicht (kg)",
-        "length_cm": "Länge (cm)",
+        "length_cm": "Länge/Größe (cm)",
         "head_cm": "Kopfumfang (cm)",
         "add_measurement": "Messung hinzufügen",
         "measure_weight": "Gewicht",
@@ -285,7 +287,8 @@ PAGE_TEXT = {
         "measure_head": "Kopfumfang",
         "chart_measure": "Kurve",
         "growth_note": (
-            "Perzentilen 3, 15, 50, 85 und 97 der WHO-Wachstumsstandards, von der Geburt bis 24 Monate. "
+            "Perzentilen 3, 15, 50, 85 und 97 der WHO-Wachstumsstandards, von der Geburt bis 5 Jahre; "
+            "bis 2 Jahre Länge im Liegen, danach Größe im Stehen. "
             "Nur zur Information – ersetzt keine Untersuchung beim Kinderarzt."
         ),
         "growth_source": "Quelle: WHO Child Growth Standards",
@@ -369,7 +372,7 @@ PAGE_TEXT = {
         "boy": "Maschio",
         "measure_date": "Data della misurazione",
         "weight_kg": "Peso (kg)",
-        "length_cm": "Lunghezza (cm)",
+        "length_cm": "Lunghezza/altezza (cm)",
         "head_cm": "Circonferenza cranica (cm)",
         "add_measurement": "Aggiungi misurazione",
         "measure_weight": "Peso",
@@ -377,7 +380,8 @@ PAGE_TEXT = {
         "measure_head": "Circonferenza cranica",
         "chart_measure": "Curva",
         "growth_note": (
-            "Percentili 3, 15, 50, 85 e 97 degli standard di crescita OMS, dalla nascita ai 24 mesi. "
+            "Percentili 3, 15, 50, 85 e 97 degli standard di crescita OMS, dalla nascita ai 5 anni; "
+            "fino ai 2 anni lunghezza sdraiati, poi altezza in piedi. "
             "Solo a scopo informativo – non sostituisce la visita dal pediatra."
         ),
         "growth_source": "Fonte: WHO Child Growth Standards (OMS)",

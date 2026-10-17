@@ -10,7 +10,7 @@ from api import api
 from extensions import limiter
 from i18n import LANGUAGE_NAMES, LANGUAGES, PAGE_TEXT
 
-APP_VERSION = "2.25"
+APP_VERSION = "2.26"
 SOURCE_URL = "https://github.com/lpejakovic/baby-calculator"
 
 # Cached by the service worker for offline use (besides the page itself)
