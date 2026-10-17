@@ -22,7 +22,10 @@ def open_page(browser, base_url):
     def _open(**context_options):
         context = browser.new_context(**context_options)
         contexts.append(context)
+        context.add_init_script("""window.__csp = []; document.addEventListener('securitypolicyviolation', (e) =>
+            window.__csp.push([e.violatedDirective, e.sourceFile, e.lineNumber, e.sample, e.blockedURI]));""")
         page = context.new_page()
+        page.on("console", lambda m: m.type == "error" and print("CSPDIAG", page.evaluate("JSON.stringify(window.__csp)")))
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.on("console", lambda m: m.type == "error" and errors.append(m.text))
         page.goto(base_url)
