@@ -69,6 +69,8 @@ body {
 .lang-switch a {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 32px;
     min-height: 44px;
     padding: 8px 4px;
     font-size: .875rem;
@@ -700,7 +702,7 @@ progress {
         box-shadow: none;
     }
     h1 {
-        font-size: 1.5rem;
+        font-size: 1.375rem;
     }
     .card-primary .card-value {
         font-size: 1.5rem;
@@ -708,6 +710,6 @@ progress {
 }
 @media (max-width: 360px) {
     h1 {
-        font-size: 1.25rem;
+        font-size: 1.125rem;
     }
 }

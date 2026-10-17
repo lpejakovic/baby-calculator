@@ -403,6 +403,7 @@ def test_english_pregnancy(open_page, base_url):
     assert page.text_content("#pregnancy-countdown") == "in 50 days"
     assert page.text_content("#pregnancy-progress-text") == "82% of pregnancy"
     assert page.locator("#pregnancy-milestones .milestone-label").all_text_contents() == ["Full term", "Due date"]
+    edit(page)
     page.click("text=Last period")
     assert page.text_content("#pregnancy-date-label") == "First day of last period"
 
@@ -586,6 +587,7 @@ def test_corrected_age_share_link_and_english(open_page, base_url):
 def test_corrected_age_layout(open_page, width):
     page = open_page(viewport={"width": width, "height": 900})
     enter_premature(page, birth="2026-08-01", due="2026-10-01")
+    edit(page)
     overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
     summary = page.evaluate("document.querySelector('#premature summary').getBoundingClientRect().height")
     assert not overflow and summary >= 44
@@ -1183,7 +1185,7 @@ def test_share_menu(open_page):
 
 def test_compact_header_and_footer(open_page):
     page = open_page(viewport={"width": 360, "height": 740})
-    assert page.locator(".lang-switch").inner_text().split() == ["HR", "EN", "DE", "IT"]
+    assert page.locator(".lang-switch [aria-hidden=true]").all_text_contents() == ["HR", "EN", "DE", "IT"]
     assert page.get_attribute(".lang-switch a[hreflang=en]", "lang") == "en"
     assert page.locator(".lang-switch a[hreflang=en] .visually-hidden").text_content() == "English"
     # Title and language switch on one line
