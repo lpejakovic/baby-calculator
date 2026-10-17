@@ -1,2 +1,16 @@
-__pycache__/datetime_utils.cpython-311.pyc
-__pycache__/utils_dt.cpython-311.pyc
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+bc-env/
+.venv/
+venv/
+
+# Gunicorn socket
+*.sock
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

@@ -19,7 +19,7 @@ no tests, and runs in production under Gunicorn + nginx via systemd.
 | Frontend   | Jinja2 template, jQuery 3.6.0 (from code.jquery.com), plain CSS |
 | Serving    | Gunicorn 22, 1 worker, Unix socket `bc-calculator.sock`, nginx |
 
-There is no `requirements.txt`; the dependencies above are taken from the `bc-env` virtualenv.
+Dependencies are pinned in `requirements.txt`.
 
 ## Files
 
@@ -27,7 +27,8 @@ There is no `requirements.txt`; the dependencies above are taken from the `bc-en
 |--------------------------|---------|
 | `app.py`                 | Flask app, Limiter setup, routes `/` and `/calculate` |
 | `utils_dt.py`            | `generate_*_string()` Croatian plural helpers, `format_datetime()`, `calculate_date_difference()` |
-| `wsgi.py`                | Gunicorn entry point (`wsgi:app`). **Not tracked in git.** |
+| `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
+| `requirements.txt`       | Pinned dependencies |
 | `templates/index.html`   | Form, cookie helpers, AJAX call and result rendering |
 | `static/styles/main.css` | Centered card layout, max width 400px |
 | `static/favicon.ico`     | Favicon |
@@ -89,11 +90,8 @@ Checked against the running code with Flask's test client:
 5. **`from utils_dt import *`** in `app.py`. Explicit imports would be clearer.
 6. **Repetitive helpers.** The six three-form plural functions are identical apart from their words and could be one
    `plural(n, one, few, many)` function.
-7. **Repo hygiene.**
-   - `wsgi.py` is required for production but not committed.
-   - `.gitignore` lists only two `.pyc` files. `__pycache__/`, `bc-env/` and `*.sock` should be ignored.
-   - No `requirements.txt`.
-   - The working tree has file-mode-only changes (644 → 755) on all tracked files.
+7. **Repo hygiene** (fixed): `wsgi.py` and `requirements.txt` are committed, and `.gitignore` covers `__pycache__/`, `bc-env/` and `*.sock`.
+   The working tree still has file-mode-only changes (644 → 755) on some tracked files.
 8. **Template details.** `lang="en"` on a Croatian page. The version string `v1.3` is hard-coded in HTML.
    Results are inserted with `.html()`; this is safe today because the server returns only numbers and fixed words.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
@@ -104,7 +102,6 @@ Checked against the running code with Flask's test client:
 
 1. Validate input and return 400 with a message; add an AJAX `error` handler that shows it (including 429).
 2. Decide how to handle future dates (e.g. "do poroda je preostalo …") or reject them.
-3. Commit `wsgi.py`, add `requirements.txt`, fix `.gitignore`.
-4. Remove the dead code and replace the plural helpers with one generic function.
-5. Add pytest tests for the plural rules and for edge cases (month ends, leap years).
-6. Configure `ProxyFix`/real client IP for rate limiting, and consider running the service as a non-root user.
+3. Remove the dead code and replace the plural helpers with one generic function.
+4. Add pytest tests for the plural rules and for edge cases (month ends, leap years).
+5. Configure `ProxyFix`/real client IP for rate limiting, and consider running the service as a non-root user.

@@ -23,6 +23,7 @@ The UI is in Croatian. Current version: **v1.3**.
 app.py                 Flask app, routes and rate limits
 utils_dt.py            Croatian plural helpers and date-difference calculation
 wsgi.py                WSGI entry point for Gunicorn
+requirements.txt       Pinned Python dependencies
 templates/index.html   Page, form and jQuery AJAX logic
 static/styles/main.css Styles
 static/favicon.ico     Favicon
@@ -39,7 +40,7 @@ docs/project_digest.md Project digest / technical overview
 ```bash
 python3 -m venv bc-env
 source bc-env/bin/activate
-pip install flask flask-limiter python-dateutil gunicorn
+pip install -r requirements.txt
 python app.py            # development server at http://127.0.0.1:5000 (debug=True)
 ```
 
