@@ -87,6 +87,12 @@ language.
 Croatian plurals: ends in 1 but not 11 → `1 sat`; ends in 2–4 but not 12–14 → `3 sata`; otherwise → `5 sati`. The API
 uses accusative forms (`godinu`, `minutu`) because its text reads "Vaše dijete ima …"; the page uses nominative forms.
 
+## Server logs
+
+The site logs with the `anonymized` format (`deploy/nginx-anonymized-log.conf`): IPv4 addresses lose their last part
+(`203.0.113.0`), IPv6 addresses keep only the first two groups, and the path is logged without its query string.
+nginx's error log still contains full addresses for the few requests that cause errors.
+
 ## Rate limiting
 
 `/calculate` allows 1 request per second, 8 per minute and 32 per hour per client IP (`API_LIMIT` in `api.py`; the
