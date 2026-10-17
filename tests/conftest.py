@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from werkzeug.serving import make_server
 
+import api as api_module
 import app as app_module
 
 # "Now" for the API tests: 17 Oct 2026 15:30:45 in Zagreb (UTC+2 on that date)
@@ -20,7 +21,7 @@ def freeze_at(monkeypatch):
             @classmethod
             def now(cls, tz=None):
                 return instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
-        monkeypatch.setattr(app_module, "datetime", Frozen)
+        monkeypatch.setattr(api_module, "datetime", Frozen)
     return _freeze
 
 

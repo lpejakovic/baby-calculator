@@ -7,7 +7,7 @@ Flask serves one page per language (`/` Croatian, `/en/`, `/de/`, `/it/`) from o
 
 | Part | Files |
 |---|---|
-| Server | `app.py` (routes, rate limits, `APP_VERSION`), `i18n.py` (page texts, API errors), `utils_dt.py` (API date math and word forms), `wsgi.py` |
+| Server | `app.py` (pages, service worker, `/health`, sitemap, 404, `APP_VERSION`), `api.py` (`POST /calculate` as a Blueprint), `extensions.py` (the shared rate limiter), `i18n.py` (page texts, API errors), `utils_dt.py` (API date math and word forms), `wsgi.py` |
 | Page | `templates/index.html`, `templates/404.html`, `static/styles/main.css` |
 | Script | `static/js/texts.js`, `dates.js`, `calendar.js`, `data.js`, `card.js` (pure: no DOM or storage) and `app.js` (page code) |
 | Offline | `templates/sw.js` (rendered with the current asset URLs), `static/manifest.json`, `manifest-en.json` |
@@ -84,6 +84,7 @@ uses accusative forms (`godinu`, `minutu`) because its text reads "Vaše dijete 
 
 ## Rate limiting
 
-`/calculate` allows 1 request per second, 8 per minute and 32 per hour per client IP; pages, `/sw.js` and `/health` are
+`/calculate` allows 1 request per second, 8 per minute and 32 per hour per client IP (`API_LIMIT` in `api.py`; the
+API's own 429 handler answers in JSON); pages, `/sw.js` and `/health` are
 not limited, and nginx serves static files directly. Counters are kept in memory (one Gunicorn worker). nginx passes the
 client IP and the app trusts exactly one proxy (`ProxyFix`), so forged `X-Forwarded-For` prefixes are ignored.
