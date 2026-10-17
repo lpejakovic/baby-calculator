@@ -255,11 +255,24 @@
                 <p class="share-status" id="share-status" role="status"></p>
             </div>
 
+            <div class="reminder" id="backup-reminder" hidden>
+                <p>{{ t.backup_reminder }}</p>
+                <div class="reminder-actions">
+                    <button type="button" id="reminder-backup">{{ t.backup_now }}</button>
+                    <button type="button" class="button-link" id="reminder-later">{{ t.later }}</button>
+                </div>
+            </div>
+
             <button type="button" class="button-secondary install-button" id="install-app" hidden>{{ t.install }}</button>
+            <div class="install-hint" id="ios-install" hidden>
+                <p>{{ t.ios_hint }}</p>
+                <button type="button" class="button-link" id="ios-install-close" aria-label="{{ t.close }}">×</button>
+            </div>
 
             <details class="backup" id="backup">
                 <summary>{{ t.backup }}</summary>
                 <p class="hint">{{ t.backup_text }}</p>
+                <p class="hint" id="backup-last"></p>
                 <div class="actions">
                     <button type="button" class="button-secondary" id="backup-download">{{ t.backup_download }}</button>
                     <button type="button" class="button-secondary" id="backup-restore">{{ t.backup_restore }}</button>

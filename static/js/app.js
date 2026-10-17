@@ -4,7 +4,7 @@
     'use strict';
 
     const {
-        addSharedChild, ageInMonths, babyCalendarEvents, BACKUP_MAX_BYTES, buildBackupLink, buildIcs,
+        addSharedChild, ageInMonths, babyCalendarEvents, backupReminderDue, BACKUP_MAX_BYTES, buildBackupLink, buildIcs,
         buildShareUrl, calculateAge, childLabel, cleanChild, convertPregnancy, correctedAge, correctedAgeError,
         countdown, DAY, drawCard, dueCountdown, formatBirth, formatDate, formatPercentile, growthChart, isoDate,
         joinClock, joinParts, layoutCard, makeBackup, measurePercentile, MEASURES, mergeChildren, nextChildId,
@@ -18,6 +18,11 @@
     const ACTIVE_CHILD_KEY = 'activeChild';
     const MODE_KEY = 'mode';
     const PREGNANCY_KEY = 'pregnancy';
+    // For the backup reminder: when something was first saved, the last backup, the last "Kasnije"
+    const FIRST_SAVED_KEY = 'firstSaved';
+    const LAST_BACKUP_KEY = 'lastBackup';
+    const REMINDER_SNOOZED_KEY = 'backupReminderSnoozed';
+    const IOS_HINT_CLOSED_KEY = 'iosHintClosed';
 
     function loadChildren() {
         return normalizeChildren(restore(CHILDREN_KEY));
@@ -133,10 +138,15 @@
             } catch (e) { /* not supported or refused: the data is still saved, just not protected */ }
         }
 
+        function noteSaved() {
+            if (!restore(FIRST_SAVED_KEY)) store(FIRST_SAVED_KEY, todayValue());
+        }
+
         function saveChildren() {
             hideUndo(); // anything saved after a removal replaces what "Poništi" would bring back
             store(CHILDREN_KEY, children);
             store(ACTIVE_CHILD_KEY, activeId);
+            if (children.length) noteSaved();
             keepData();
         }
 
@@ -286,6 +296,7 @@
         function show(section) {
             error.hidden = true;
             intro.hidden = true; // only for the first visit, before anything is calculated
+            updateBackupReminder(); // e.g. the iPhone hint, right after the first save
             result.hidden = section !== result;
             pregnancyResult.hidden = section !== pregnancyResult;
             share.hidden = false;
@@ -413,6 +424,7 @@
             if (problem) return showError(problem);
 
             store(PREGNANCY_KEY, state);
+            noteSaved();
             keepData();
             show(pregnancyResult);
 
@@ -939,6 +951,7 @@
 
         $('backup-download').addEventListener('click', function () {
             downloadFile(`baby-calculator-${todayValue()}.json`, JSON.stringify(currentBackup(), null, 2), 'application/json');
+            markBackedUp();
         });
 
         // Calendar export of the milestones (.ics)
@@ -976,6 +989,7 @@
         $('backup-link').addEventListener('click', async function () {
             const ok = await copy(buildBackupLink(location.origin + location.pathname, currentBackup()));
             backupStatus.textContent = ok ? t.backupLinkCopied : t.copyFailed;
+            if (ok) markBackedUp();
         });
 
         // A transfer link (#backup=...) is merged once and then removed from the address bar
@@ -986,6 +1000,50 @@
             return linked ? applyBackup(linked) : t.backupInvalid;
         }
         const backupMessage = takeBackupLink();
+
+        // --- Backup reminder and the iPhone install hint ---
+        // The data lives only in this browser; Safari clears it after about a week without a visit, unless the
+        // site was added to the Home Screen (where Safari offers no install prompt, so the page explains how).
+        const reminder = $('backup-reminder');
+        const iosHint = $('ios-install');
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS reports a Mac
+        const standalone = navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+        function hasData() {
+            return children.length > 0 || Boolean(validPregnancy(restore(PREGNANCY_KEY)));
+        }
+
+        function updateBackupReminder() {
+            const today = todayValue();
+            const last = restore(LAST_BACKUP_KEY);
+            $('backup-last').textContent = last ? t.lastBackup(formatDate(parseBirth(last, ''), lang)) : t.lastBackupNever;
+            if (hasData()) noteSaved(); // data saved before this version counts from today
+            reminder.hidden = !backupReminderDue({
+                hasData: hasData(), firstSaved: restore(FIRST_SAVED_KEY), lastBackup: last,
+                snoozed: restore(REMINDER_SNOOZED_KEY), today,
+            });
+            iosHint.hidden = !(isIos && !standalone && hasData() && !restore(IOS_HINT_CLOSED_KEY));
+        }
+
+        function markBackedUp() {
+            store(LAST_BACKUP_KEY, todayValue());
+            updateBackupReminder();
+        }
+
+        $('reminder-backup').addEventListener('click', function () {
+            $('backup-download').click();
+            $('backup').querySelector('summary').focus();
+        });
+        $('reminder-later').addEventListener('click', function () {
+            store(REMINDER_SNOOZED_KEY, todayValue());
+            reminder.hidden = true;
+            $('backup').querySelector('summary').focus();
+        });
+        $('ios-install-close').addEventListener('click', function () {
+            store(IOS_HINT_CLOSED_KEY, true);
+            iosHint.hidden = true;
+        });
 
         // Fills the forms from the saved data and shows the saved mode
         function showSaved() {
@@ -1004,6 +1062,7 @@
             intro.hidden = Boolean(children.length || savedPregnancy);
             refreshDateLimits();
             setMode(restore(MODE_KEY) === 'pregnancy' ? 'pregnancy' : 'baby');
+            updateBackupReminder();
         }
 
         function showBackupMessage(message) {

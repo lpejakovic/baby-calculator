@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.25 – 2026-10-17
+- Backup reminder: with saved data and no backup in the last 30 days (from the day after the data was first
+  saved), a short note offers "Spremi kopiju" or "Kasnije" (a week); the backup section shows the last backup date.
+- On iPhone and iPad (not installed), a hint explains "Dodaj na početni zaslon", which also keeps Safari from
+  clearing the saved data.
+
 ## 2.24 – 2026-10-17
 - The live total shows every part with at least two digits, like a clock ("592 dana, 03 sata, 00 minuta i 07 sekundi").
 - Footer: copyright and a link to the source code.
