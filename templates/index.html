@@ -28,7 +28,10 @@
     {%- endfor %}
     <link rel="alternate" hreflang="x-default" href="{{ page_urls['hr'] }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
-    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+    {#- Plain scripts sharing the BC namespace; "defer" keeps this order #}
+    {%- for name in ("texts", "dates", "calendar", "data", "app") %}
+    <script src="{{ url_for('static', filename='js/' ~ name ~ '.js') }}" defer></script>
+    {%- endfor %}
 </head>
 <body>
     <main class="container">

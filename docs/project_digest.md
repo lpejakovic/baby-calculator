@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 360 automated tests and linting in CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 362 automated tests and linting in CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -44,7 +44,11 @@ Dependencies are pinned in `requirements.txt`.
 | `templates/sitemap.xml`  | Both pages with `hreflang` alternates |
 | `templates/sw.js`        | Service worker template: precache list and cache name come from the current versioned asset URLs |
 | `static/manifest.json`   | Web app manifest (standalone, icons 192/512/maskable); `manifest-en.json` for `/en/` |
-| `static/js/app.js`       | Date parsing, `calculateAge()`, `correctedAge()`, `upcomingMilestones()`, children, pregnancy functions, share links, Croatian plurals, live counter, `localStorage` |
+| `static/js/texts.js`     | `TEXT` (Croatian and English), `plural()`, `unit()`, `joinParts()` |
+| `static/js/dates.js`     | `parseBirth()`, `calculateAge()`, `correctedAge()`, pregnancy functions, milestones, date formatting |
+| `static/js/calendar.js`  | `buildIcs()` and the calendar events |
+| `static/js/data.js`      | Children (`normalizeChildren()`, `addSharedChild()`, …), share links, backups |
+| `static/js/app.js`       | Page code only: forms, results, `localStorage`, events, service worker registration |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
 | `static/favicon.ico`     | Favicon, 16 and 32 px (3.9 KB) |
 | `static/apple-touch-icon.png` | Home-screen icon, 180 px |
@@ -53,6 +57,10 @@ Dependencies are pinned in `requirements.txt`.
 | `scripts/make_og_image.py` | Regenerates the preview image with Pillow |
 
 ## Page flow
+
+The script is split into five plain files sharing one namespace, `BC`, loaded in order with `defer`: `texts.js`,
+`dates.js`, `calendar.js` and `data.js` are pure (no DOM or storage) and are what the QuickJS tests load; `app.js` is
+the page code. There is no build step; the service worker precaches all five.
 
 1. `GET /` renders `index.html` with `APP_VERSION`. `app.js` loads with `defer`.
 2. On load, the script reads the children from `localStorage` (`children`: `[{id, name, date, time}]`, `activeChild`).
@@ -169,6 +177,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.11**: API with plain numbers, JSON input, `lang=en`, real elapsed time |
 | 2026-10-17 | **v2.12**: privacy note, share links after `#` (never sent to the server), remembered language |
 | 2026-10-17 | **v2.13**: pregnancy dating from an IVF transfer or an ultrasound |
+| 2026-10-17 | **v2.14**: `app.js` split into texts, dates, calendar, data and page code; second review complete |
 
 ## Observations and issues
 
@@ -187,9 +196,9 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 360 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 362 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps
 
-A second improvement review is in progress; see [improvements.md](improvements.md).
+Both improvement reviews are complete. New ideas go in [improvements.md](improvements.md).
