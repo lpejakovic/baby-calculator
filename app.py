@@ -1,7 +1,7 @@
 import hashlib
 import json
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, Response, jsonify, make_response, render_template, request, url_for
@@ -9,21 +9,10 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from i18n import LANGUAGES, PAGE_TEXT
-from utils_dt import (
-    DAYS,
-    HOURS,
-    MINUTES,
-    MONTHS,
-    SECONDS,
-    WEEKS,
-    YEARS,
-    calculate_date_difference,
-    format_datetime,
-    plural,
-)
+from i18n import API_ERRORS, LANGUAGES, PAGE_TEXT, UNSUPPORTED_LANG
+from utils_dt import calculate_date_difference, format_datetime, join_units
 
-APP_VERSION = "2.10"
+APP_VERSION = "2.11"
 
 # Cached by the service worker for offline use (besides the page itself)
 PRECACHED_STATIC = ["styles/main.css", "js/app.js", "favicon.ico", "apple-touch-icon.png",
@@ -106,46 +95,77 @@ def service_worker():
     response.headers['Cache-Control'] = 'no-cache'
     return response
 
+DEFAULT_TZ = "Europe/Zagreb"
+
+
+def api_input():
+    """Form fields or a JSON object, as a plain dict of strings."""
+    if request.is_json:
+        data = request.get_json(silent=True)
+        return {k: v for k, v in data.items() if isinstance(v, str)} if isinstance(data, dict) else {}
+    return request.form
+
+
 @app.route('/calculate', methods=['POST'])
 @limiter.limit(throttle_string)
 def calculate():
+    data = api_input()
+    lang = data.get('lang') or 'hr'
+    if lang not in LANGUAGES:
+        return jsonify({"error": UNSUPPORTED_LANG}), 400
+    errors = API_ERRORS[lang]
+
     try:
-        input_datetime = datetime.strptime(request.form.get('datetime', ''), '%Y-%m-%dT%H:%M')
+        birth_wall = datetime.strptime(data.get('datetime', ''), '%Y-%m-%dT%H:%M')
     except ValueError:
-        return jsonify({"error": "Neispravan datum i vrijeme rođenja."}), 400
+        return jsonify({"error": errors["invalid_datetime"]}), 400
 
-    # Optional IANA time zone (e.g. "Europe/Zagreb"); without it the server's local time is used
-    tz_name = request.form.get('tz')
+    # IANA time zone of the caller (e.g. "Asia/Tokyo"); the birth time is read in this zone too
+    tz_name = data.get('tz') or DEFAULT_TZ
     try:
-        current_datetime = datetime.now(ZoneInfo(tz_name)).replace(tzinfo=None) if tz_name else datetime.now()
+        zone = ZoneInfo(tz_name)
     except (ZoneInfoNotFoundError, ValueError):
-        return jsonify({"error": "Nepoznata vremenska zona."}), 400
-    if input_datetime > current_datetime:
-        return jsonify({"error": "Datum rođenja ne može biti u budućnosti."}), 400
+        return jsonify({"error": errors["unknown_tz"]}), 400
+    now = datetime.now(zone)
+    birth = birth_wall.replace(tzinfo=zone)
+    now_wall = now.replace(tzinfo=None)
+    if birth_wall > now_wall:
+        return jsonify({"error": errors["future"]}), 400
 
-    difference = current_datetime - input_datetime
-    days = difference.days
-    hours = difference.seconds // 3600
-    minutes = (difference.seconds % 3600) // 60
-    seconds = difference.seconds % 60
-    weeks, week_days = divmod(days, 7)
-    years_diff, months_diff, days_diff = calculate_date_difference(input_datetime, current_datetime)
+    # Calendar values (years, months, days, weeks) use wall-clock time; the elapsed time is real time, which
+    # differs by an hour when a summer/winter time change lies in between
+    calendar_days = (now_wall - birth_wall).days
+    weeks, week_days = divmod(calendar_days, 7)
+    years, months, days = calculate_date_difference(birth_wall, now_wall)
+    elapsed = now.astimezone(UTC) - birth.astimezone(UTC)
+    hours, rest = divmod(elapsed.seconds, 3600)
+    minutes, seconds = divmod(rest, 60)
 
-    result = {
-        "current": format_datetime(current_datetime),
-        "day_diff": f"{days} {plural(days, DAYS)}, {hours} {plural(hours, HOURS)}, "
-                    f"{minutes} {plural(minutes, MINUTES)} i {seconds} {plural(seconds, SECONDS)}",
-        "week_diff": f"{weeks} {plural(weeks, WEEKS)} i {week_days} {plural(week_days, DAYS)}",
-        "year_diff": f"{years_diff} {plural(years_diff, YEARS)}, {months_diff} {plural(months_diff, MONTHS)} "
-                     f"i {days_diff} {plural(days_diff, DAYS)}",
-    }
-    return jsonify(result)
+    return jsonify({
+        "current": format_datetime(now_wall, lang=lang),
+        "day_diff": join_units(
+            [(elapsed.days, "day"), (hours, "hour"), (minutes, "minute"), (seconds, "second")], lang),
+        "week_diff": join_units([(weeks, "week"), (week_days, "day")], lang),
+        "year_diff": join_units([(years, "year"), (months, "month"), (days, "day")], lang),
+        "age": {
+            "calendar": {"years": years, "months": months, "days": days},
+            "weeks": {"weeks": weeks, "days": week_days},
+            "elapsed": {"days": elapsed.days, "hours": hours, "minutes": minutes, "seconds": seconds,
+                        "total_seconds": int(elapsed.total_seconds())},
+        },
+        "birth": birth.isoformat(),
+        "now": now.replace(microsecond=0).isoformat(),
+        "tz": tz_name,
+        "lang": lang,
+    })
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
     if request.path != '/calculate':
         return e
-    return jsonify({"error": "Previše zahtjeva. Pokušajte ponovno kasnije."}), 429
+    data = api_input()
+    lang = data.get('lang') if data.get('lang') in LANGUAGES else 'hr'
+    return jsonify({"error": API_ERRORS[lang]["rate_limited"]}), 429
 
 
 if __name__ == '__main__':

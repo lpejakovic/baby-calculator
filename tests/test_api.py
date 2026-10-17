@@ -1,6 +1,7 @@
 import json
 import re
 import struct
+from datetime import datetime
 from html import unescape
 
 import pytest
@@ -46,12 +47,70 @@ def test_link_preview(client):
 def test_calculate(client, frozen_time):
     status, body = post(client, datetime="2026-09-01T08:30")
     assert status == 200
-    assert body == {
+    # The original four fields are unchanged, so existing callers keep working
+    assert {k: body[k] for k in ("current", "day_diff", "week_diff", "year_diff")} == {
         "current": "17.10.2026 15:30:45",
         "day_diff": "46 dana, 7 sati, 0 minuta i 45 sekundi",
         "week_diff": "6 tjedana i 4 dana",
         "year_diff": "0 godina, 1 mjesec i 16 dana",
     }
+    assert body["age"] == {
+        "calendar": {"years": 0, "months": 1, "days": 16},
+        "weeks": {"weeks": 6, "days": 4},
+        "elapsed": {"days": 46, "hours": 7, "minutes": 0, "seconds": 45, "total_seconds": 46 * 86400 + 7 * 3600 + 45},
+    }
+    assert (body["birth"], body["now"]) == ("2026-09-01T08:30:00+02:00", "2026-10-17T15:30:45+02:00")
+    assert (body["tz"], body["lang"]) == ("Europe/Zagreb", "hr")
+
+
+def test_calculate_english(client, frozen_time):
+    status, body = post(client, datetime="2026-09-01T08:30", lang="en")
+    assert status == 200
+    assert {k: body[k] for k in ("current", "day_diff", "week_diff", "year_diff", "lang")} == {
+        "current": "17 Oct 2026 15:30:45",
+        "day_diff": "46 days, 7 hours, 0 minutes and 45 seconds",
+        "week_diff": "6 weeks and 4 days",
+        "year_diff": "0 years, 1 month and 16 days",
+        "lang": "en",
+    }
+
+
+def test_calculate_json_body(client, frozen_time):
+    response = client.post("/calculate", json={"datetime": "2026-09-01T08:30", "lang": "en", "tz": "Asia/Tokyo"})
+    assert response.status_code == 200
+    body = response.get_json()
+    assert (body["tz"], body["birth"], body["now"]) == ("Asia/Tokyo", "2026-09-01T08:30:00+09:00", "2026-10-17T22:30:45+09:00")
+    assert body["age"]["calendar"] == {"years": 0, "months": 1, "days": 16}
+
+
+@pytest.mark.parametrize("payload", ["not json", "[1, 2]", '{"datetime": 5}'])
+def test_calculate_bad_json(client, frozen_time, payload):
+    response = client.post("/calculate", data=payload, content_type="application/json")
+    assert (response.status_code, response.get_json()) == (400, {"error": "Neispravan datum i vrijeme rođenja."})
+
+
+@pytest.mark.parametrize("data, error", [
+    ({"datetime": "bad", "lang": "en"}, "Invalid date and time of birth."),
+    ({"datetime": "2026-10-18T10:00", "lang": "en"}, "The date of birth can't be in the future."),
+    ({"datetime": "2026-09-01T08:30", "lang": "en", "tz": "Nope/Zone"}, "Unknown time zone."),
+    ({"datetime": "2026-09-01T08:30", "lang": "de"}, "Nepodržani jezik / Unsupported language (hr, en)."),
+])
+def test_calculate_errors_by_language(client, frozen_time, data, error):
+    assert post(client, **data) == (400, {"error": error})
+
+
+@pytest.mark.parametrize("now, elapsed_hours, day_diff", [
+    ("2026-12-01T12:00:00+01:00", 1, "153 dana, 1 sat, 0 minuta i 0 sekundi"),  # winter time: one more real hour
+    ("2026-08-01T12:00:00+02:00", 0, "31 dan, 0 sati, 0 minuta i 0 sekundi"),
+])
+def test_calculate_real_elapsed_time(client, freeze_at, now, elapsed_hours, day_diff):
+    freeze_at(datetime.fromisoformat(now))
+    status, body = post(client, datetime="2026-07-01T12:00")
+    assert status == 200
+    assert body["day_diff"] == day_diff
+    assert body["age"]["elapsed"]["hours"] == elapsed_hours
+    # Calendar values stay on the wall clock
+    assert body["age"]["calendar"]["days"] == 0
 
 
 def test_calculate_exactly_now(client, frozen_time):

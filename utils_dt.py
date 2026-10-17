@@ -10,6 +10,7 @@ HOURS = ("sat", "sata", "sati")
 MINUTES = ("minutu", "minute", "minuta")
 SECONDS = ("sekundu", "sekunde", "sekundi")
 
+
 def plural(number, forms):
     number = abs(number)
     mod10 = number % 10
@@ -21,7 +22,31 @@ def plural(number, forms):
     else:
         return forms[2]
 
-def format_datetime(dt, format_string="%d.%m.%Y %H:%M:%S"):
+# English forms: [1], [other]
+FORMS = {
+    "hr": {"year": YEARS, "month": MONTHS, "week": WEEKS, "day": DAYS, "hour": HOURS,
+           "minute": MINUTES, "second": SECONDS},
+    "en": {key: (key, f"{key}s") for key in ("year", "month", "week", "day", "hour", "minute", "second")},
+}
+AND = {"hr": "i", "en": "and"}
+MONTH_NAMES_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def unit(number, key, lang="hr"):
+    forms = FORMS[lang][key]
+    word = plural(number, forms) if lang == "hr" else forms[0] if abs(number) == 1 else forms[1]
+    return f"{number} {word}"
+
+
+def join_units(parts, lang="hr"):
+    """[(46, "day"), (7, "hour")] -> "46 dana i 7 sati" / "46 days and 7 hours"."""
+    texts = [unit(number, key, lang) for number, key in parts]
+    return f"{', '.join(texts[:-1])} {AND[lang]} {texts[-1]}" if len(texts) > 1 else texts[0]
+
+
+def format_datetime(dt, format_string="%d.%m.%Y %H:%M:%S", lang="hr"):
+    if lang == "en":
+        return f"{dt.day} {MONTH_NAMES_EN[dt.month - 1]} {dt.year} {dt:%H:%M:%S}"
     return dt.strftime(format_string)
 
 def calculate_date_difference(start_date, end_date):
