@@ -13,6 +13,8 @@
         wallClockNow, wallToReal,
     } = globalThis.BC;
 
+    // Migration of older saved data (see loadChildren). Both can be removed after 2026-11-17, when the
+    // last v1.x cookies (30-day lifetime) have expired.
     const STORAGE_KEY = 'birth'; // v2.0–2.5: a single child; moved into CHILDREN_KEY on first load
     const CHILDREN_KEY = 'children';
     const ACTIVE_CHILD_KEY = 'activeChild';

@@ -8,21 +8,8 @@ from werkzeug.serving import make_server
 
 import app as app_module
 
-# Wall-clock "now" used by the API tests (server local time)
-FROZEN_NOW = datetime(2026, 10, 17, 15, 30, 45)
-# The same instant in UTC, for requests with a tz field (Europe/Zagreb is UTC+2 on this date)
+# "Now" for the API tests: 17 Oct 2026 15:30:45 in Zagreb (UTC+2 on that date)
 FROZEN_NOW_UTC = datetime(2026, 10, 17, 13, 30, 45, tzinfo=UTC)
-
-
-class FrozenDatetime(datetime):
-    @classmethod
-    def now(cls, tz=None):
-        return FROZEN_NOW if tz is None else FROZEN_NOW_UTC.astimezone(tz)
-
-
-@pytest.fixture
-def frozen_time(monkeypatch):
-    monkeypatch.setattr(app_module, "datetime", FrozenDatetime)
 
 
 @pytest.fixture
@@ -35,6 +22,11 @@ def freeze_at(monkeypatch):
                 return instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
         monkeypatch.setattr(app_module, "datetime", Frozen)
     return _freeze
+
+
+@pytest.fixture
+def frozen_time(freeze_at):
+    freeze_at(FROZEN_NOW_UTC)
 
 
 @pytest.fixture
