@@ -1011,7 +1011,8 @@ def test_responsive_layout(open_page, width, height, columns, scheme):
             overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
             top: box.top + scrollY, left: box.left, right: innerWidth - box.right,  // top in page coordinates
             button: document.querySelector('#birth-form button[type=submit]').getBoundingClientRect().height,
-            actions: [...document.querySelectorAll('.actions button')].map(b => b.getBoundingClientRect().height),
+            // The share buttons stay on one line (the backup transfer button may wrap; see test_no_button_label_is_cut_off)
+            actions: [...document.querySelectorAll('#share .actions button')].map(b => b.getBoundingClientRect().height),
             // Visible text/date inputs, and the labels that act as radio buttons
             inputs: [...document.querySelectorAll('input:not([type=radio]), .mode-switch label, .basis label')]
                 .filter(el => el.offsetParent !== null)
