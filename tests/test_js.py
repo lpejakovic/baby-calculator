@@ -292,13 +292,10 @@ def child(id, date="2026-09-01", time="", name="", due=""):
     return {"id": id, "name": name, "date": date, "time": time, "due": due}
 
 
-def test_normalize_children_migrates_single_birth(js):
-    legacy = {"date": "2026-09-01", "time": "08:30"}
-    assert call(js, f"M.normalizeChildren(null, {json.dumps(legacy)})") == [child(1, time="08:30")]
-    # Existing children win over the old single entry
+def test_normalize_children_basics(js):
     stored = [child(4, "2025-01-01", name="Ana")]
-    assert call(js, f"M.normalizeChildren({json.dumps(stored)}, {json.dumps(legacy)})") == stored
-    assert call(js, "M.normalizeChildren(null, null)") == []
+    assert call(js, f"M.normalizeChildren({json.dumps(stored)})") == stored
+    assert call(js, "M.normalizeChildren(null)") == [] and call(js, "M.normalizeChildren('junk')") == []
 
 
 def test_normalize_children_cleans_storage(js):
@@ -309,7 +306,7 @@ def test_normalize_children_cleans_storage(js):
         "junk",
         {"id": 5, "name": "x" * 60, "date": "2024-01-01"},
     ]
-    assert call(js, f"M.normalizeChildren({json.dumps(stored)}, null)") == [
+    assert call(js, f"M.normalizeChildren({json.dumps(stored)})") == [
         child(1, name="Ana"), child(2, "2025-01-01", "10:00", "Marko"), child(3, "2024-01-01", name="x" * 40)]
 
 
@@ -493,7 +490,7 @@ def test_due_date_in_share_links_and_storage(js):
     assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('#'):])})")["due"] == "2026-10-01"
     assert call(js, "M.readSharedBirth('?d=2026-08-01&due=2026-13-01')")["due"] == ""  # invalid due date ignored
     stored = [{"id": 1, "date": "2026-08-01", "due": "2026-10-01"}, {"id": 2, "date": "2026-08-01", "due": "nope"}]
-    assert [c["due"] for c in call(js, f"M.normalizeChildren({json.dumps(stored)}, null)")] == ["2026-10-01", ""]
+    assert [c["due"] for c in call(js, f"M.normalizeChildren({json.dumps(stored)})")] == ["2026-10-01", ""]
     # A shared due date fills in a matching child that has none
     shared = {"date": "2026-09-01", "time": "", "name": "", "due": "2026-10-20"}
     result = call(js, f"M.addSharedChild({json.dumps([child(1)])}, {json.dumps(shared)})")
@@ -939,7 +936,7 @@ def test_clean_measurements(js):
 
 def test_child_growth_fields_are_optional_and_merged(js):
     plain = child(1, name="Ana")
-    assert call(js, f"M.normalizeChildren({json.dumps([plain])}, null)") == [plain]  # unchanged when unused
+    assert call(js, f"M.normalizeChildren({json.dumps([plain])})") == [plain]  # unchanged when unused
     local = {**child(1, name="Ana"), "sex": "f", "measurements": [{"date": "2026-02-01", "weight": 4.5}]}
     imported = {**child(1, name="Ana"), "sex": "m",
                 "measurements": [{"date": "2026-02-01", "weight": 9.9}, {"date": "2026-03-01", "weight": 5.6}]}
