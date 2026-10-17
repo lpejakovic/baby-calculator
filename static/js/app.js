@@ -97,6 +97,7 @@
             progressText: $('pregnancy-progress-text'),
             milestones: $('pregnancy-milestones'),
         };
+        const intro = $('intro');
         const editButton = $('edit-entry');
         const formFields = [$('birth-fields'), $('pregnancy-fields')];
         const shareToggle = $('share-toggle');
@@ -247,6 +248,7 @@
 
         function show(section) {
             error.hidden = true;
+            intro.hidden = true; // only for the first visit, before anything is calculated
             result.hidden = section !== result;
             pregnancyResult.hidden = section !== pregnancyResult;
             share.hidden = false;
@@ -959,6 +961,7 @@
             renderChildren();
             const savedPregnancy = validPregnancy(restore(PREGNANCY_KEY));
             if (savedPregnancy) fillPregnancyForm(savedPregnancy);
+            intro.hidden = Boolean(children.length || savedPregnancy);
             refreshDateLimits();
             setMode(restore(MODE_KEY) === 'pregnancy' ? 'pregnancy' : 'baby');
         }

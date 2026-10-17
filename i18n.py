@@ -8,6 +8,7 @@ PAGE_TEXT = {
     "hr": {
         "locale": "hr_HR",
         "description": "Izračunajte dob bebe u tjednima, mjesecima i danima, uživo do sekunde.",
+        "intro": "Izračunajte dob bebe u tjednima, mjesecima i danima ili pratite trudnoću do termina.",
         "og_image": "images/og-image.png",
         "og_image_alt": "Baby Calculator: dob bebe u tjednima, mjesecima i danima",
         "manifest": "manifest.json",
@@ -90,6 +91,7 @@ PAGE_TEXT = {
     "en": {
         "locale": "en_US",
         "description": "Work out a baby's age in weeks, months and days, live to the second.",
+        "intro": "Work out your baby’s age in weeks, months and days, or follow a pregnancy to the due date.",
         "og_image": "images/og-image-en.png",
         "og_image_alt": "Baby Calculator: a baby's age in weeks, months and days",
         "manifest": "manifest-en.json",
@@ -172,6 +174,10 @@ PAGE_TEXT = {
     "de": {
         "locale": "de_DE",
         "description": "Das Alter Ihres Babys in Wochen, Monaten und Tagen – live auf die Sekunde.",
+        "intro": (
+            "Berechnen Sie das Alter Ihres Babys in Wochen, Monaten und Tagen "
+            "oder verfolgen Sie die Schwangerschaft bis zum Termin."
+        ),
         "og_image": "images/og-image-de.png",
         "og_image_alt": "Baby Calculator: das Alter des Babys in Wochen, Monaten und Tagen",
         "manifest": "manifest-de.json",
@@ -254,6 +260,7 @@ PAGE_TEXT = {
     "it": {
         "locale": "it_IT",
         "description": "Calcola l’età del tuo bambino in settimane, mesi e giorni, in tempo reale al secondo.",
+        "intro": "Calcola l’età del tuo bambino in settimane, mesi e giorni, o segui la gravidanza fino al termine.",
         "og_image": "images/og-image-it.png",
         "og_image_alt": "Baby Calculator: l’età del bambino in settimane, mesi e giorni",
         "manifest": "manifest-it.json",

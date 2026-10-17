@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.22 – 2026-10-17
+- A one-line intro on the first visit (hidden once something is saved).
+- Desktop (1024 px and wider): the form and the result side by side.
+- Installed app on phones with a notch or home bar: the page keeps clear of them (safe-area insets).
+
 ## 2.21 – 2026-10-17
 - The birth date is shown under the child's name, at the top of the result.
 - Growth: the chart comes first, measurements are a table (value with its percentile under it), and the form to
