@@ -1,10 +1,13 @@
 from flask import Flask, render_template, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime
 from utils_dt import *
 
 app = Flask(__name__)
+# nginx is the only proxy in front of the app; trust its X-Forwarded-* headers
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 limiter = Limiter(
     get_remote_address,

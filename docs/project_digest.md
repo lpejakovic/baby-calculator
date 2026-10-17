@@ -17,7 +17,7 @@ no tests, and runs in production under Gunicorn + nginx via systemd.
 | Date math  | python-dateutil 2.9 (`relativedelta`)                          |
 | Rate limit | Flask-Limiter 3.7.0 (in-memory storage)                        |
 | Frontend   | Jinja2 template, jQuery 3.6.0 (from code.jquery.com), plain CSS |
-| Serving    | Gunicorn 22, 1 worker, Unix socket `bc-calculator.sock`, nginx |
+| Serving    | Gunicorn 22, 1 worker, Unix socket `bc-calculator.sock`, nginx (`ProxyFix`) |
 
 Dependencies are pinned in `requirements.txt`.
 
@@ -60,9 +60,9 @@ Accusative forms (`godinu`, `minutu`, `sekundu`) are used because the text reads
 - Defaults: `200 per day; 50 per hour`
 - Both routes: `1 per second; 8 per minute; 32 per hour`, keyed by remote address
 - Storage is in-memory, so counters reset when the service restarts. Flask-Limiter logs a warning about this at startup.
-- **Likely shared bucket.** nginx proxies over a Unix socket with `include proxy_params` (sends `X-Forwarded-For` / `X-Real-IP`),
-  but the app does not use `ProxyFix`. So `get_remote_address` sees the socket peer, not the client, and all visitors
-  probably share one limit (e.g. 8 requests per minute across the whole site).
+- **Real client IP** (fixed): nginx proxies over a Unix socket with `include proxy_params`, and the app wraps
+  `wsgi_app` in `ProxyFix(x_for=1, x_proto=1, x_host=1)`. `get_remote_address` sees the client IP from the last
+  `X-Forwarded-For` entry, so each visitor has their own limit and forged header prefixes are ignored.
 
 ## Version history
 
@@ -103,4 +103,4 @@ Checked against the running code with Flask's test client:
 1. Decide how to handle future dates (e.g. "do poroda je preostalo …") or reject them.
 2. Remove the dead code and replace the plural helpers with one generic function.
 3. Add pytest tests for the plural rules and for edge cases (month ends, leap years).
-4. Configure `ProxyFix`/real client IP for rate limiting, and consider running the service as a non-root user.
+4. Consider running the service as a non-root user.
