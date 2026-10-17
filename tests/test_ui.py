@@ -33,7 +33,21 @@ def open_page(browser, base_url):
     assert errors == []
 
 
+def edit(page):
+    """Opens the form when it is folded away behind "Uredi podatke" (while a result is shown)."""
+    if page.is_visible("#edit-entry"):
+        page.click("#edit-entry")
+
+
+def share(page, button):
+    """Clicks one of the buttons under "Podijeli"."""
+    if page.is_hidden("#share-menu"):
+        page.click("#share-toggle")
+    page.click(button)
+
+
 def calculate(page, date=BIRTH_DATE, time=BIRTH_TIME, name=None):
+    edit(page)
     if name is not None:
         page.fill("#child-name", name)
     page.fill("#birth-date", date)
@@ -101,7 +115,7 @@ def test_share_uses_share_sheet(open_page, base_url):
     page = open_page()
     page.evaluate("navigator.share = async (data) => { window.sharedData = data; }")
     calculate(page)
-    page.click("#share-link")
+    share(page, "#share-link")
     data = poll(page, "window.sharedData || null")
     assert data["url"] == base_url + "#d=2025-03-04T17:45"
     assert data["text"].startswith("Dob: ")
@@ -112,7 +126,7 @@ def test_share_falls_back_to_copying_link(open_page, base_url):
     page = open_page(permissions=["clipboard-read", "clipboard-write"])
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     calculate(page, time="")
-    page.click("#share-link")
+    share(page, "#share-link")
     sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     assert page.text_content("#share-status") == "Poveznica je kopirana."
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "#d=2025-03-04"
@@ -121,7 +135,7 @@ def test_share_falls_back_to_copying_link(open_page, base_url):
 def test_copy_text(open_page):
     page = open_page(permissions=["clipboard-read", "clipboard-write"])
     calculate(page, time="")
-    page.click("#copy-text")
+    share(page, "#copy-text")
     sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     assert page.text_content("#share-status") == "Tekst je kopiran."
     text = page.evaluate("navigator.clipboard.readText()")
@@ -162,6 +176,7 @@ def due_in(days):
 
 def calculate_pregnancy(page, due_date):
     page.click("text=Trudnoća")
+    edit(page)
     page.fill("#pregnancy-date", due_date)
     page.click("#pregnancy-form button")
 
@@ -185,6 +200,7 @@ def test_pregnancy_mode(open_page):
 def test_pregnancy_basis_switch_keeps_pregnancy(open_page):
     page = open_page()
     calculate_pregnancy(page, due_in(50))
+    edit(page)
     page.click("text=Zadnjoj menstruaciji")
     assert page.text_content("#pregnancy-date-label") == "Prvi dan zadnje menstruacije"
     assert page.input_value("#pregnancy-date") == due_in(50 - 280)
@@ -198,7 +214,7 @@ def test_pregnancy_is_remembered_with_mode(open_page):
     page.reload()
     assert page.is_visible("#pregnancy-result")
     assert page.is_checked("input[value=pregnancy]")
-    page.click("text=Beba je rođena")
+    page.click(".mode-switch >> text=Beba")
     assert page.is_visible("#result")  # the baby's date is still there
     assert page.input_value("#birth-date") == BIRTH_DATE
 
@@ -209,7 +225,7 @@ def test_pregnancy_errors(open_page):
     page.evaluate("document.getElementById('pregnancy-date').removeAttribute('min')")
     page.fill("#pregnancy-date", due_in(-20))
     page.click("#pregnancy-form button")
-    assert page.text_content("#error") == "Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”."
+    assert page.text_content("#error") == "Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba”."
     assert page.is_hidden("#pregnancy-result") and page.is_hidden("#share")
 
 
@@ -220,13 +236,13 @@ def test_shared_pregnancy_link_and_copy(browser, base_url):
     assert page.url == base_url
     assert page.is_checked("input[value=pregnancy]")
     assert page.text_content("#pregnancy-duration") == "32 tjedna i 6 dana"
-    page.click("#copy-text")
+    share(page, "#copy-text")
     sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     due = date.today() + timedelta(days=50)
     assert page.evaluate("navigator.clipboard.readText()") == \
         f"Trudnoća: 32 tjedna i 6 dana (33. tjedan). Termin: {due:%d.%m.%Y}."
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
-    page.click("#share-link")
+    share(page, "#share-link")
     sync_api.expect(page.locator("#share-status")).to_have_text("Poveznica je kopirana.")
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "#t=" + due_in(50)
     context.close()
@@ -282,6 +298,7 @@ def test_rename_and_unnamed_child(open_page):
     assert chips(page) == ["Dijete 1"]
     # No name: the heading is only for screen readers
     assert "visually-hidden" in page.get_attribute("#result-title", "class")
+    edit(page)
     page.fill("#child-name", "Iva")
     assert chips(page) == ["Iva"] and page.text_content("#result-title") == "Iva"
     assert "visually-hidden" not in page.get_attribute("#result-title", "class")
@@ -293,8 +310,10 @@ def test_remove_child(open_page):
     calculate(page, "2025-03-04", name="Ana")
     page.click("#add-child")
     calculate(page, "2026-09-01", name="Marko")
+    edit(page)
     page.click("#remove-child")
     assert chips(page) == ["Ana"] and page.input_value("#child-name") == "Ana"
+    edit(page)
     page.click("#remove-child")
     assert page.is_hidden("#children") and page.is_hidden("#result")
     assert page.input_value("#birth-date") == ""
@@ -305,6 +324,7 @@ def test_remove_child_can_be_cancelled(open_page):
     page = open_page()
     page.on("dialog", lambda dialog: dialog.dismiss())
     calculate(page, name="Ana")
+    edit(page)
     page.click("#remove-child")
     assert chips(page) == ["Ana"]
 
@@ -321,12 +341,12 @@ def test_shared_link_adds_child(open_page, base_url):
 def test_named_child_copy_and_share(open_page, base_url):
     page = open_page(permissions=["clipboard-read", "clipboard-write"])
     calculate(page, "2025-03-04", "", name="Ana Marija")
-    page.click("#copy-text")
+    share(page, "#copy-text")
     sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     copied = page.evaluate("navigator.clipboard.readText()")
     assert re.fullmatch(r"Ana Marija: .+ \(.+\)\. Rođenje: 04\.03\.2025\.", copied), copied
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
-    page.click("#share-link")
+    share(page, "#share-link")
     sync_api.expect(page.locator("#share-status")).to_have_text("Poveznica je kopirana.")
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "#d=2025-03-04&n=Ana%20Marija"
 
@@ -383,6 +403,7 @@ def test_english_pregnancy(open_page, base_url):
     assert page.text_content("#pregnancy-countdown") == "in 50 days"
     assert page.text_content("#pregnancy-progress-text") == "82% of pregnancy"
     assert page.locator("#pregnancy-milestones .milestone-label").all_text_contents() == ["Full term", "Due date"]
+    edit(page)
     page.click("text=Last period")
     assert page.text_content("#pregnancy-date-label") == "First day of last period"
 
@@ -397,6 +418,7 @@ def test_english_errors_and_confirm(open_page, base_url):
     messages = []
     page.on("dialog", lambda dialog: (messages.append(dialog.message), dialog.dismiss()))
     calculate(page, "2025-03-04", name="Ana")
+    edit(page)
     page.click("#remove-child")
     assert messages == ["Remove “Ana” from the list?"]
 
@@ -405,12 +427,12 @@ def test_english_copy_and_share(open_page, base_url):
     page = open_page(permissions=["clipboard-read", "clipboard-write"])
     page.goto(base_url + "en/")
     calculate(page, "2025-03-04", "", name="Ana")
-    page.click("#copy-text")
+    share(page, "#copy-text")
     sync_api.expect(page.locator("#share-status")).to_have_text("Text copied.")
     copied = page.evaluate("navigator.clipboard.readText()")
     assert re.fullmatch(r"Ana: .+ \(.+\)\. Born: 4 Mar 2025\.", copied), copied
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
-    page.click("#share-link")
+    share(page, "#share-link")
     sync_api.expect(page.locator("#share-status")).to_have_text("Link copied.")
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/#d=2025-03-04&n=Ana"
 
@@ -489,6 +511,7 @@ def premature_page(open_page, now, path=""):
 
 
 def enter_premature(page, birth="2026-08-01", due="2026-10-01", name="Ana"):
+    edit(page)
     page.fill("#child-name", name)
     page.fill("#birth-date", birth)
     page.click("#premature summary")
@@ -503,7 +526,7 @@ def test_corrected_age(open_page):
     assert page.text_content("#corrected-value") == "2 mjeseca i 14 dana"
     assert page.text_content("#corrected-detail") == "10 tjedana i 5 dana · Gestacijska dob pri rođenju:\u00a031+2"
     assert page.text_content("#age-calendar") == "4 mjeseca i 14 dana"  # the actual age is unchanged
-    page.click("#copy-text")
+    share(page, "#copy-text")
     sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     assert page.evaluate("navigator.clipboard.readText()") == \
         "Ana: 4 mjeseca i 14 dana (19 tjedana i 3 dana). Korigirana dob: 2 mjeseca i 14 dana. Rođenje: 01.08.2026."
@@ -522,6 +545,7 @@ def test_corrected_age_not_needed_and_hidden(open_page):
     enter_premature(page, due="2026-07-30")
     assert page.text_content("#corrected-value") == "Nije potrebna"
     assert page.text_content("#corrected-detail") == "Gestacijska dob pri rođenju:\u00a040+2"
+    edit(page)
     page.fill("#due-date", "")
     page.click("#birth-form button[type=submit]")
     assert page.is_hidden("#corrected-card")
@@ -554,7 +578,7 @@ def test_corrected_age_share_link_and_english(open_page, base_url):
     assert page.text_content("#corrected-value") == "2 months and 14 days"
     assert page.text_content("#corrected-detail") == "10 weeks and 5 days · Born at 31+2\u00a0weeks"
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
-    page.click("#share-link")
+    share(page, "#share-link")
     sync_api.expect(page.locator("#share-status")).to_have_text("Link copied.")
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/#d=2026-08-01&n=Ana&due=2026-10-01"
 
@@ -563,6 +587,7 @@ def test_corrected_age_share_link_and_english(open_page, base_url):
 def test_corrected_age_layout(open_page, width):
     page = open_page(viewport={"width": width, "height": 900})
     enter_premature(page, birth="2026-08-01", due="2026-10-01")
+    edit(page)
     overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
     summary = page.evaluate("document.querySelector('#premature summary').getBoundingClientRect().height")
     assert not overflow and summary >= 44
@@ -747,6 +772,7 @@ def days_ago(days):
 
 def choose_basis(page, label):
     page.click("text=Trudnoća")
+    edit(page)
     page.click(f"#pregnancy-form label.radio:has-text('{label}')")
 
 
@@ -758,6 +784,7 @@ def test_pregnancy_from_ivf_transfer(open_page):
     page.fill("#pregnancy-date", days_ago(30))
     page.click("#pregnancy-form button[type=submit]")
     assert page.text_content("#pregnancy-duration") == "7 tjedana"  # 30 + 14 + 5 = 49 days
+    edit(page)
     page.select_option("#embryo-days", "3")
     assert page.text_content("#pregnancy-duration") == "6 tjedana i 5 dana"  # 30 + 14 + 3 = 47 days
     page.reload()
@@ -774,6 +801,7 @@ def test_pregnancy_from_ultrasound(open_page):
     page.fill("#ga-days", "3")
     page.click("#pregnancy-form button[type=submit]")
     assert page.text_content("#pregnancy-duration") == "9 tjedana i 6 dana"  # 59 + 10 = 69 days
+    edit(page)
     page.fill("#ga-days", "7")
     page.click("#pregnancy-form button[type=submit]")
     assert page.text_content("#error") == "Unesite tjedne (0–42) i dane (0–6) s ultrazvuka."
@@ -783,6 +811,7 @@ def test_switching_basis_keeps_pregnancy(open_page):
     page = open_page()
     calculate_pregnancy(page, due_in(50))
     expected = page.text_content("#pregnancy-duration")
+    edit(page)
     for label in ["Transferu zametka (IVF)", "Ultrazvuku", "Zadnjoj menstruaciji", "Terminu poroda"]:
         page.click(f"#pregnancy-form label.radio:has-text('{label}')")
         assert page.text_content("#pregnancy-duration") == expected, label
@@ -876,7 +905,7 @@ def test_share_picture(open_page):
     page.add_init_script(SHARE_FILES_STUB)
     page.reload()
     calculate(page, "2025-03-04", name="Ana")
-    page.click("#share-picture")
+    share(page, "#share-picture")
     picture = poll(page, "window.sharedPicture || null")
     assert picture["name"] == "baby-calculator-2025-03-04.png" and picture["type"] == "image/png"
     assert (picture["width"], picture["height"]) == (1080, 1080)
@@ -892,7 +921,7 @@ def test_share_picture_downloads_without_file_sharing(open_page, base_url, tmp_p
     page.fill("#pregnancy-date", due_in(50))
     page.click("#pregnancy-form button[type=submit]")
     with page.expect_download() as info:
-        page.click("#share-picture")
+        share(page, "#share-picture")
     path = tmp_path / info.value.suggested_filename
     info.value.save_as(path)
     assert path.name == f"baby-calculator-pregnancy-{due_in(50)}.png"
@@ -940,6 +969,7 @@ def test_no_button_label_is_cut_off(open_page, base_url, lang, width):
     page.click("#backup summary")
     page.click("#growth summary")
     page.click("#growth .sex label.radio >> nth=0")
+    page.click("#share-toggle")
     # Elements reaching past the right edge (named, so a failure says what to fix)
     sticking_out = page.evaluate("""[...document.querySelectorAll('main *')]
         .filter(el => el.checkVisibility() && el.getBoundingClientRect().right > document.documentElement.clientWidth)
@@ -1079,14 +1109,15 @@ def test_uses_visitor_time_zone(open_page):
 def test_responsive_layout(open_page, width, height, columns, scheme):
     page = open_page(viewport={"width": width, "height": height}, color_scheme=scheme)
     calculate(page)
+    page.click("#share-toggle")
     layout = page.evaluate("""() => {
         const box = document.querySelector('.container').getBoundingClientRect();
         return {
             overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
             top: box.top + scrollY, left: box.left, right: innerWidth - box.right,  // top in page coordinates
-            button: document.querySelector('#birth-form button[type=submit]').getBoundingClientRect().height,
+            button: document.querySelector('#edit-entry').getBoundingClientRect().height,
             // The share buttons stay on one line (the backup transfer button may wrap; see test_no_button_label_is_cut_off)
-            actions: [...document.querySelectorAll('#share .actions button')].map(b => b.getBoundingClientRect().height),
+            actions: [...document.querySelectorAll('#share button')].map(b => b.getBoundingClientRect().height),
             // Visible text/date inputs, and the labels that act as radio buttons
             inputs: [...document.querySelectorAll('input:not([type=radio]), .mode-switch label, .basis label')]
                 .filter(el => el.checkVisibility())
@@ -1102,3 +1133,63 @@ def test_responsive_layout(open_page, width, height, columns, scheme):
     assert all(44 <= height < 60 for height in layout["actions"]), layout["actions"]
     assert min(layout["inputs"]) >= 44
     assert layout["columns"] == columns
+
+
+def form_is_open(page):
+    return page.is_visible("#birth-date") or page.is_visible("#pregnancy-date")
+
+
+def test_result_first(open_page):
+    page = open_page(viewport={"width": 390, "height": 844})
+    assert form_is_open(page) and page.is_hidden("#edit-entry")  # nothing saved yet: the form
+    calculate(page, name="Ana")
+    # The form is folded away and the result gets the focus, in view
+    assert not form_is_open(page) and page.is_visible("#edit-entry")
+    assert page.evaluate("document.activeElement.id") == "result"
+    assert poll(page, "document.getElementById('result').getBoundingClientRect().top < innerHeight / 2 || null")
+    page.reload()  # saved: opens on the result, without moving the focus
+    assert page.is_visible("#result") and not form_is_open(page)
+    assert page.evaluate("document.activeElement === document.body")
+    keep_artifact(page.screenshot(full_page=True), "result-first-hr-phone.png")
+    page.click("#edit-entry")
+    assert form_is_open(page) and page.is_hidden("#edit-entry")
+    assert page.evaluate("document.activeElement.id") == "child-name"
+    assert page.is_visible("#remove-child")  # only while editing
+    page.fill("#birth-date", "2025-01-01")  # still updated live while editing
+    page.dispatch_event("#birth-date", "change")
+    assert form_is_open(page) and page.input_value("#birth-date") == "2025-01-01"
+    page.click("#add-child")
+    assert form_is_open(page) and page.is_hidden("#result")
+
+
+def test_result_first_pregnancy(open_page):
+    page = open_page()
+    calculate_pregnancy(page, due_in(50))
+    assert not form_is_open(page) and page.evaluate("document.activeElement.id") == "pregnancy-result"
+    page.click("#edit-entry")
+    assert page.evaluate("document.activeElement.value") == "due"  # the chosen basis
+    page.click(".mode-switch >> text=Beba")
+    assert form_is_open(page)  # no baby saved: the form
+
+
+def test_share_menu(open_page):
+    page = open_page()
+    calculate(page)
+    assert page.is_hidden("#share-menu") and page.get_attribute("#share-toggle", "aria-expanded") == "false"
+    page.click("#share-toggle")
+    assert page.is_visible("#copy-text") and page.get_attribute("#share-toggle", "aria-expanded") == "true"
+    page.focus("#copy-text")
+    page.keyboard.press("Escape")
+    assert page.is_hidden("#share-menu") and page.evaluate("document.activeElement.id") == "share-toggle"
+
+
+def test_compact_header_and_footer(open_page):
+    page = open_page(viewport={"width": 360, "height": 740})
+    assert page.locator(".lang-switch [aria-hidden=true]").all_text_contents() == ["HR", "EN", "DE", "IT"]
+    assert page.get_attribute(".lang-switch a[hreflang=en]", "lang") == "en"
+    assert page.locator(".lang-switch a[hreflang=en] .visually-hidden").text_content() == "English"
+    # Title and language switch on one line
+    tops = page.evaluate("[...document.querySelectorAll('h1, .lang-switch')].map(e => Math.round(e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2))")
+    assert abs(tops[0] - tops[1]) <= 4, tops
+    assert re.fullmatch(r"Baby Calculator v\d+\.\d+(\.\d+)?", page.text_content(".site-footer .version-text"))
+    assert page.text_content("h1") == "Baby Calculator"

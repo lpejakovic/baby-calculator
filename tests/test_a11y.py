@@ -53,7 +53,13 @@ def growth(page):
         page.click("#measure-form button[type=submit]")
 
 
-STATES = {"growth": growth, "empty": None, "baby": baby, "pregnancy": pregnancy, "ultrasound": ultrasound, "backup": backup, "error": error}
+def editing(page):
+    baby(page)
+    page.click("#edit-entry")
+    page.click("#share-toggle")
+
+
+STATES = {"editing": editing, "growth": growth, "empty": None, "baby": baby, "pregnancy": pregnancy, "ultrasound": ultrasound, "backup": backup, "error": error}
 
 
 def audit(page):

@@ -53,43 +53,48 @@ body {
     border-radius: 16px;
     box-shadow: var(--shadow);
 }
-.lang-switch {
+.site-header {
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-end;
-    column-gap: 4px;
-    margin: -8px -8px 0 0;
-}
-.lang-current {
-    display: inline-flex;
     align-items: center;
-    min-height: 44px;
-    padding: 8px;
-    font-size: .875rem;
-    color: var(--muted);
+    justify-content: space-between;
+    gap: 4px 12px;
+    margin-bottom: 16px;
 }
+.lang-switch {
+    display: flex;
+    margin-right: -4px;
+}
+.lang-current,
 .lang-switch a {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 32px;
     min-height: 44px;
-    padding: 8px;
+    padding: 8px 4px;
     font-size: .875rem;
     font-weight: 600;
+}
+.lang-current {
+    color: var(--text);
+    text-decoration: underline 2px;
+    text-underline-offset: 4px;
+}
+.lang-switch a {
     color: var(--primary);
+    text-decoration: none;
+}
+.lang-switch a:hover {
+    text-decoration: underline;
 }
 .lang-switch a:focus-visible {
     outline: 3px solid var(--primary);
     outline-offset: 2px;
 }
 h1 {
-    margin: 0 0 20px;
+    margin: 0;
     font-size: 1.75rem;
-    text-align: center;
-}
-.version-text {
-    font-size: .875rem;
-    font-weight: normal;
-    color: var(--muted);
 }
 .mode-switch {
     display: grid;
@@ -132,11 +137,19 @@ h1 {
 }
 .basis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin: 0;
     padding: 0;
     border: none;
+}
+.measure-tabs {
+    /* One row where the labels fit, otherwise as many rows as needed */
+    display: flex;
+    flex-wrap: wrap;
+}
+.measure-tabs .radio {
+    flex: 1 1 auto;
 }
 .gestation {
     display: grid;
@@ -325,10 +338,17 @@ h1 {
     text-align: center;
     overflow-wrap: anywhere;
 }
-form {
+form,
+.form-fields {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+.edit-button {
+    display: block;
+}
+#birth-form:has(#children:not([hidden])) ~ .edit-button {
+    margin-top: 12px;
 }
 .fields {
     display: grid;
@@ -341,6 +361,14 @@ form {
 }
 label {
     font-weight: 600;
+}
+.optional {
+    font-weight: normal;
+    color: var(--muted);
+}
+.fields .field {
+    /* Inputs side by side stay level when one label wraps */
+    justify-content: flex-end;
 }
 .hint {
     color: var(--muted);
@@ -387,6 +415,12 @@ button:focus-visible {
 #result,
 #pregnancy-result {
     margin-top: 24px;
+    scroll-margin-top: 16px;
+}
+#result:focus,
+#pregnancy-result:focus {
+    /* Focused only from the script, after "Izračunaj", so a screen reader continues there */
+    outline: none;
 }
 .cards {
     display: grid;
@@ -497,6 +531,17 @@ progress {
     color: var(--on-primary);
     background: var(--primary);
 }
+#share {
+    margin-top: 16px;
+}
+.share-toggle {
+    width: 100%;
+}
+.share-menu {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+}
 .install-button {
     width: 100%;
     margin-top: 16px;
@@ -579,11 +624,14 @@ progress {
     font-size: 1.25rem;
     line-height: 1;
 }
-.privacy-note {
-    margin: 16px 0 0;
+.site-footer {
+    margin-top: 16px;
     font-size: .875rem;
     color: var(--muted);
     text-align: center;
+}
+.site-footer p {
+    margin: 4px 0 0;
 }
 .not-found {
     text-align: center;
@@ -643,16 +691,25 @@ progress {
     }
 }
 @media (max-width: 480px) {
+    /* Phones: no card around the page, so the content gets the full width */
     body {
         align-items: flex-start;
+        background-color: var(--surface);
     }
     .container {
-        padding: 16px;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
     h1 {
-        font-size: 1.5rem;
+        font-size: 1.375rem;
     }
     .card-primary .card-value {
         font-size: 1.5rem;
+    }
+}
+@media (max-width: 360px) {
+    h1 {
+        font-size: 1.125rem;
     }
 }

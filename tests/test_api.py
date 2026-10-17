@@ -241,7 +241,7 @@ def test_page_texts_match():
 def test_english_page(client):
     html = client.get("/en/", headers=NGINX).get_data(as_text=True)
     assert '<html lang="en">' in html
-    assert "Baby is born" in html and "Beba je rođena" not in html
+    assert "Edit details" in html and "Uredi podatke" not in html
     meta = page_meta(html)
     assert meta["og:url"] == "https://bc.luka-pejakovic.from.hr/en/"
     assert meta["og:locale"] == "en_US"
@@ -266,18 +266,21 @@ def test_alternate_links_and_switch(client, lang):
     assert f'<link rel="alternate" hreflang="x-default" href="{PAGES["hr"]}">' in html
     # The switch links to the three other languages, in their own words; the current one is marked, not a link
     nav = re.search(r'<nav class="lang-switch"[^>]*>(.*?)</nav>', html, re.S).group(1)
-    links = re.findall(r'<a href="([^"]+)" hreflang="([^"]+)" lang="([^"]+)">([^<]+)</a>', nav)
-    assert links == [(PAGES[c], c, c, NAMES[c]) for c in PAGES if c != lang]
-    assert f'<span class="lang-current" lang="{lang}" aria-current="page">{NAMES[lang]}</span>' in nav
+    # Short codes on screen ("EN"), the full name for screen readers
+    name = r'<span aria-hidden="true">([A-Z]{2})</span><span class="visually-hidden">([^<]+)</span>'
+    links = re.findall(r'<a href="([^"]+)" hreflang="([^"]+)" lang="([^"]+)">' + name + '</a>', nav)
+    assert links == [(PAGES[c], c, c, c.upper(), NAMES[c]) for c in PAGES if c != lang]
+    current = re.findall(r'<span class="lang-current" lang="([a-z]+)" aria-current="page">' + name + '</span>', nav)
+    assert current == [(lang, lang.upper(), NAMES[lang])]
 
 
-@pytest.mark.parametrize("lang, mode_baby, description", [
-    ("de", "Baby ist geboren", "Das Alter Ihres Babys in Wochen, Monaten und Tagen – live auf die Sekunde."),
-    ("it", "Il bambino è nato", "Calcola l’età del tuo bambino in settimane, mesi e giorni, in tempo reale al secondo."),
+@pytest.mark.parametrize("lang, edit, description", [
+    ("de", "Angaben bearbeiten", "Das Alter Ihres Babys in Wochen, Monaten und Tagen – live auf die Sekunde."),
+    ("it", "Modifica dati", "Calcola l’età del tuo bambino in settimane, mesi e giorni, in tempo reale al secondo."),
 ])
-def test_german_and_italian_pages(client, lang, mode_baby, description):
+def test_german_and_italian_pages(client, lang, edit, description):
     html = client.get(f"/{lang}/", headers=NGINX).get_data(as_text=True)
-    assert f'<html lang="{lang}">' in html and mode_baby in html
+    assert f'<html lang="{lang}">' in html and edit in html
     meta = page_meta(html)
     assert meta["description"] == description and meta["og:url"] == PAGES[lang]
     assert re.fullmatch(rf"{SITE}/static/images/og-image-{lang}\.png\?v=\d+", meta["og:image"])

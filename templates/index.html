@@ -35,16 +35,19 @@
 </head>
 <body>
     <main class="container">
-        <nav class="lang-switch" aria-label="{{ t.switch_label }}">
-            {%- for code, url in page_urls.items() %}
-            {%- if code == lang %}
-            <span class="lang-current" lang="{{ code }}" aria-current="page">{{ language_names[code] }}</span>
-            {%- else %}
-            <a href="{{ url }}" hreflang="{{ code }}" lang="{{ code }}">{{ language_names[code] }}</a>
-            {%- endif %}
-            {%- endfor %}
-        </nav>
-        <h1>Baby Calculator <span class="version-text">v{{ version }}</span></h1>
+        <header class="site-header">
+            <h1>Baby Calculator</h1>
+            <nav class="lang-switch" aria-label="{{ t.switch_label }}">
+                {%- for code, url in page_urls.items() %}
+                {%- set name %}<span aria-hidden="true">{{ code|upper }}</span><span class="visually-hidden">{{ language_names[code] }}</span>{% endset %}
+                {%- if code == lang %}
+                <span class="lang-current" lang="{{ code }}" aria-current="page">{{ name }}</span>
+                {%- else %}
+                <a href="{{ url }}" hreflang="{{ code }}" lang="{{ code }}">{{ name }}</a>
+                {%- endif %}
+                {%- endfor %}
+            </nav>
+        </header>
 
         <fieldset class="mode-switch">
             <legend class="visually-hidden">{{ t.mode_legend }}</legend>
@@ -60,71 +63,75 @@
                     <button type="button" class="chip chip-add" id="add-child">{{ t.add_child }}</button>
                 </div>
             </fieldset>
-            <div class="field">
-                <label for="child-name">{{ t.child_name }}</label>
-                <input type="text" id="child-name" name="name" maxlength="40" autocomplete="off" aria-describedby="name-hint">
-                <small id="name-hint" class="hint">{{ t.optional }}</small>
+            <div class="form-fields" id="birth-fields">
+                <div class="field">
+                    <label for="child-name">{{ t.child_name }} <span class="optional">({{ t.optional|lower }})</span></label>
+                    <input type="text" id="child-name" name="name" maxlength="40" autocomplete="off">
+                </div>
+                <div class="fields">
+                    <div class="field">
+                        <label for="birth-date">{{ t.birth_date }}</label>
+                        <input type="date" id="birth-date" name="date" required>
+                    </div>
+                    <div class="field">
+                        <label for="birth-time">{{ t.birth_time }} <span class="optional">({{ t.optional|lower }})</span></label>
+                        <input type="time" id="birth-time" name="time">
+                    </div>
+                </div>
+                <details class="premature" id="premature">
+                    <summary>{{ t.premature }}</summary>
+                    <div class="field">
+                        <label for="due-date">{{ t.premature_due }}</label>
+                        <input type="date" id="due-date" name="due" aria-describedby="due-hint">
+                        <small id="due-hint" class="hint">{{ t.premature_hint }}</small>
+                    </div>
+                </details>
+                <button type="submit">{{ t.calculate_age }}</button>
+                <button type="button" class="button-link" id="remove-child" hidden>{{ t.remove_child }}</button>
             </div>
-            <div class="fields">
-                <div class="field">
-                    <label for="birth-date">{{ t.birth_date }}</label>
-                    <input type="date" id="birth-date" name="date" required>
-                </div>
-                <div class="field">
-                    <label for="birth-time">{{ t.birth_time }}</label>
-                    <input type="time" id="birth-time" name="time" aria-describedby="time-hint">
-                    <small id="time-hint" class="hint">{{ t.optional }}</small>
-                </div>
-            </div>
-            <details class="premature" id="premature">
-                <summary>{{ t.premature }}</summary>
-                <div class="field">
-                    <label for="due-date">{{ t.premature_due }}</label>
-                    <input type="date" id="due-date" name="due" aria-describedby="due-hint">
-                    <small id="due-hint" class="hint">{{ t.premature_hint }}</small>
-                </div>
-            </details>
-            <button type="submit">{{ t.calculate_age }}</button>
-            <button type="button" class="button-link" id="remove-child" hidden>{{ t.remove_child }}</button>
         </form>
 
         <form id="pregnancy-form" hidden>
-            <fieldset class="basis">
-                <legend>{{ t.basis_legend }}</legend>
-                <label class="radio"><input type="radio" name="basis" value="due" checked> {{ t.basis_due }}</label>
-                <label class="radio"><input type="radio" name="basis" value="lmp"> {{ t.basis_lmp }}</label>
-                <label class="radio"><input type="radio" name="basis" value="ivf"> {{ t.basis_ivf }}</label>
-                <label class="radio"><input type="radio" name="basis" value="ultrasound"> {{ t.basis_ultrasound }}</label>
-            </fieldset>
-            <div class="field">
-                <label for="pregnancy-date" id="pregnancy-date-label">{{ t.due_date }}</label>
-                <input type="date" id="pregnancy-date" name="pregnancy-date" required>
-            </div>
-            <div class="field" id="ivf-fields" hidden>
-                <label for="embryo-days">{{ t.embryo_age }}</label>
-                <select id="embryo-days" name="embryo-days">
-                    {%- for days in (3, 5, 6) %}
-                    <option value="{{ days }}"{% if days == 5 %} selected{% endif %}>{{ t.embryo_days.format(days) }}</option>
-                    {%- endfor %}
-                </select>
-            </div>
-            <fieldset class="gestation" id="ultrasound-fields" hidden>
-                <legend>{{ t.ga_legend }}</legend>
+            <div class="form-fields" id="pregnancy-fields">
+                <fieldset class="basis">
+                    <legend>{{ t.basis_legend }}</legend>
+                    <label class="radio"><input type="radio" name="basis" value="due" checked> {{ t.basis_due }}</label>
+                    <label class="radio"><input type="radio" name="basis" value="lmp"> {{ t.basis_lmp }}</label>
+                    <label class="radio"><input type="radio" name="basis" value="ivf"> {{ t.basis_ivf }}</label>
+                    <label class="radio"><input type="radio" name="basis" value="ultrasound"> {{ t.basis_ultrasound }}</label>
+                </fieldset>
                 <div class="field">
-                    <label for="ga-weeks">{{ t.ga_weeks }}</label>
-                    <input type="number" id="ga-weeks" name="ga-weeks" min="0" max="42" step="1" inputmode="numeric">
+                    <label for="pregnancy-date" id="pregnancy-date-label">{{ t.due_date }}</label>
+                    <input type="date" id="pregnancy-date" name="pregnancy-date" required>
                 </div>
-                <div class="field">
-                    <label for="ga-days">{{ t.ga_days }}</label>
-                    <input type="number" id="ga-days" name="ga-days" min="0" max="6" step="1" inputmode="numeric">
+                <div class="field" id="ivf-fields" hidden>
+                    <label for="embryo-days">{{ t.embryo_age }}</label>
+                    <select id="embryo-days" name="embryo-days">
+                        {%- for days in (3, 5, 6) %}
+                        <option value="{{ days }}"{% if days == 5 %} selected{% endif %}>{{ t.embryo_days.format(days) }}</option>
+                        {%- endfor %}
+                    </select>
                 </div>
-            </fieldset>
-            <button type="submit">{{ t.calculate_pregnancy }}</button>
+                <fieldset class="gestation" id="ultrasound-fields" hidden>
+                    <legend>{{ t.ga_legend }}</legend>
+                    <div class="field">
+                        <label for="ga-weeks">{{ t.ga_weeks }}</label>
+                        <input type="number" id="ga-weeks" name="ga-weeks" min="0" max="42" step="1" inputmode="numeric">
+                    </div>
+                    <div class="field">
+                        <label for="ga-days">{{ t.ga_days }}</label>
+                        <input type="number" id="ga-days" name="ga-days" min="0" max="6" step="1" inputmode="numeric">
+                    </div>
+                </fieldset>
+                <button type="submit">{{ t.calculate_pregnancy }}</button>
+            </div>
         </form>
+
+        <button type="button" class="button-secondary edit-button" id="edit-entry" hidden>{{ t.edit }}</button>
 
         <p id="error" class="error-text" role="alert" hidden></p>
 
-        <section id="result" aria-labelledby="result-title" hidden>
+        <section id="result" aria-labelledby="result-title" tabindex="-1" hidden>
             <h2 id="result-title" class="result-title visually-hidden">{{ t.child_age }}</h2>
             <div class="cards">
                 <div class="card card-primary">
@@ -194,7 +201,7 @@
             <p class="born-at" id="born-at"></p>
         </section>
 
-        <section id="pregnancy-result" aria-labelledby="pregnancy-result-title" hidden>
+        <section id="pregnancy-result" aria-labelledby="pregnancy-result-title" tabindex="-1" hidden>
             <h2 id="pregnancy-result-title" class="visually-hidden">{{ t.pregnancy }}</h2>
             <div class="cards">
                 <div class="card card-primary">
@@ -217,8 +224,10 @@
         </section>
 
         <div id="share" hidden>
-            <div class="actions">
-                <button type="button" class="button-secondary" id="share-link">{{ t.share }}</button>
+            <button type="button" class="button-secondary share-toggle" id="share-toggle"
+                    aria-expanded="false" aria-controls="share-menu">{{ t.share }}</button>
+            <div class="share-menu" id="share-menu" hidden>
+                <button type="button" class="button-secondary" id="share-link">{{ t.share_link }}</button>
                 <button type="button" class="button-secondary" id="copy-text">{{ t.copy_text }}</button>
                 <button type="button" class="button-secondary" id="share-picture"
                         data-icon="{{ url_for('static', filename='images/icon-512.png') }}">{{ t.share_picture }}</button>
@@ -240,7 +249,10 @@
             <p class="share-status" id="backup-status" role="status"></p>
         </details>
 
-        <p class="privacy-note">{{ t.privacy_note }}</p>
+        <footer class="site-footer">
+            <p class="privacy-note">{{ t.privacy_note }}</p>
+            <p class="version-text">Baby Calculator v{{ version }}</p>
+        </footer>
 
         <p id="announce" class="visually-hidden" aria-live="polite"></p>
     </main>

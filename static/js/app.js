@@ -97,6 +97,10 @@
             progressText: $('pregnancy-progress-text'),
             milestones: $('pregnancy-milestones'),
         };
+        const editButton = $('edit-entry');
+        const formFields = [$('birth-fields'), $('pregnancy-fields')];
+        const shareToggle = $('share-toggle');
+        const shareMenu = $('share-menu');
         const shareButton = $('share-link');
         const copyButton = $('copy-text');
         const shareStatus = $('share-status');
@@ -209,7 +213,24 @@
             updateBasis();
         }
 
+        // While a result is shown the form is folded away behind "Uredi podatke", so the result comes first
+        function setEditing(on) {
+            formFields.forEach((fields) => { fields.hidden = !on; });
+            editButton.hidden = on;
+        }
+
+        // After "Izračunaj": the result is scrolled to and gets the focus, so it is read out next
+        function focusResult(section) {
+            section.focus({ preventScroll: true });
+            const top = section.getBoundingClientRect().top;
+            if (top >= 0 && top < innerHeight / 2) return; // already in view
+            const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            section.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+        }
+
         function hideResults() {
+            setEditing(true);
+            setShareMenu(false);
             clearInterval(timer);
             current = null;
             result.hidden = true;
@@ -301,7 +322,8 @@
             renderMilestoneList(preg.milestones, pregnancyMilestones(lmp, now, 3, lang));
         }
 
-        function calculate() {
+        // how: 'show' (folds the form away), 'submit' (also moves to the result) or 'live' (while editing)
+        function calculate(how = 'show') {
             const birth = parseBirth(dateInput.value, timeInput.value);
             if (!dateInput.value) return showError(t.errors.birthMissing);
             if (birth === null) return showError(t.errors.birthInvalid);
@@ -331,13 +353,15 @@
             milestonesDay = null;
             render(birth, due);
             renderGrowth();
+            if (how !== 'live') setEditing(false);
+            if (how === 'submit') focusResult(result);
             announce.textContent = `${named || t.age}: ${out.calendar.textContent}, ${t.or} ${out.weeks.textContent}.`;
 
             clearInterval(timer);
             timer = setInterval(() => render(birth, due), 1000);
         }
 
-        function calculatePregnancy() {
+        function calculatePregnancy(how = 'show') {
             const date = parseBirth(pregnancyDate.value, '');
             if (!pregnancyDate.value) return showError(t.errors.dateMissing);
             if (date === null) return showError(t.errors.dateInvalid);
@@ -355,6 +379,8 @@
             current = { mode: 'pregnancy', lmp };
             milestonesDay = null;
             renderPregnancy(lmp);
+            if (how !== 'live') setEditing(false);
+            if (how === 'submit') focusResult(pregnancyResult);
             announce.textContent = `${t.pregnancy}: ${preg.duration.textContent}, ${t.dueDate.toLowerCase()} ${preg.due.textContent}`;
 
             clearInterval(timer);
@@ -442,6 +468,18 @@
             }
         }
 
+        // "Podijeli" opens a short list: link, text or picture
+        function setShareMenu(open) {
+            shareMenu.hidden = !open;
+            shareToggle.setAttribute('aria-expanded', String(open));
+        }
+        shareToggle.addEventListener('click', () => setShareMenu(shareMenu.hidden));
+        shareMenu.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') return;
+            setShareMenu(false);
+            shareToggle.focus();
+        });
+
         shareButton.addEventListener('click', async function () {
             const url = shareUrl();
             if (navigator.share) {
@@ -461,9 +499,9 @@
 
         form.addEventListener('submit', function (event) {
             event.preventDefault();
-            calculate();
+            calculate('submit');
         });
-        dateInput.addEventListener('change', () => dateInput.value && calculate());
+        dateInput.addEventListener('change', () => dateInput.value && calculate('live'));
         nameInput.addEventListener('input', function () {
             const child = activeChild();
             if (!child) return; // a new child gets its name when it is calculated
@@ -489,14 +527,14 @@
             saveChildren();
             selectChild(next.activeId);
         });
-        timeInput.addEventListener('change', () => dateInput.value && calculate());
-        dueInput.addEventListener('change', () => dateInput.value && calculate());
+        timeInput.addEventListener('change', () => dateInput.value && calculate('live'));
+        dueInput.addEventListener('change', () => dateInput.value && calculate('live'));
 
         pregnancyForm.addEventListener('submit', function (event) {
             event.preventDefault();
-            calculatePregnancy();
+            calculatePregnancy('submit');
         });
-        pregnancyDate.addEventListener('change', () => pregnancyDate.value && calculatePregnancy());
+        pregnancyDate.addEventListener('change', () => pregnancyDate.value && calculatePregnancy('live'));
         basisInputs.forEach((input) => input.addEventListener('change', function () {
             // Keep the same pregnancy: describe what was entered with the newly chosen basis
             const previous = validPregnancy(readPregnancyForm(lastBasis));
@@ -505,11 +543,15 @@
             } else {
                 updateBasis();
             }
-            if (pregnancyDate.value) calculatePregnancy();
+            if (pregnancyDate.value) calculatePregnancy('live');
         }));
         [embryoDays, gaWeeks, gaDays].forEach((input) => input.addEventListener('change', function () {
-            if (pregnancyDate.value) calculatePregnancy();
+            if (pregnancyDate.value) calculatePregnancy('live');
         }));
+        editButton.addEventListener('click', function () {
+            setEditing(true);
+            (mode === 'baby' ? nameInput : document.querySelector('input[name="basis"]:checked')).focus();
+        });
         modeInputs.forEach((input) => input.addEventListener('change', () => setMode(input.value)));
 
         // Shared links are saved like normal entries, so they aren't needed after this

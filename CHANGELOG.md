@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.20 – 2026-10-17
+- Result first: with saved data the page opens on the result, and the form is folded away behind "Uredi podatke";
+  after "Izračunaj" the result is scrolled to and focused. "Ukloni dijete" shows only while editing.
+- Phones: no card around the page, a compact language switch (HR · EN · DE · IT), shorter mode labels,
+  two-column pregnancy choices, "(nije obavezno)" in the labels, one "Podijeli" button with a short list,
+  and the version number in the footer.
+
 ## 2.19 – 2026-10-17
 - Removed the migration of data saved by versions before 2.6 (the 1.x cookie and the single saved date).
 - The site's access log keeps only shortened client IPs and no query strings.

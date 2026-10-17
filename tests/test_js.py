@@ -246,8 +246,8 @@ def test_lmp_from(js):
     ("due", -1, "Termin je predaleko u budućnosti (više od 40 tjedana)."),
     ("lmp", 0, None),
     ("due", 294, None),
-    ("lmp", 295, "Zadnja menstruacija je prije više od 42 tjedna. Ako je beba rođena, odaberite „Beba je rođena”."),
-    ("due", 295, "Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”."),
+    ("lmp", 295, "Zadnja menstruacija je prije više od 42 tjedna. Ako je beba rođena, odaberite „Beba”."),
+    ("due", 295, "Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba”."),
 ])
 def test_pregnancy_error(js, basis, days_ago, expected):
     now = datetime(2026, 10, 17, 12, 0)
@@ -419,7 +419,7 @@ def test_english_pregnancy_texts(js):
     assert call(js, f"M.pregnancyError('lmp', {ms(datetime(2026, 10, 18))}, {ms(now)}, 'en')") == \
         "The first day of the last period can’t be in the future."
     assert call(js, f"M.pregnancyError('due', {ms(datetime(2025, 12, 1))}, {ms(now)}, 'en')") == \
-        "The due date was more than two weeks ago. If the baby is born, choose “Baby is born”."
+        "The due date was more than two weeks ago. If the baby is born, choose “Baby”."
 
 
 def test_english_child_label_and_fallback(js):
@@ -688,7 +688,7 @@ def test_convert_ultrasound_keeps_scan_and_embryo_age(js):
     ("ivf", {"embryoDays": 5}, 1, 0, "Datum ne može biti u budućnosti."),
     ("ultrasound", {"gaWeeks": 8, "gaDays": 0}, 1, 55, "Datum ne može biti u budućnosti."),
     ("ultrasound", {"gaWeeks": 42, "gaDays": 6}, -30, 330, "Prema ovim podacima trudnoća traje više od 42 tjedna. "
-                                                           "Ako je beba rođena, odaberite „Beba je rođena”."),
+                                                           "Ako je beba rođena, odaberite „Beba”."),
     ("ivf", {"embryoDays": 5}, -10, 29, None),
 ])
 def test_pregnancy_error_for_new_bases(js, basis, extra, event_offset, lmp_days_ago, expected):
