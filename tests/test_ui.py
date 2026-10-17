@@ -421,7 +421,7 @@ def test_english_page(open_page, base_url):
     for item in page.locator("#milestones li").all():
         when = item.locator(".milestone-when").text_content()
         assert re.fullmatch(r"\d{1,2} [A-Z][a-z]{2} \d{4} · (today|tomorrow|in \d+ days)", when), when
-    text = page.text_content("main")
+    text = page.text_content("main").replace("Pejaković", "")  # the author's name in the footer
     assert not CROATIAN.search(text), CROATIAN.search(text)
 
 
