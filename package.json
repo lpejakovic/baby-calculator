@@ -2,6 +2,7 @@
   "name": "baby-calculator",
   "private": true,
   "description": "JavaScript tooling only (ESLint); the app itself has no npm dependencies.",
+  "license": "MIT",
   "scripts": {
     "lint": "eslint static/js eslint.config.js"
   },

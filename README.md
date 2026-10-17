@@ -86,9 +86,14 @@ HTTP 400 or 429 (rate limit) with `{"error": "..."}` in the requested language.
 
 Changes go through a branch and a pull request; CI must pass before merging. The live site is updated only with
 `deploy/deploy.sh`, which deploys `origin/main` once CI has passed for that exact commit, restarts the service, checks
-`/health` for the new version and rolls back if it doesn't appear (`--check` shows what it would do).
+`/health` for the new version and rolls back if it doesn't appear (`--check` shows what it would do). Its refusals and
+the rollback are tested in `tests/test_deploy.py`, and `shellcheck` checks it in CI.
 
 Production runs Gunicorn under systemd behind nginx; templates for both are in `deploy/`. nginx serves `/static/` with
 long caching (Flask adds `?v=<mtime>` to static URLs) and sends the security headers, including a strict CSP: keep all
 JavaScript and CSS in `static/`. A scheduled workflow checks `/health`, `/` and `/en/` every 15 minutes, and
 Dependabot opens weekly update PRs.
+
+## License
+
+[MIT](LICENSE)

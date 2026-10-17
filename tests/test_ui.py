@@ -818,6 +818,44 @@ def test_pregnancy_dating_layout(open_page, width):
     assert not overflow and min(heights) >= 44, heights
 
 
+PERSIST_STUB = """
+    window.persistCalls = 0;
+    if (navigator.storage) {
+        navigator.storage.persisted = async () => window.alreadyPersisted === true;
+        navigator.storage.persist = async () => { window.persistCalls += 1; return true; };
+    }
+"""
+
+
+def test_asks_to_keep_data_once_after_saving(browser, base_url):
+    context = browser.new_context()
+    context.add_init_script(PERSIST_STUB)
+    page = context.new_page()
+    page.goto(base_url)
+    assert page.evaluate("window.persistCalls") == 0  # nothing on page load
+    calculate(page, "2025-03-04", name="Ana")
+    assert poll(page, "window.persistCalls") == 1
+    page.click("#add-child")
+    calculate(page, "2026-09-01", name="Marko")
+    page.wait_for_timeout(200)
+    assert page.evaluate("window.persistCalls") == 1  # once per visit
+    page.reload()  # saved data is shown again on load: no request without the visitor doing something
+    page.wait_for_timeout(200)
+    assert page.evaluate("window.persistCalls") == 0
+    context.close()
+
+
+def test_does_not_ask_when_already_kept(browser, base_url):
+    context = browser.new_context()
+    context.add_init_script(PERSIST_STUB + "window.alreadyPersisted = true;")
+    page = context.new_page()
+    page.goto(base_url)
+    calculate_pregnancy(page, due_in(50))
+    page.wait_for_timeout(200)
+    assert page.evaluate("window.persistCalls") == 0
+    context.close()
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.15 – 2026-10-17
+- After something is saved, the app asks the browser to keep its data when space runs low.
+- MIT license.
+
 ## 2.14 – 2026-10-17
 - The page script is split into `texts.js`, `dates.js`, `calendar.js`, `data.js` and `app.js`.
 

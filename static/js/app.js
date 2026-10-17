@@ -127,9 +127,23 @@
             return children.find((c) => c.id === activeId) || null;
         }
 
+        // Ask the browser to keep the saved data, so it isn't cleared when the device runs low on space. Asked at
+        // most once per visit, and only while the visitor is doing something (not on page load): Firefox shows a
+        // prompt, Chrome and Safari decide silently.
+        let persistenceAsked = false;
+        async function keepData() {
+            if (persistenceAsked || !navigator.storage || !navigator.storage.persist) return;
+            if (navigator.userActivation && !navigator.userActivation.isActive) return;
+            persistenceAsked = true;
+            try {
+                if (!(await navigator.storage.persisted())) await navigator.storage.persist();
+            } catch (e) { /* not supported or refused: the data is still saved, just not protected */ }
+        }
+
         function saveChildren() {
             store(CHILDREN_KEY, children);
             store(ACTIVE_CHILD_KEY, activeId);
+            keepData();
         }
 
         function renderChildren() {
@@ -346,6 +360,7 @@
             if (problem) return showError(problem);
 
             store(PREGNANCY_KEY, state);
+            keepData();
             show(pregnancyResult);
 
             current = { mode: 'pregnancy', lmp };
