@@ -12,7 +12,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from i18n import API_ERRORS, LANGUAGES, PAGE_TEXT, UNSUPPORTED_LANG
 from utils_dt import calculate_date_difference, format_datetime, join_units
 
-APP_VERSION = "2.12"
+APP_VERSION = "2.13"
 
 # Cached by the service worker for offline use (besides the page itself)
 PRECACHED_STATIC = ["styles/main.css", "js/app.js", "favicon.ico", "apple-touch-icon.png",

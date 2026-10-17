@@ -9,11 +9,13 @@ The age is shown in three forms, with Croatian labels that use the correct gramm
 
 It also lists the next three milestones (month birthdays, birthdays, 100/500/1000… days) with a countdown.
 
-A **pregnancy mode** ("Trudnoća") works from the due date or the first day of the last period (280-day rule) and shows
+A **pregnancy mode** ("Trudnoća") works from the due date, the first day of the last period (280-day rule), an IVF
+embryo transfer (transfer date and embryo age of 3, 5 or 6 days) or an ultrasound (scan date and the gestational age
+measured there), and shows
 the pregnancy as weeks + days (`32+6 · 33. tjedan · 3. tromjesečje`), the due date with a countdown and progress bar,
 and upcoming pregnancy milestones (14, 20, 28, 37 and 40 weeks).
 
-The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.12**.
+The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.13**.
 
 ## Features
 

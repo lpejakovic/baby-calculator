@@ -34,7 +34,16 @@ def error(page):
     page.click("#birth-form button[type=submit]")
 
 
-STATES = {"empty": None, "baby": baby, "pregnancy": pregnancy, "backup": backup, "error": error}
+def ultrasound(page):
+    page.click(".mode-switch label:nth-of-type(2)")
+    page.click("#pregnancy-form label.radio:nth-of-type(4)")
+    page.fill("#pregnancy-date", "2026-10-07")
+    page.fill("#ga-weeks", "8")
+    page.fill("#ga-days", "3")
+    page.click("#pregnancy-form button")
+
+
+STATES = {"empty": None, "baby": baby, "pregnancy": pregnancy, "ultrasound": ultrasound, "backup": backup, "error": error}
 
 
 def audit(page):
