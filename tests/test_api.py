@@ -401,3 +401,11 @@ def test_page_covers_safe_areas(client, path):
     # With viewport-fit=cover the stylesheet pads the body by env(safe-area-inset-*) (notch, home bar)
     html = client.get(path, headers=NGINX).get_data(as_text=True)
     assert '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">' in html
+
+
+@pytest.mark.parametrize("path, source", [("/", "Izvorni kod"), ("/en/", "Source code")])
+def test_footer_copyright_and_source(client, path, source):
+    html = client.get(path, headers=NGINX).get_data(as_text=True)
+    footer = re.search(r'<footer class="site-footer">(.*?)</footer>', html, re.S).group(1)
+    assert re.search(r"© 2024–\d{4} Luka Pejaković · v\d+\.\d+", footer)
+    assert f'<a href="https://github.com/lpejakovic/baby-calculator" rel="noopener">{source}</a>' in footer

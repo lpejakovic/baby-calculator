@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.24 – 2026-10-17
+- The live total shows every part with at least two digits, like a clock ("592 dana, 03 sata, 00 minuta i 07 sekundi").
+- Footer: copyright and a link to the source code.
+
 ## 2.23 – 2026-10-17
 - Removing a child or a measurement happens straight away and can be undone for a few seconds ("Poništi"),
   instead of a confirmation dialog for children and no way back for measurements.

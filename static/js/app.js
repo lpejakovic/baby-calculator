@@ -7,7 +7,7 @@
         addSharedChild, ageInMonths, babyCalendarEvents, BACKUP_MAX_BYTES, buildBackupLink, buildIcs,
         buildShareUrl, calculateAge, childLabel, cleanChild, convertPregnancy, correctedAge, correctedAgeError,
         countdown, DAY, drawCard, dueCountdown, formatBirth, formatDate, formatPercentile, growthChart, isoDate,
-        joinParts, layoutCard, makeBackup, measurePercentile, MEASURES, mergeChildren, nextChildId,
+        joinClock, joinParts, layoutCard, makeBackup, measurePercentile, MEASURES, mergeChildren, nextChildId,
         normalizeChildren, parseBackup, parseBirth, PREGNANCY_DAYS, pregnancyCalendarEvents, pregnancyError,
         pregnancyLmp, pregnancyMilestones, pregnancyStatus, readBackupLink, readSharedBirth, readSharedPregnancy,
         removeChild, startOfDay, TEXT, texts, todayValue, upcomingMilestones, validPregnancy, wallClockNow,
@@ -340,7 +340,7 @@
             const age = calculateAge(birth, now, Date.now() - wallToReal(birth));
             out.weeks.textContent = joinParts([[age.weeks, 'week'], [age.weekDays, 'day']], lang);
             out.calendar.textContent = joinParts([[age.years, 'year'], [age.months, 'month'], [age.days, 'day']], lang);
-            out.total.textContent = joinParts([[age.elapsedDays, 'day'], [age.hours, 'hour'],
+            out.total.textContent = joinClock([[age.elapsedDays, 'day'], [age.hours, 'hour'],
                 [age.minutes, 'minute'], [age.seconds, 'second']], lang);
             renderCorrected(birth, due, now, age);
             return age;
