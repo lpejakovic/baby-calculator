@@ -1,3 +1,4 @@
+import os
 import re
 import threading
 from datetime import UTC, datetime
@@ -72,10 +73,14 @@ def base_url():
     app_module.limiter.enabled = True
 
 
+# Chromium by default; BROWSER=webkit (Safari's engine) runs the smoke tests marked "webkit" (CI: Browser (WebKit))
+BROWSER = os.environ.get("BROWSER", "chromium")
+
+
 @pytest.fixture(scope="module")
 def browser():
     sync_api = pytest.importorskip("playwright.sync_api")
     with sync_api.sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = getattr(p, BROWSER).launch()
         yield browser
         browser.close()
