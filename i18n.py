@@ -67,6 +67,17 @@ PAGE_TEXT = {
         "backup_download": "Preuzmi datoteku",
         "backup_restore": "Učitaj datoteku",
         "backup_link": "Kopiraj poveznicu za prijenos",
+        "backup_reminder": (
+            "Podaci su spremljeni samo u ovom pregledniku i "
+            "mogu se izgubiti. Spremite sigurnosnu kopiju."
+        ),
+        "backup_now": "Spremi kopiju",
+        "later": "Kasnije",
+        "close": "Zatvori",
+        "ios_hint": (
+            "Na iPhoneu dodajte aplikaciju na početni zaslon (Dijeli → Dodaj na početni "
+            "zaslon): radi i bez interneta, a Safari tada ne briše spremljene podatke."
+        ),
         "add_to_calendar": "Dodaj u kalendar",
         "privacy_note": "Datumi i imena ostaju samo na vašem uređaju – ne šalju se na server.",
         "source_code": "Izvorni kod",
@@ -151,6 +162,14 @@ PAGE_TEXT = {
         "backup_download": "Download file",
         "backup_restore": "Restore from file",
         "backup_link": "Copy transfer link",
+        "backup_reminder": "Your data is saved only in this browser and could be lost. Save a backup.",
+        "backup_now": "Save backup",
+        "later": "Later",
+        "close": "Close",
+        "ios_hint": (
+            "On iPhone, add the app to your Home Screen (Share → Add to Home Screen): "
+            "it works offline, and Safari then doesn’t clear the saved data."
+        ),
         "add_to_calendar": "Add to calendar",
         "privacy_note": "Dates and names stay on your device – they are never sent to the server.",
         "source_code": "Source code",
@@ -238,6 +257,17 @@ PAGE_TEXT = {
         "backup_download": "Datei herunterladen",
         "backup_restore": "Aus Datei wiederherstellen",
         "backup_link": "Übertragungslink kopieren",
+        "backup_reminder": (
+            "Die Daten sind nur in diesem Browser gespeichert und könnten "
+            "verloren gehen. Speichern Sie eine Sicherung."
+        ),
+        "backup_now": "Sicherung speichern",
+        "later": "Später",
+        "close": "Schließen",
+        "ios_hint": (
+            "Auf dem iPhone die App zum Home-Bildschirm hinzufügen (Teilen → Zum Home-Bildschirm): "
+            "Sie funktioniert dann auch offline, und Safari löscht die gespeicherten Daten nicht."
+        ),
         "add_to_calendar": "Zum Kalender hinzufügen",
         "privacy_note": "Daten und Namen bleiben auf Ihrem Gerät – sie werden nie an den Server gesendet.",
         "source_code": "Quellcode",
@@ -322,6 +352,14 @@ PAGE_TEXT = {
         "backup_download": "Scarica file",
         "backup_restore": "Ripristina da file",
         "backup_link": "Copia link di trasferimento",
+        "backup_reminder": "I dati sono salvati solo in questo browser e potrebbero andare persi. Salva un backup.",
+        "backup_now": "Salva backup",
+        "later": "Più tardi",
+        "close": "Chiudi",
+        "ios_hint": (
+            "Su iPhone aggiungi l’app alla schermata Home (Condividi → Aggiungi alla schermata "
+            "Home): funziona anche offline e Safari non cancella i dati salvati."
+        ),
         "add_to_calendar": "Aggiungi al calendario",
         "privacy_note": "Date e nomi restano sul tuo dispositivo – non vengono mai inviati al server.",
         "source_code": "Codice sorgente",

@@ -55,6 +55,8 @@ checks that `app.js` finds everything it takes from `BC`.
 | `children` | `[{id, name, date, time, due, sex?, measurements?}]`; `activeChild` is the selected id |
 | `pregnancy` | `{basis: "due" \| "lmp" \| "ivf" \| "ultrasound", date, embryoDays?, gaWeeks?, gaDays?}` |
 | `mode` | `"baby"` or `"pregnancy"` |
+| `firstSaved`, `lastBackup`, `backupReminderSnoozed` | `"YYYY-MM-DD"`, for the backup reminder (`backupReminderDue` in `data.js`) |
+| `iosHintClosed` | `true` once the "Dodaj na početni zaslon" hint is closed |
 | `lang` cookie | `hr`, `en`, `de` or `it`, set by the language switch; `/` redirects to that language's page |
 
 After the visitor saves something, the page asks the browser to keep this data (`navigator.storage.persist()`), at

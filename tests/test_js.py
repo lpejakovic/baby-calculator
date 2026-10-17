@@ -960,3 +960,30 @@ def test_child_growth_fields_are_optional_and_merged(js):
     assert merged["children"][0]["sex"] == "f"  # the existing value wins
     assert merged["children"][0]["measurements"] == [{"date": "2026-02-01", "weight": 4.5}, {"date": "2026-03-01", "weight": 5.6}]
     assert (merged["added"], merged["changed"]) == (0, 1)
+
+
+@pytest.mark.parametrize("a, b, days", [
+    ("2026-10-17", "2026-10-17", 0), ("2026-02-28", "2026-03-01", 1), ("2024-02-28", "2024-03-01", 2),
+    ("2026-03-28", "2026-03-30", 2),  # across the change to summer time
+    ("2025-10-17", "2026-10-17", 365),
+])
+def test_days_between(js, a, b, days):
+    assert js.eval(f"M.daysBetween('{a}', '{b}')") == days
+
+
+TODAY = "2026-10-17"
+
+
+@pytest.mark.parametrize("state, due", [
+    ({"hasData": False, "firstSaved": "2026-01-01"}, False),            # nothing to lose
+    ({"hasData": True, "firstSaved": TODAY}, False),                    # not on the day it was first saved
+    ({"hasData": True, "firstSaved": None}, False),
+    ({"hasData": True, "firstSaved": "2026-10-16"}, True),              # from the next day, no backup yet
+    ({"hasData": True, "firstSaved": "2026-01-01", "lastBackup": "2026-09-18"}, False),  # 29 days ago
+    ({"hasData": True, "firstSaved": "2026-01-01", "lastBackup": "2026-09-17"}, True),   # 30 days ago
+    ({"hasData": True, "firstSaved": "2026-01-01", "snoozed": "2026-10-11"}, False),     # "Kasnije" 6 days ago
+    ({"hasData": True, "firstSaved": "2026-01-01", "snoozed": "2026-10-10"}, True),      # 7 days ago
+])
+def test_backup_reminder_due(js, state, due):
+    full = {"lastBackup": None, "snoozed": None, "today": TODAY, **state}
+    assert js.eval(f"M.backupReminderDue({json.dumps(full)})") is due

@@ -1281,3 +1281,67 @@ def test_desktop_form_and_result_side_by_side(open_page, width, side_by_side):
     if width == 1280:
         page.click("#growth > summary")
         keep_artifact(page.screenshot(full_page=True), "desktop-1280.png")
+
+
+def saved_page(browser, base_url, storage, **context):
+    """A page opened with data already in localStorage, e.g. saved on an earlier visit."""
+    ctx = browser.new_context(**context)
+    ctx.add_init_script(f"if (!sessionStorage.getItem('seeded')) {{ sessionStorage.setItem('seeded', '1'); "
+                        f"Object.entries({json.dumps(storage)}).forEach(([k, v]) => localStorage.setItem(k, JSON.stringify(v))); }}")
+    page = ctx.new_page()
+    page.goto(base_url)
+    return ctx, page
+
+
+ANA = [{"id": 1, "name": "Ana", "date": "2025-03-04", "time": "", "due": ""}]
+
+
+def test_backup_reminder(browser, base_url, tmp_path):
+    ctx, page = saved_page(browser, base_url, {"children": ANA, "firstSaved": "2026-01-01"})
+    assert page.is_visible("#backup-reminder")
+    assert page.text_content("#backup-last") == "Zadnja sigurnosna kopija: još nijedna"
+    keep_artifact(page.screenshot(full_page=True), "backup-reminder-hr.png")
+    with page.expect_download() as info:
+        page.click("#reminder-backup")
+    assert info.value.suggested_filename.startswith("baby-calculator-")
+    assert page.is_hidden("#backup-reminder")
+    today = date.today()
+    assert page.text_content("#backup-last") == f"Zadnja sigurnosna kopija: {today:%d.%m.%Y}."
+    page.reload()
+    assert page.is_hidden("#backup-reminder")
+    ctx.close()
+
+
+def test_backup_reminder_later_and_first_day(browser, base_url):
+    ctx, page = saved_page(browser, base_url, {"children": ANA, "firstSaved": "2026-01-01"})
+    page.click("#reminder-later")
+    assert page.is_hidden("#backup-reminder")
+    page.reload()
+    assert page.is_hidden("#backup-reminder")  # snoozed for a week
+    ctx.close()
+    ctx, page = saved_page(browser, base_url, {"children": ANA})  # saved before this version: counts from today
+    assert page.is_hidden("#backup-reminder")
+    assert page.evaluate("JSON.parse(localStorage.getItem('firstSaved'))") == date.today().isoformat()
+    ctx.close()
+
+
+IPHONE_UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 "
+             "(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1")
+
+
+def test_iphone_install_hint(open_page):
+    page = open_page(user_agent=IPHONE_UA, viewport={"width": 390, "height": 844})
+    assert page.is_hidden("#ios-install")  # nothing saved yet
+    calculate(page, name="Ana")
+    assert page.is_visible("#ios-install")
+    assert "Dodaj na početni zaslon" in page.text_content("#ios-install")
+    page.click("#ios-install-close")
+    assert page.is_hidden("#ios-install")
+    page.reload()
+    assert page.is_hidden("#ios-install")
+
+
+def test_no_install_hint_elsewhere(open_page):
+    page = open_page()
+    calculate(page)
+    assert page.is_hidden("#ios-install")

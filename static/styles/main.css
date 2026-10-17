@@ -559,6 +559,46 @@ progress {
     gap: 8px;
     margin-top: 8px;
 }
+.reminder {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: var(--surface-accent);
+}
+.reminder p {
+    margin: 0;
+}
+.reminder-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    margin-top: 8px;
+}
+.reminder-actions .button-link:hover {
+    color: var(--text);
+}
+.install-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 16px;
+    font-size: .875rem;
+    color: var(--muted);
+}
+.install-hint p {
+    flex: 1;
+    margin: 0;
+    padding-top: 12px;
+}
+.install-hint .button-link {
+    flex: none;
+    min-width: 44px;
+    padding: 8px;
+    text-decoration: none;
+    font-size: 1.25rem;
+    line-height: 1;
+}
 .install-button {
     width: 100%;
     margin-top: 16px;

@@ -165,7 +165,26 @@
         return { children: rest, activeId: next ? next.id : null };
     }
 
+    const BACKUP_REMIND_DAYS = 30;  // remind when the last backup is older than this
+    const BACKUP_SNOOZE_DAYS = 7;   // "Kasnije" hides the reminder for this long
+
+    // Days between two "YYYY-MM-DD" dates (b - a)
+    function daysBetween(a, b) {
+        const utc = (d) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)));
+        return Math.round((utc(b) - utc(a)) / 86400000);
+    }
+
+    // Whether to remind about a backup. Data is only in this browser (Safari clears it after about a week
+    // without a visit), so: something is saved, not just today, and no backup in the last 30 days, unless
+    // the visitor chose "Kasnije" less than a week ago. All dates are "YYYY-MM-DD" or null.
+    function backupReminderDue({ hasData, firstSaved, lastBackup, snoozed, today }) {
+        if (!hasData || !firstSaved || firstSaved >= today) return false;
+        if (lastBackup && daysBetween(lastBackup, today) < BACKUP_REMIND_DAYS) return false;
+        return !(snoozed && daysBetween(snoozed, today) < BACKUP_SNOOZE_DAYS);
+    }
+
     Object.assign(BC, {
+        BACKUP_REMIND_DAYS, BACKUP_SNOOZE_DAYS, daysBetween, backupReminderDue,
         NAME_MAX, readSharedPregnancy, readSharedBirth, buildShareUrl, cleanChild, normalizeChildren,
         nextChildId, childLabel, addSharedChild, BACKUP_APP, BACKUP_VERSION, BACKUP_MAX_BYTES, makeBackup,
         parseBackup, mergeChildren, buildBackupLink, readBackupLink, removeChild,
