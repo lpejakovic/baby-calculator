@@ -1,31 +1,35 @@
 # baby-calculator
 
-A small Flask web service that calculates a baby's age from its date and time of birth.
+A small web app that calculates a baby's age from its date and time of birth.
 The age is shown in three forms, with Croatian labels that use the correct grammatical number:
 
-- days, hours, minutes and seconds (`45 dana, 3 sata, 12 minuta i 5 sekundi`)
-- years, months and days (`0 godina, 1 mjesec i 14 dana`)
 - weeks and days (`6 tjedana i 3 dana`)
+- years, months and days (`1 mjesec i 14 dana`)
+- total days, hours, minutes and seconds, updated live every second (`45 dana, 3 sata, 12 minuta i 5 sekundi`)
 
-The UI is in Croatian. Current version: **v1.3**.
+The UI is in Croatian. Current version: **v2.0**.
 
 ## Features
 
-- Single-page form with a `datetime-local` input
-- The last entered date of birth is kept in a cookie for 30 days
-- Results are fetched over AJAX (`POST /calculate`) without reloading the page
-- Rate limiting via Flask-Limiter (`1/second; 8/minute; 32/hour` per IP on each route)
-- The submit button is disabled while a request runs and for 1 second after it finishes
+- The age is calculated in the browser, in the visitor's own time zone, with no server request
+- Separate date and time inputs; the time is optional (defaults to 00:00)
+- Future dates are rejected
+- The last entered birth date is kept in `localStorage` and the result is shown straight away on the next visit
+  (a v1.x cookie is moved over automatically)
+- Responsive layout (phone to desktop), dark mode, WCAG AA contrast, keyboard focus styles, screen-reader announcements
+- No external scripts or libraries
+- Optional JSON API (`POST /calculate`), rate limited via Flask-Limiter (`1/second; 8/minute; 32/hour` per IP)
 
 ## Project structure
 
 ```
-app.py                 Flask app, routes and rate limits
-utils_dt.py            Croatian plural helpers and date-difference calculation
+app.py                 Flask app, routes, rate limits, APP_VERSION
+utils_dt.py            Croatian plural helpers and date math for the API
 wsgi.py                WSGI entry point for Gunicorn
 requirements.txt       Pinned Python dependencies
-templates/index.html   Page, form and jQuery AJAX logic
-static/styles/main.css Styles
+templates/index.html   Page and form
+static/js/app.js       Age calculation, live counter, localStorage
+static/styles/main.css Styles (light and dark)
 static/favicon.ico     Favicon
 docs/project_digest.md Project digest / technical overview
 docs/improvements.md   Open improvements and review
@@ -46,6 +50,8 @@ python app.py            # development server at http://127.0.0.1:5000 (debug=Tr
 ```
 
 ## API
+
+The page doesn't use the API any more; it is kept for compatibility.
 
 `POST /calculate`, form-encoded, field `datetime` in `YYYY-MM-DDTHH:MM` format.
 
@@ -76,8 +82,8 @@ nginx proxies requests to the `bc-calculator.sock` Unix socket.
 
 ## Notes
 
-- Birth dates in the future are rejected (HTTP 400).
-- Times are calculated with the server's local time (`datetime.now()`), not the browser's time zone.
+- The API rejects birth dates in the future (HTTP 400).
+- The API calculates with the server's local time (`datetime.now()`); the page uses the visitor's time zone.
 - Rate-limit counters are kept in memory, so they reset when the service restarts and are not shared between workers.
 
 See [docs/project_digest.md](docs/project_digest.md) for a more detailed technical overview.

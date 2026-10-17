@@ -4,102 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baby Calculator</title>
+    <meta name="description" content="Izračunajte dob bebe u tjednima, mjesecima i danima, uživo do sekunde.">
+    <meta name="theme-color" content="#f6f3fb" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#16151d" media="(prefers-color-scheme: dark)">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="hr_HR">
+    <meta property="og:title" content="Baby Calculator">
+    <meta property="og:description" content="Izračunajte dob bebe u tjednima, mjesecima i danima, uživo do sekunde.">
+    <meta property="og:url" content="{{ request.url_root }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static',filename='styles/main.css') }}">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
+    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Baby Calculator <span class="version-text">v1.3</span></h1>
-        <form id="datetime-form">
-            <label for="datetime">Datum i vrijeme rođenja:</label>
-            <input type="datetime-local" id="datetime" name="datetime" required>
-            <button type="submit" id="calculate-button">Izračunaj razliku</button>
+    <main class="container">
+        <h1>Baby Calculator <span class="version-text">v{{ version }}</span></h1>
+
+        <form id="birth-form">
+            <div class="fields">
+                <div class="field">
+                    <label for="birth-date">Datum rođenja</label>
+                    <input type="date" id="birth-date" name="date" required>
+                </div>
+                <div class="field">
+                    <label for="birth-time">Vrijeme rođenja</label>
+                    <input type="time" id="birth-time" name="time" aria-describedby="time-hint">
+                    <small id="time-hint" class="hint">Nije obavezno</small>
+                </div>
+            </div>
+            <button type="submit">Izračunaj dob</button>
         </form>
-        <div id="result" aria-live="polite"></div>
-    </div>
 
-    <script>
-        function setCookie(name, value, days) {
-            const d = new Date();
-            d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-            const expires = "expires=" + d.toUTCString();
-            document.cookie = name + "=" + value + ";" + expires + ";path=/";
-        }
+        <p id="error" class="error-text" role="alert" hidden></p>
 
-        function getCookie(name) {
-            const cname = name + "=";
-            const decodedCookie = decodeURIComponent(document.cookie);
-            const ca = decodedCookie.split(';');
-            for (let i = 0; i < ca.length; i++) {
-                let c = ca[i];
-                while (c.charAt(0) === ' ') {
-                    c = c.substring(1);
-                }
-                if (c.indexOf(cname) === 0) {
-                    return c.substring(cname.length, c.length);
-                }
-            }
-            return "";
-        }
+        <section id="result" aria-labelledby="result-title" hidden>
+            <h2 id="result-title" class="visually-hidden">Dob djeteta</h2>
+            <div class="cards">
+                <div class="card card-primary">
+                    <p class="card-label">Tjedni</p>
+                    <p class="card-value" id="age-weeks"></p>
+                </div>
+                <div class="card">
+                    <p class="card-label">Dob</p>
+                    <p class="card-value" id="age-calendar"></p>
+                </div>
+                <div class="card">
+                    <p class="card-label">Ukupno</p>
+                    <p class="card-value card-value-small" id="age-total"></p>
+                </div>
+            </div>
+            <p class="born-at" id="born-at"></p>
+        </section>
 
-        function toLocalInputValue(date) {
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-                `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-        }
-
-        $(document).ready(function() {
-            $('#datetime').attr('max', toLocalInputValue(new Date()));
-
-            const savedDateTime = getCookie('datetime');
-            if (savedDateTime) {
-                $('#datetime').val(savedDateTime);
-            }
-
-            $('#datetime-form').on('submit', function(event) {
-                event.preventDefault();
-
-                $('#calculate-button').prop('disabled', true);
-
-                const datetime = $('#datetime').val();
-                setCookie('datetime', datetime, 30);
-
-                $.ajax({
-                    url: '/calculate',
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        $('#result').html(
-                            `
-                            <hr />
-                            <hr />
-                            <p>Trenutni datum i vrijeme: ${response.current}</p>
-                            <p>Razlika: ${response.day_diff}</p>
-                            <hr />
-                            <p>Vaše dijete ima ${response.year_diff};</p>
-                            <p>odnosno ${response.week_diff};</p>
-                            <hr />
-                            <hr />
-                            `
-                        );
-                    },
-                    error: function(jqXHR) {
-                        const message = (jqXHR.responseJSON && jqXHR.responseJSON.error)
-                            || 'Došlo je do greške. Pokušajte ponovno.';
-                        $('#result').empty().append(
-                            $('<p class="error-text"></p>').text(message)
-                        );
-                    },
-                    complete: function(jqXHR, textStatus) {
-                        setTimeout(() => {
-                            $('#calculate-button').prop('disabled', false);
-                        }, 1000);
-                        console.log('Calculation done. Status:', textStatus);
-                    }
-                });
-            });
-        });
-    </script>
+        <p id="announce" class="visually-hidden" aria-live="polite"></p>
+    </main>
 </body>
 </html>

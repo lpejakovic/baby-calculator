@@ -5,6 +5,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime
 from utils_dt import *
 
+APP_VERSION = "2.0"
+
 app = Flask(__name__)
 # nginx is the only proxy in front of the app; trust its X-Forwarded-* headers
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
@@ -19,7 +21,7 @@ throttle_string = "1 per second; 8 per minute; 32 per hour"
 @app.route('/')
 @limiter.limit(throttle_string)
 def index():
-    return render_template('index.html')
+    return render_template('index.html', version=APP_VERSION)
 
 @app.route('/calculate', methods=['POST'])
 @limiter.limit(throttle_string)
