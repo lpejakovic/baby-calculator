@@ -18,7 +18,7 @@ in production under Gunicorn + nginx via systemd.
 | Date math  | Browser: own `calculateAge()`; API: python-dateutil 2.9 (`relativedelta`) |
 | Rate limit | Flask-Limiter 4.1.1 (in-memory storage)                        |
 | Frontend   | Jinja2 template, plain JavaScript (`static/js/app.js`), plain CSS with light/dark themes |
-| Serving    | Gunicorn 26, 1 worker, Unix socket `bc-calculator.sock`, nginx (`ProxyFix`) |
+| Serving    | Gunicorn 26 as `www-data`, 1 worker, socket `/run/baby-calculator/bc-calculator.sock`; nginx serves `/static/`, adds security headers (`deploy/`) |
 
 Dependencies are pinned in `requirements.txt`.
 
@@ -30,6 +30,7 @@ Dependencies are pinned in `requirements.txt`.
 | `utils_dt.py`            | API only: `generate_*_string()` Croatian plural helpers, `format_datetime()`, `calculate_date_difference()` |
 | `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
 | `requirements.txt`       | Pinned dependencies |
+| `deploy/`                | systemd unit and nginx site config |
 | `templates/index.html`   | Form, result cards, meta/Open Graph tags |
 | `static/js/app.js`       | Date parsing, `calculateAge()`, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
@@ -100,14 +101,12 @@ Checked against the running code with Flask's test client:
    The working tree still has file-mode-only changes (644 → 755) on some tracked files.
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
-   The systemd unit runs Gunicorn as `User=root`; a non-root user (e.g. `www-data`) would be safer.
+   The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
 10. **No automated tests.** The JS date math was checked against `relativedelta` with 20,000 random dates and the page in headless
     Chromium at five screen sizes, but none of this is in the repo yet.
 
 ## Suggested next steps
 
-1. Security headers in nginx and running the service as a non-root user.
-2. Decide whether to keep the `/calculate` API.
-3. Automated tests (Python and JavaScript) and CI.
+1. Automated tests (Python and JavaScript) and CI.
 
 The full list of open improvements is in [improvements.md](improvements.md).

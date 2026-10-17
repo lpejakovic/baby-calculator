@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
+import os
 from datetime import datetime
 from utils_dt import *
 
@@ -17,6 +18,14 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"]
 )
 throttle_string = "1 per second; 8 per minute; 32 per hour"
+
+@app.url_defaults
+def static_cache_buster(endpoint, values):
+    # nginx caches /static for a year; the file's mtime in the URL makes browsers fetch changed files
+    if endpoint == 'static' and 'filename' in values:
+        path = os.path.join(app.static_folder, values['filename'])
+        if os.path.isfile(path):
+            values['v'] = int(os.stat(path).st_mtime)
 
 @app.route('/')
 @limiter.limit(throttle_string)

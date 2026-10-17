@@ -33,6 +33,7 @@ static/styles/main.css Styles (light and dark)
 static/favicon.ico     Favicon
 docs/project_digest.md Project digest / technical overview
 docs/improvements.md   Open improvements and review
+deploy/                systemd unit and nginx site config
 ```
 
 ## Requirements
@@ -72,13 +73,28 @@ Response:
 
 ## Deployment
 
-In production the app runs under Gunicorn behind nginx, as a systemd service:
+In production the app runs under Gunicorn as `www-data` (systemd), behind nginx. Both config files are in `deploy/`:
 
-```
-ExecStart=<project>/bc-env/bin/gunicorn --workers 1 --bind unix:bc-calculator.sock -m 007 wsgi:app
+| File | Installed as |
+|---|---|
+| `deploy/baby-calculator.service` | `/etc/systemd/system/baby-calculator.service` |
+| `deploy/nginx-bc.luka-pejakovic.from.hr.conf` | `/etc/nginx/sites-available/bc.luka-pejakovic.from.hr` |
+
+- Gunicorn listens on `/run/baby-calculator/bc-calculator.sock` (created by systemd), with sandboxing options in the unit.
+- nginx serves `/static/` and `/favicon.ico` from disk with long caching; Flask adds `?v=<mtime>` to static URLs so changed files are picked up.
+- nginx adds HSTS, a strict Content-Security-Policy, `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy`.
+  The CSP allows only same-origin scripts and styles, so keep JS and CSS in `static/` (no inline `<script>` or `style=""`).
+
+To apply changes to the config files:
+
+```bash
+sudo cp deploy/baby-calculator.service /etc/systemd/system/
+sudo cp deploy/nginx-bc.luka-pejakovic.from.hr.conf /etc/nginx/sites-available/bc.luka-pejakovic.from.hr
+sudo systemctl daemon-reload && sudo systemctl restart baby-calculator
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-nginx proxies requests to the `bc-calculator.sock` Unix socket.
+After code changes, only `sudo systemctl restart baby-calculator` is needed.
 
 ## Notes
 
