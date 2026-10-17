@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.26 – 2026-10-18
+- Growth charts up to 5 years, from WHO's own tables: the chart shows two years for younger children and five
+  after that; length lying down up to 2 years, then standing height. Corrected age for babies born early is used
+  up to 2 years of actual age.
+
 ## 2.25 – 2026-10-17
 - Backup reminder: with saved data and no backup in the last 30 days (from the day after the data was first
   saved), a short note offers "Spremi kopiju" or "Kasnije" (a week); the backup section shows the last backup date.
