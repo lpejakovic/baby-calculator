@@ -1,4 +1,5 @@
 import re
+import struct
 
 import pytest
 
@@ -19,6 +20,25 @@ def test_index(client):
     static_urls = re.findall(r'"(/static/[^"]+)"', html)
     assert static_urls
     assert all(re.search(r"\?v=\d+$", url) for url in static_urls)
+
+
+def test_link_preview(client):
+    # Headers as nginx sends them (proxy_params)
+    html = client.get("/", headers={"Host": "bc.luka-pejakovic.from.hr", "X-Forwarded-Proto": "https",
+                                    "X-Forwarded-For": "1.2.3.4"}).get_data(as_text=True)
+    meta = dict(re.findall(r'<meta (?:property|name)="([^"]+)" content="([^"]*)"', html))
+    assert meta["og:url"] == "https://bc.luka-pejakovic.from.hr/"
+    assert re.fullmatch(r"https://bc\.luka-pejakovic\.from\.hr/static/images/og-image\.png\?v=\d+", meta["og:image"])
+    assert (meta["og:image:width"], meta["og:image:height"], meta["og:image:type"]) == ("1200", "630", "image/png")
+    assert meta["og:image:alt"]
+    assert meta["twitter:card"] == "summary_large_image"
+
+    image = client.get(meta["og:image"].removeprefix("https://bc.luka-pejakovic.from.hr"))
+    assert image.status_code == 200
+    data = image.get_data()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    assert struct.unpack(">II", data[16:24]) == (1200, 630)
+    assert len(data) < 300 * 1024  # WhatsApp skips large preview images
 
 
 def test_calculate(client, frozen_time):

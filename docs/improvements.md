@@ -10,4 +10,3 @@ Each new feature should come with tests in `tests/` (see the README).
 2. **Several children:** save names and dates in `localStorage` and switch between them.
 3. **Install as an app (PWA):** manifest and service worker, so it installs on the home screen and works offline. Icons can be made from `static/images/icon-1024.webp`.
 4. **Language:** HR/EN switch; the page title is still English.
-5. **Link preview image:** `og:image` for nicer previews in Viber/WhatsApp (the other Open Graph tags are in place); `static/images/icon-1024.webp` could be used.

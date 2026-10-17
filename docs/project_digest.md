@@ -7,7 +7,7 @@ _Generated 2026-10-17 at v1.3 (commit `4415c13`); updated for v2.0._
 baby-calculator is a single-page app that takes a baby's date and time of birth and shows the age
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 119 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 120 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -34,12 +34,14 @@ Dependencies are pinned in `requirements.txt`.
 | `tests/`, `pytest.ini`   | Python, JavaScript (QuickJS) and browser (Playwright) tests |
 | `requirements-dev.txt`   | Test dependencies |
 | `.github/workflows/tests.yml` | CI: unit job and browser job |
-| `templates/index.html`   | Form, result cards, meta/Open Graph tags |
+| `templates/index.html`   | Form, result cards, meta and Open Graph tags (absolute `og:image` via `_external=True`) |
 | `static/js/app.js`       | Date parsing, `calculateAge()`, `upcomingMilestones()`, share link, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
 | `static/favicon.ico`     | Favicon, 16 and 32 px (3.9 KB) |
 | `static/apple-touch-icon.png` | Home-screen icon, 180 px |
 | `static/images/icon-1024.webp` | Full-size icon artwork (source for other icons) |
+| `static/images/og-image.png` | Link preview image, 1200×630 (55 KB) |
+| `scripts/make_og_image.py` | Regenerates the preview image with Pillow |
 
 ## Page flow
 
@@ -101,6 +103,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | Server hardening (`deploy/`), cleanup, new icons, 93 tests and CI |
 | 2026-10-17 | **v2.1**: upcoming milestones |
 | 2026-10-17 | **v2.2**: share link, "Podijeli" and "Kopiraj tekst" |
+| 2026-10-17 | **v2.3**: link preview image |
 
 ## Observations and issues
 
@@ -119,7 +122,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 119 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 120 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps
