@@ -974,13 +974,17 @@ def test_no_button_label_is_cut_off(open_page, base_url, lang, width):
     add_measurement(page, date.today().isoformat(), weight="10,25", length="80,5", head="45,5")  # the table at its widest
     page.click("#share-toggle")
     # Elements reaching past the right edge (named, so a failure says what to fix)
+    # (The measurements table may scroll sideways on its own at 320 px; checked separately below)
     sticking_out = page.evaluate("""[...document.querySelectorAll('main *')]
-        .filter(el => el.checkVisibility() && el.getBoundingClientRect().right > document.documentElement.clientWidth)
+        .filter(el => el.checkVisibility() && !el.parentElement.closest('.measurements')
+            && el.getBoundingClientRect().right > document.documentElement.clientWidth)
         .map(el => `${el.tagName.toLowerCase()}#${el.id}.${el.className}: ${el.textContent.trim().slice(0, 40)}`)""")
     cut = page.evaluate("""[...document.querySelectorAll('button, a, .chip, .mode-switch label, .basis label')]
         .filter(el => el.checkVisibility() && el.scrollWidth > el.clientWidth + 1)
         .map(el => el.textContent.trim())""")
     assert sticking_out == [] and cut == []
+    table = page.locator("#measurements-box")
+    assert width < 360 or table.evaluate("el => el.scrollWidth <= el.clientWidth"), "measurements table scrolls"
 
 
 def growth_page(open_page, path="", **context):
@@ -1038,7 +1042,7 @@ def test_growth_chart(open_page):
         .map(id => document.getElementById(id).getBoundingClientRect().top)""")
     assert order == sorted(order)
     headers = page.locator("#measurements-box thead th").all_text_contents()
-    assert headers == ["Datum mjerenja", "Težina kg", "Duljina cm", "Opseg glave cm", "Ukloni"]
+    assert headers == ["Datum", "Težina kg", "Duljina cm", "Glava cm", "Ukloni"]
 
 
 def test_growth_validation_and_editing(open_page):
