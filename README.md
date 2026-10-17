@@ -19,7 +19,7 @@ Live: <https://bc.luka-pejakovic.from.hr>
 - Private by design: everything is calculated and stored in the browser; shared and transfer links keep their data
   after `#`, which browsers never send to the server
 - Installable app (PWA) that works offline; light and dark mode; responsive from 320 px; accessibility checked with
-  axe-core (WCAG 2.2 AA rules) in CI
+  axe-core (WCAG 2.2 AA rules) in CI; the main flows are also tested in WebKit (Safari's engine)
 - JSON API (`POST /calculate`) for other programs
 
 How it works inside: [docs/architecture.md](docs/architecture.md). Changes per version: [CHANGELOG.md](CHANGELOG.md).
@@ -41,6 +41,7 @@ pip install -r requirements-dev.txt
 pytest -m "not ui"                                   # fast: Python and the JavaScript logic (QuickJS), ~2 s
 python -m playwright install --only-shell chromium   # once, for the browser tests
 pytest -m ui                                         # browser behaviour, layout and the axe-core accessibility audit
+BROWSER=webkit pytest -m webkit                      # the main flows in Safari's engine (playwright install webkit)
 ruff check                                           # Python
 npm ci && npm run lint                               # JavaScript (ESLint)
 ```

@@ -7,11 +7,19 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+from conftest import BROWSER
 
 sync_api = pytest.importorskip("playwright.sync_api")
 pytestmark = pytest.mark.ui
 
 BIRTH_DATE, BIRTH_TIME = "2025-03-04", "17:45"
+
+
+def webkit_internal_style(message):
+    """WebKit on Linux styles its own <select> and viewport handling with inline styles, which the strict CSP
+    reports (securitypolicyviolation points at the page's <select> and <meta name=viewport>, which have no
+    styles). Only this message, and only in WebKit."""
+    return BROWSER == "webkit" and message.startswith("Refused to apply") and "'unsafe-inline'" in message
 
 
 @pytest.fixture
@@ -23,7 +31,7 @@ def open_page(browser, base_url):
         contexts.append(context)
         page = context.new_page()
         page.on("pageerror", lambda e: errors.append(str(e)))
-        page.on("console", lambda m: m.type == "error" and errors.append(m.text))
+        page.on("console", lambda m: m.type == "error" and not webkit_internal_style(m.text) and errors.append(m.text))
         page.goto(base_url)
         return page
 
@@ -66,6 +74,7 @@ def poll(page, expression, timeout=5):
     raise AssertionError(f"Timed out waiting for {expression}")
 
 
+@pytest.mark.webkit
 def test_result_and_live_counter(open_page):
     page = open_page()
     assert page.is_hidden("#result")
@@ -79,6 +88,7 @@ def test_result_and_live_counter(open_page):
     sync_api.expect(page.locator("#age-total")).not_to_have_text(first, timeout=3000)
 
 
+@pytest.mark.webkit
 def test_milestones(open_page):
     page = open_page()
     calculate(page)
@@ -113,6 +123,7 @@ def test_invalid_shared_link_is_ignored(browser, base_url):
     context.close()
 
 
+@pytest.mark.webkit
 def test_share_uses_share_sheet(open_page, base_url):
     page = open_page()
     page.evaluate("navigator.share = async (data) => { window.sharedData = data; }")
@@ -144,6 +155,7 @@ def test_copy_text(open_page):
     assert re.fullmatch(r"Dob: .+ \(.+\)\. Rođenje: 04\.03\.2025\.", text), text
 
 
+@pytest.mark.webkit
 def test_works_offline(open_page):
     page = open_page()
     # Fails after 10 s (instead of hanging) if the service worker never takes control
@@ -183,6 +195,7 @@ def calculate_pregnancy(page, due_date):
     page.click("#pregnancy-form button")
 
 
+@pytest.mark.webkit
 def test_pregnancy_mode(open_page):
     page = open_page()
     assert page.is_hidden("#pregnancy-form")
@@ -272,6 +285,7 @@ def active_chip(page):
     return page.locator("#child-list .chip:has(input:checked)").text_content()
 
 
+@pytest.mark.webkit
 def test_several_children(open_page):
     page = open_page()
     assert page.is_hidden("#children")
@@ -322,6 +336,7 @@ def test_remove_child(open_page):
     assert page.evaluate("localStorage.getItem('children')") == "[]"
 
 
+@pytest.mark.webkit
 def test_remove_child_can_be_undone(open_page):
     page = open_page(viewport={"width": 390, "height": 844})
     calculate(page, "2025-03-04", name="Ana")
@@ -412,6 +427,7 @@ def test_not_found_page(browser, base_url, path, title, home):
     context.close()
 
 
+@pytest.mark.webkit
 def test_english_page(open_page, base_url):
     page = open_page()
     page.goto(base_url + "en/")
@@ -519,6 +535,7 @@ def test_total_uses_real_time_across_clock_changes(open_page, now, expected):
     assert page.text_content("#age-total") == expected
 
 
+@pytest.mark.webkit
 def test_date_limits_move_with_today(browser, base_url):
     context = browser.new_context(timezone_id="Europe/Zagreb")
     page = context.new_page()
@@ -640,6 +657,7 @@ def download_backup(page, tmp_path):
     return download.suggested_filename, path
 
 
+@pytest.mark.webkit
 def test_backup_download(open_page, tmp_path):
     page = open_page()
     enter_premature(page, birth="2026-08-01", due="2026-10-01", name="Ana")
@@ -917,7 +935,8 @@ def keep_artifact(data, name):
     folder = os.environ.get("ARTIFACTS_DIR")
     if folder:
         Path(folder).mkdir(parents=True, exist_ok=True)
-        (Path(folder) / name).write_bytes(bytes(data))
+        prefix = "" if BROWSER == "chromium" else f"{BROWSER}-"
+        (Path(folder) / f"{prefix}{name}").write_bytes(bytes(data))
 
 
 SHARE_FILES_STUB = """
@@ -1047,6 +1066,7 @@ def measurement_rows(page):
     })""")
 
 
+@pytest.mark.webkit
 def test_growth_chart(open_page):
     page = growth_page(open_page)
     calculate(page, "2026-01-10", name="Ana")
@@ -1162,6 +1182,7 @@ def test_uses_visitor_time_zone(open_page):
     (768, 1024, 2),
     (1280, 800, 2),
 ])
+@pytest.mark.webkit
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_responsive_layout(open_page, width, height, columns, scheme):
     page = open_page(viewport={"width": width, "height": height}, color_scheme=scheme)
@@ -1196,6 +1217,7 @@ def form_is_open(page):
     return page.is_visible("#birth-date") or page.is_visible("#pregnancy-date")
 
 
+@pytest.mark.webkit
 def test_result_first(open_page):
     page = open_page(viewport={"width": 390, "height": 844})
     assert form_is_open(page) and page.is_hidden("#edit-entry")  # nothing saved yet: the form
@@ -1219,6 +1241,7 @@ def test_result_first(open_page):
     assert form_is_open(page) and page.is_hidden("#result")
 
 
+@pytest.mark.webkit
 def test_result_first_pregnancy(open_page):
     page = open_page()
     calculate_pregnancy(page, due_in(50))
@@ -1229,6 +1252,7 @@ def test_result_first_pregnancy(open_page):
     assert form_is_open(page)  # no baby saved: the form
 
 
+@pytest.mark.webkit
 def test_share_menu(open_page):
     page = open_page()
     calculate(page)
@@ -1240,6 +1264,7 @@ def test_share_menu(open_page):
     assert page.is_hidden("#share-menu") and page.evaluate("document.activeElement.id") == "share-toggle"
 
 
+@pytest.mark.webkit
 def test_compact_header_and_footer(open_page):
     page = open_page(viewport={"width": 360, "height": 740})
     assert page.locator(".lang-switch [aria-hidden=true]").all_text_contents() == ["HR", "EN", "DE", "IT"]
@@ -1262,6 +1287,7 @@ def test_intro_only_on_first_visit(open_page):
     assert page.is_hidden("#intro")
 
 
+@pytest.mark.webkit
 @pytest.mark.parametrize("width, side_by_side", [(1280, True), (1024, True), (768, False), (390, False)])
 def test_desktop_form_and_result_side_by_side(open_page, width, side_by_side):
     page = open_page(viewport={"width": width, "height": 900})
@@ -1296,6 +1322,7 @@ def saved_page(browser, base_url, storage, **context):
 ANA = [{"id": 1, "name": "Ana", "date": "2025-03-04", "time": "", "due": ""}]
 
 
+@pytest.mark.webkit
 def test_backup_reminder(browser, base_url, tmp_path):
     ctx, page = saved_page(browser, base_url, {"children": ANA, "firstSaved": "2026-01-01"})
     assert page.is_visible("#backup-reminder")
@@ -1329,6 +1356,7 @@ IPHONE_UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit
              "(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1")
 
 
+@pytest.mark.webkit
 def test_iphone_install_hint(open_page):
     page = open_page(user_agent=IPHONE_UA, viewport={"width": 390, "height": 844})
     assert page.is_hidden("#ios-install")  # nothing saved yet
