@@ -641,8 +641,8 @@ progress {
     text-align: left;
 }
 .measurements tbody th {
+    /* "17. Okt. 2026" may wrap; "17.10.2026." stays whole */
     font-weight: normal;
-    white-space: nowrap;
 }
 .measurements td:last-child {
     width: 32px;
@@ -744,6 +744,9 @@ progress {
     }
     .card-primary .card-value {
         font-size: 1.5rem;
+    }
+    .card {
+        padding: 14px 12px;
     }
 }
 @media (max-width: 360px) {
