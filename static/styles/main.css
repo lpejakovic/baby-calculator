@@ -63,6 +63,76 @@ h1 {
     font-weight: normal;
     color: var(--muted);
 }
+.mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin: 0 0 20px;
+    padding: 4px;
+    border: none;
+    border-radius: 12px;
+    background: var(--surface-accent);
+}
+.mode-switch label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 8px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+}
+.mode-switch input,
+.basis input {
+    /* Hidden but still focusable and announced as radio buttons */
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+.mode-switch label:has(input:checked) {
+    color: var(--on-primary);
+    background: var(--primary);
+}
+.mode-switch label:has(input:focus-visible),
+.basis label:has(input:focus-visible) {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
+.basis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+.basis legend {
+    margin-bottom: 4px;
+    padding: 0;
+    font-weight: 600;
+}
+.basis .radio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-weight: normal;
+    text-align: center;
+    cursor: pointer;
+}
+.basis .radio:has(input:checked) {
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+}
 form {
     display: flex;
     flex-direction: column;
@@ -120,7 +190,8 @@ button:focus-visible {
     color: var(--error);
     text-align: center;
 }
-#result {
+#result,
+#pregnancy-result {
     margin-top: 24px;
 }
 .cards {
@@ -158,6 +229,22 @@ button:focus-visible {
 .card-value-small {
     font-size: 1.125rem;
     font-weight: 600;
+}
+.card-sub {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.card-value-note {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+progress {
+    width: 100%;
+    height: 10px;
+    margin-top: 12px;
+    accent-color: var(--primary);
 }
 .milestones {
     margin: 0;

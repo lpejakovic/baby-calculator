@@ -6,6 +6,5 @@ Each new feature should come with tests in `tests/` (see the README).
 
 ## New features
 
-1. **Pregnancy mode:** enter the due date or last period and get "34. tjedan + 2 dana", plus a countdown to the due date.
-2. **Several children:** save names and dates in `localStorage` and switch between them.
-3. **Language:** HR/EN switch; the page title is still English.
+1. **Several children:** save names and dates in `localStorage` and switch between them.
+2. **Language:** HR/EN switch; the page title is still English.

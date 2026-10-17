@@ -29,6 +29,12 @@
     <main class="container">
         <h1>Baby Calculator <span class="version-text">v{{ version }}</span></h1>
 
+        <fieldset class="mode-switch">
+            <legend class="visually-hidden">Što računate?</legend>
+            <label><input type="radio" name="mode" value="baby" checked> Beba je rođena</label>
+            <label><input type="radio" name="mode" value="pregnancy"> Trudnoća</label>
+        </fieldset>
+
         <form id="birth-form">
             <div class="fields">
                 <div class="field">
@@ -42,6 +48,19 @@
                 </div>
             </div>
             <button type="submit">Izračunaj dob</button>
+        </form>
+
+        <form id="pregnancy-form" hidden>
+            <fieldset class="basis">
+                <legend>Računaj prema</legend>
+                <label class="radio"><input type="radio" name="basis" value="due" checked> Terminu poroda</label>
+                <label class="radio"><input type="radio" name="basis" value="lmp"> Zadnjoj menstruaciji</label>
+            </fieldset>
+            <div class="field">
+                <label for="pregnancy-date" id="pregnancy-date-label">Termin poroda</label>
+                <input type="date" id="pregnancy-date" name="pregnancy-date" required>
+            </div>
+            <button type="submit">Izračunaj trudnoću</button>
         </form>
 
         <p id="error" class="error-text" role="alert" hidden></p>
@@ -67,12 +86,36 @@
                 </div>
             </div>
             <p class="born-at" id="born-at"></p>
+        </section>
+
+        <section id="pregnancy-result" aria-labelledby="pregnancy-result-title" hidden>
+            <h2 id="pregnancy-result-title" class="visually-hidden">Trudnoća</h2>
+            <div class="cards">
+                <div class="card card-primary">
+                    <p class="card-label">Trajanje trudnoće</p>
+                    <p class="card-value" id="pregnancy-duration"></p>
+                    <p class="card-sub" id="pregnancy-detail"></p>
+                </div>
+                <div class="card card-wide">
+                    <p class="card-label">Termin poroda</p>
+                    <p class="card-value"><time id="pregnancy-due"></time> <span class="card-value-note" id="pregnancy-countdown"></span></p>
+                    <progress id="pregnancy-progress" max="280" value="0" aria-labelledby="pregnancy-progress-text"></progress>
+                    <p class="card-sub" id="pregnancy-progress-text"></p>
+                </div>
+                <div class="card card-wide">
+                    <h3 class="card-label" id="pregnancy-milestones-title">Sljedeće prekretnice</h3>
+                    <ul class="milestones" id="pregnancy-milestones" aria-labelledby="pregnancy-milestones-title"></ul>
+                </div>
+            </div>
+        </section>
+
+        <div id="share" hidden>
             <div class="actions">
                 <button type="button" class="button-secondary" id="share-link">Podijeli</button>
                 <button type="button" class="button-secondary" id="copy-text">Kopiraj tekst</button>
             </div>
             <p class="share-status" id="share-status" role="status"></p>
-        </section>
+        </div>
 
         <button type="button" class="button-secondary install-button" id="install-app" hidden>Instaliraj aplikaciju</button>
 

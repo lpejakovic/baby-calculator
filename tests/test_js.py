@@ -184,3 +184,83 @@ def test_build_share_url(js):
 def test_share_url_round_trip(js):
     url = js.eval("M.buildShareUrl('https://bc.example/', '2024-02-29', '23:59')")
     assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})") == {"date": "2024-02-29", "time": "23:59"}
+
+
+# --- Pregnancy mode
+
+def expected_pregnancy(lmp, now):
+    days = (now.date() - lmp.date()).days
+    due = lmp + timedelta(days=280)
+    return {
+        "weeks": days // 7, "weekDays": days % 7, "totalDays": days, "week": days // 7 + 1,
+        "trimester": 1 if days < 98 else 2 if days < 196 else 3,
+        "due": ms(due), "daysToDue": (due.date() - now.date()).days, "progress": min(days, 280),
+    }
+
+
+@pytest.mark.parametrize("lmp, now", [
+    (datetime(2026, 3, 1), datetime(2026, 10, 17, 15, 30)),
+    (datetime(2026, 10, 17), datetime(2026, 10, 17, 23, 59)),
+    (datetime(2026, 1, 1), datetime(2026, 10, 8)),             # exactly 40+0
+    (datetime(2025, 12, 1), datetime(2026, 9, 21)),            # 42+0, past the due date
+    (datetime(2026, 2, 1), datetime(2026, 3, 29, 3, 0)),       # DST change in Croatia
+])
+def test_pregnancy_status(js, lmp, now):
+    assert call(js, f"M.pregnancyStatus({ms(lmp)}, {ms(now)})") == expected_pregnancy(lmp, now)
+
+
+@pytest.mark.parametrize("days, trimester, week", [(0, 1, 1), (97, 1, 14), (98, 2, 15), (195, 2, 28), (196, 3, 29), (280, 3, 41)])
+def test_trimester_boundaries(js, days, trimester, week):
+    lmp = datetime(2026, 1, 1)
+    status = call(js, f"M.pregnancyStatus({ms(lmp)}, {ms(lmp + timedelta(days=days))})")
+    assert (status["trimester"], status["week"]) == (trimester, week)
+
+
+def test_lmp_from(js):
+    due = datetime(2026, 12, 10)
+    assert js.eval(f"M.lmpFrom('due', {ms(due)})") == ms(due - timedelta(days=280))
+    assert js.eval(f"M.lmpFrom('lmp', {ms(due)})") == ms(due)
+
+
+@pytest.mark.parametrize("basis, days_ago, expected", [
+    ("lmp", -1, "Datum zadnje menstruacije ne može biti u budućnosti."),
+    ("due", -1, "Termin je predaleko u budućnosti (više od 40 tjedana)."),
+    ("lmp", 0, None),
+    ("due", 294, None),
+    ("lmp", 295, "Zadnja menstruacija je prije više od 42 tjedna. Ako je beba rođena, odaberite „Beba je rođena”."),
+    ("due", 295, "Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”."),
+])
+def test_pregnancy_error(js, basis, days_ago, expected):
+    now = datetime(2026, 10, 17, 12, 0)
+    lmp = datetime(2026, 10, 17) - timedelta(days=days_ago)
+    assert call(js, f"M.pregnancyError('{basis}', {ms(lmp)}, {ms(now)})") == expected
+
+
+def test_pregnancy_milestones(js):
+    lmp = datetime(2026, 3, 1)  # 32+6 on 17 Oct
+    result = call(js, f"M.pregnancyMilestones({ms(lmp)}, {ms(datetime(2026, 10, 17, 15, 30))})")
+    assert [(m["label"], m["daysLeft"]) for m in result] == [("Donošena trudnoća", 29), ("Termin poroda", 50)]
+    assert result[1]["date"] == ms(lmp + timedelta(days=280))
+
+
+def test_pregnancy_milestones_early(js):
+    lmp = datetime(2026, 9, 1)
+    labels = [m["label"] for m in call(js, f"M.pregnancyMilestones({ms(lmp)}, {ms(datetime(2026, 9, 10))})")]
+    assert labels == ["2. tromjesečje", "Polovica trudnoće", "3. tromjesečje"]
+
+
+@pytest.mark.parametrize("days, expected", [(0, "danas"), (1, "sutra"), (50, "za 50 dana"), (-1, "prije 1 dan"), (-3, "prije 3 dana")])
+def test_due_countdown(js, days, expected):
+    assert js.eval(f"M.dueCountdown({days})") == expected
+
+
+@pytest.mark.parametrize("search, expected", [
+    ("?t=2026-12-10", {"basis": "due", "date": "2026-12-10"}),
+    ("?x=1&t=2026-12-10", {"basis": "due", "date": "2026-12-10"}),
+    ("?t=2026-02-30", None),
+    ("?t=", None),
+    ("?d=2026-12-10", None),
+    ("", None),
+])
+def test_read_shared_pregnancy(js, search, expected):
+    assert call(js, f"M.readSharedPregnancy({json.dumps(search)})") == expected

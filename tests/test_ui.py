@@ -1,7 +1,7 @@
 """Browser tests: page behaviour and responsive layout in headless Chromium."""
 import re
 import threading
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -162,6 +162,96 @@ def test_install_button(open_page):
     assert page.is_hidden("#install-app")
 
 
+def due_in(days):
+    return (date.today() + timedelta(days=days)).isoformat()
+
+
+def calculate_pregnancy(page, due_date):
+    page.click("text=Trudnoća")
+    page.fill("#pregnancy-date", due_date)
+    page.click("#pregnancy-form button")
+
+
+def test_pregnancy_mode(open_page):
+    page = open_page()
+    assert page.is_hidden("#pregnancy-form")
+    calculate_pregnancy(page, due_in(50))  # 280 - 50 = 230 days = 32+6
+    assert page.is_hidden("#birth-form") and page.is_hidden("#result")
+    assert page.text_content("#pregnancy-duration") == "32 tjedna i 6 dana"
+    assert page.text_content("#pregnancy-detail") == "32+6 · 33.\u00a0tjedan · 3.\u00a0tromjesečje"
+    assert page.text_content("#pregnancy-countdown") == "za 50 dana"
+    assert page.get_attribute("#pregnancy-due", "datetime") == due_in(50)
+    assert page.evaluate("document.getElementById('pregnancy-progress').value") == 230
+    assert page.text_content("#pregnancy-progress-text") == "82 % trudnoće"
+    labels = page.locator("#pregnancy-milestones .milestone-label").all_text_contents()
+    assert labels == ["Donošena trudnoća", "Termin poroda"]
+    assert page.text_content("#announce").startswith("Trudnoća: 32 tjedna i 6 dana")
+
+
+def test_pregnancy_basis_switch_keeps_pregnancy(open_page):
+    page = open_page()
+    calculate_pregnancy(page, due_in(50))
+    page.click("text=Zadnjoj menstruaciji")
+    assert page.text_content("#pregnancy-date-label") == "Prvi dan zadnje menstruacije"
+    assert page.input_value("#pregnancy-date") == due_in(50 - 280)
+    assert page.text_content("#pregnancy-duration") == "32 tjedna i 6 dana"
+
+
+def test_pregnancy_is_remembered_with_mode(open_page):
+    page = open_page()
+    calculate(page)
+    calculate_pregnancy(page, due_in(100))
+    page.reload()
+    assert page.is_visible("#pregnancy-result")
+    assert page.is_checked("input[value=pregnancy]")
+    page.click("text=Beba je rođena")
+    assert page.is_visible("#result")  # the baby's date is still there
+    assert page.input_value("#birth-date") == BIRTH_DATE
+
+
+def test_pregnancy_errors(open_page):
+    page = open_page()
+    page.click("text=Trudnoća")
+    page.evaluate("document.getElementById('pregnancy-date').removeAttribute('min')")
+    page.fill("#pregnancy-date", due_in(-20))
+    page.click("#pregnancy-form button")
+    assert page.text_content("#error") == "Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”."
+    assert page.is_hidden("#pregnancy-result") and page.is_hidden("#share")
+
+
+def test_shared_pregnancy_link_and_copy(browser, base_url):
+    context = browser.new_context(permissions=["clipboard-read", "clipboard-write"])
+    page = context.new_page()
+    page.goto(base_url + "?t=" + due_in(50))
+    assert page.url == base_url
+    assert page.is_checked("input[value=pregnancy]")
+    assert page.text_content("#pregnancy-duration") == "32 tjedna i 6 dana"
+    page.click("#copy-text")
+    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    due = date.today() + timedelta(days=50)
+    assert page.evaluate("navigator.clipboard.readText()") == \
+        f"Trudnoća: 32 tjedna i 6 dana (33. tjedan). Termin: {due:%d.%m.%Y}."
+    page.evaluate("delete Navigator.prototype.share; delete navigator.share")
+    page.click("#share-link")
+    page.wait_for_function("document.getElementById('share-status').textContent === 'Poveznica je kopirana.'")
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "?t=" + due_in(50)
+    context.close()
+
+
+@pytest.mark.parametrize("width", [320, 360, 768, 1280])
+def test_pregnancy_layout(open_page, width):
+    page = open_page(viewport={"width": width, "height": 900})
+    calculate_pregnancy(page, due_in(50))
+    layout = page.evaluate("""() => ({
+        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        targets: [...document.querySelectorAll('button, input:not([type=radio]), .mode-switch label, .basis label')]
+            .filter(el => el.offsetParent !== null)
+            .map(el => Math.round(el.getBoundingClientRect().height)),
+    })""")
+    assert not layout["overflow"]
+    assert min(layout["targets"]) >= 44, layout["targets"]
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)
@@ -186,7 +276,7 @@ def test_future_date_is_rejected(open_page):
     future = datetime.now() + timedelta(days=2)
     page.evaluate("document.getElementById('birth-date').removeAttribute('max')")
     calculate(page, future.strftime("%Y-%m-%d"), "10:00")
-    assert page.text_content("#error") == "Datum rođenja ne može biti u budućnosti."
+    assert page.text_content("#error") == "Datum rođenja ne može biti u budućnosti. Za trudnoću odaberite „Trudnoća”."
     assert page.is_hidden("#result")
 
 
@@ -217,7 +307,10 @@ def test_responsive_layout(open_page, width, height, columns, scheme):
             top: box.top, left: box.left, right: innerWidth - box.right,
             button: document.querySelector('button').getBoundingClientRect().height,
             actions: [...document.querySelectorAll('.actions button')].map(b => b.getBoundingClientRect().height),
-            inputs: [...document.querySelectorAll('input')].map(i => i.getBoundingClientRect().height),
+            // Visible text/date inputs, and the labels that act as radio buttons
+            inputs: [...document.querySelectorAll('input:not([type=radio]), .mode-switch label, .basis label')]
+                .filter(el => el.offsetParent !== null)
+                .map(el => el.getBoundingClientRect().height),
             columns: getComputedStyle(document.querySelector('.cards')).gridTemplateColumns.split(' ').length,
         };
     }""")

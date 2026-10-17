@@ -9,7 +9,11 @@ The age is shown in three forms, with Croatian labels that use the correct gramm
 
 It also lists the next three milestones (month birthdays, birthdays, 100/500/1000… days) with a countdown.
 
-The UI is in Croatian. Current version: **v2.4**.
+A **pregnancy mode** ("Trudnoća") works from the due date or the first day of the last period (280-day rule) and shows
+the pregnancy as weeks + days (`32+6 · 33. tjedan · 3. tromjesečje`), the due date with a countdown and progress bar,
+and upcoming pregnancy milestones (14, 20, 28, 37 and 40 weeks).
+
+The UI is in Croatian. Current version: **v2.5**.
 
 ## Features
 
@@ -21,7 +25,8 @@ The UI is in Croatian. Current version: **v2.4**.
 - Installable app (PWA) that works offline: manifest, service worker, and an "Instaliraj aplikaciju" button
   where the browser supports it
 - Link preview (Open Graph): title, description and a 1200×630 image for Viber, WhatsApp, Facebook and others
-- Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` opens the page with that date. "Podijeli" opens the phone's
+- Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` opens the page with that birth date, `?t=2026-12-10` opens
+  pregnancy mode with that due date. "Podijeli" opens the phone's
   share sheet (or copies the link), and "Kopiraj tekst" copies a one-line summary
 - The last entered birth date is kept in `localStorage` and the result is shown straight away on the next visit
   (a v1.x cookie is moved over automatically)
@@ -42,7 +47,7 @@ tests/                       Python, JavaScript and browser tests
 templates/index.html         Page and form
 templates/sw.js              Service worker (rendered with the current asset URLs)
 static/manifest.json         Web app manifest
-static/js/app.js             Age calculation, live counter, milestones, sharing, localStorage
+static/js/app.js             Age and pregnancy calculation, live counter, milestones, sharing, localStorage
 static/styles/main.css       Styles (light and dark)
 static/favicon.ico           Favicon (16 and 32 px)
 static/apple-touch-icon.png  Home-screen icon (180 px)
@@ -83,8 +88,8 @@ pytest -m "not ui"                                   # without the browser tests
 - `tests/test_api.py`: page, link preview, manifest and icons, service worker, and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
 - `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
   plus month ends, leap years and DST; milestones against a `relativedelta` reference on 500 random dates;
-  share links; plurals, date parsing and text joining
-- `tests/test_ui.py`: headless Chromium: live counter, milestones, share link and copy buttons, offline use,
+  share links; pregnancy weeks, trimesters, due date, limits and milestones; plurals, date parsing and text joining
+- `tests/test_ui.py`: headless Chromium: live counter, milestones, pregnancy mode, share link and copy buttons, offline use,
   install button, saved date, cookie migration, future dates, visitor time zone,
   and layout at 320–1280 px in light and dark mode (no sideways scrolling, 16 px edges, 44 px touch targets)
 

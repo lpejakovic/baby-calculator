@@ -2,9 +2,19 @@
     'use strict';
 
     const STORAGE_KEY = 'birth';
+    const MODE_KEY = 'mode';
+    const PREGNANCY_KEY = 'pregnancy';
     const LEGACY_COOKIE = 'datetime';
     const DAY = 24 * 60 * 60 * 1000;
     const DAY_MILESTONES = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000];
+    const PREGNANCY_DAYS = 280; // due date = first day of the last period + 280 days (Naegele's rule)
+    const PREGNANCY_MILESTONES = [
+        [14, '2. tromjesečje'],
+        [20, 'Polovica trudnoće'],
+        [28, '3. tromjesečje'],
+        [37, 'Donošena trudnoća'],
+        [40, 'Termin poroda'],
+    ];
 
     // Croatian forms: [1, 21, 31…], [2–4, 22–24…], [0, 5–20, 25–30…]
     const FORMS = {
@@ -137,6 +147,69 @@
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     }
 
+    function isoDate(ms) {
+        return new Date(ms).toISOString().slice(0, 10);
+    }
+
+    // basis: 'due' (due date) or 'lmp' (first day of the last period); returns the LMP date in ms
+    function lmpFrom(basis, dateMs) {
+        return basis === 'lmp' ? dateMs : dateMs - PREGNANCY_DAYS * DAY;
+    }
+
+    function pregnancyStatus(lmp, now) {
+        const today = startOfDay(now);
+        const days = Math.round((today - lmp) / DAY);
+        const due = lmp + PREGNANCY_DAYS * DAY;
+        return {
+            weeks: Math.floor(days / 7),
+            weekDays: days % 7,
+            totalDays: days,
+            week: Math.floor(days / 7) + 1,                  // "35. tjedan" at 34+2
+            trimester: days < 14 * 7 ? 1 : days < 28 * 7 ? 2 : 3,
+            due,
+            daysToDue: Math.round((due - today) / DAY),
+            progress: Math.min(days, PREGNANCY_DAYS),
+        };
+    }
+
+    // Error message, or null when the date makes sense for an ongoing pregnancy (up to 42 weeks)
+    function pregnancyError(basis, lmp, now) {
+        const days = Math.round((startOfDay(now) - lmp) / DAY);
+        if (days < 0) {
+            return basis === 'lmp'
+                ? 'Datum zadnje menstruacije ne može biti u budućnosti.'
+                : 'Termin je predaleko u budućnosti (više od 40 tjedana).';
+        }
+        if (days > 42 * 7) {
+            return basis === 'lmp'
+                ? 'Zadnja menstruacija je prije više od 42 tjedna. Ako je beba rođena, odaberite „Beba je rođena”.'
+                : 'Termin je prošao prije više od dva tjedna. Ako je beba rođena, odaberite „Beba je rođena”.';
+        }
+        return null;
+    }
+
+    function pregnancyMilestones(lmp, now, count = 3) {
+        const today = startOfDay(now);
+        return PREGNANCY_MILESTONES
+            .map(([weeks, label]) => ({ date: lmp + weeks * 7 * DAY, label }))
+            .filter((m) => m.date >= today)
+            .slice(0, count)
+            .map((m) => ({ ...m, daysLeft: Math.round((m.date - today) / DAY) }));
+    }
+
+    function dueCountdown(daysToDue) {
+        if (daysToDue < 0) return `prije ${unit(-daysToDue, 'day')}`;
+        return countdown(daysToDue);
+    }
+
+    // ?t=YYYY-MM-DD (due date)
+    function readSharedPregnancy(search) {
+        const match = /[?&]t=([^&#]*)/.exec(search || '');
+        if (!match) return null;
+        const date = decodeURIComponent(match[1]);
+        return parseBirth(date, '') === null ? null : { basis: 'due', date };
+    }
+
     // ?d=YYYY-MM-DD or ?d=YYYY-MM-DDTHH:MM
     function readSharedBirth(search) {
         const match = /[?&]d=([^&#]*)/.exec(search || '');
@@ -168,43 +241,92 @@
     }
 
     function save(value) {
+        store(STORAGE_KEY, value);
+    }
+
+    function store(key, value) {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+            localStorage.setItem(key, JSON.stringify(value));
         } catch (e) { /* storage unavailable */ }
     }
 
+    function restore(key) {
+        try {
+            return JSON.parse(localStorage.getItem(key) || 'null');
+        } catch (e) {
+            return null;
+        }
+    }
+
     if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', function () {
-        const form = document.getElementById('birth-form');
-        const dateInput = document.getElementById('birth-date');
-        const timeInput = document.getElementById('birth-time');
-        const error = document.getElementById('error');
-        const result = document.getElementById('result');
-        const announce = document.getElementById('announce');
+        const $ = (id) => document.getElementById(id);
+        const modeInputs = document.querySelectorAll('input[name="mode"]');
+        const basisInputs = document.querySelectorAll('input[name="basis"]');
+        const form = $('birth-form');
+        const dateInput = $('birth-date');
+        const timeInput = $('birth-time');
+        const pregnancyForm = $('pregnancy-form');
+        const pregnancyDate = $('pregnancy-date');
+        const pregnancyDateLabel = $('pregnancy-date-label');
+        const error = $('error');
+        const result = $('result');
+        const pregnancyResult = $('pregnancy-result');
+        const share = $('share');
+        const announce = $('announce');
         const out = {
-            weeks: document.getElementById('age-weeks'),
-            calendar: document.getElementById('age-calendar'),
-            total: document.getElementById('age-total'),
-            bornAt: document.getElementById('born-at'),
-            milestones: document.getElementById('milestones'),
+            weeks: $('age-weeks'),
+            calendar: $('age-calendar'),
+            total: $('age-total'),
+            bornAt: $('born-at'),
+            milestones: $('milestones'),
         };
-        const shareButton = document.getElementById('share-link');
-        const copyButton = document.getElementById('copy-text');
-        const shareStatus = document.getElementById('share-status');
+        const preg = {
+            duration: $('pregnancy-duration'),
+            detail: $('pregnancy-detail'),
+            due: $('pregnancy-due'),
+            countdown: $('pregnancy-countdown'),
+            progress: $('pregnancy-progress'),
+            progressText: $('pregnancy-progress-text'),
+            milestones: $('pregnancy-milestones'),
+        };
+        const shareButton = $('share-link');
+        const copyButton = $('copy-text');
+        const shareStatus = $('share-status');
         let statusTimer = null;
         let timer = null;
         let milestonesDay = null;
+        let mode = 'baby';
+        let current = null; // what is shown: { mode: 'baby', birth } or { mode: 'pregnancy', lmp }
 
         dateInput.max = todayValue();
 
-        function showError(message) {
+        function basis() {
+            return document.querySelector('input[name="basis"]:checked').value;
+        }
+
+        function hideResults() {
             clearInterval(timer);
+            current = null;
             result.hidden = true;
+            pregnancyResult.hidden = true;
+            share.hidden = true;
+        }
+
+        function showError(message) {
+            hideResults();
             error.textContent = message;
             error.hidden = false;
         }
 
-        function renderMilestones(birth, now) {
-            const items = upcomingMilestones(birth, now).map((m) => {
+        function show(section) {
+            error.hidden = true;
+            result.hidden = section !== result;
+            pregnancyResult.hidden = section !== pregnancyResult;
+            share.hidden = false;
+        }
+
+        function renderMilestoneList(list, items) {
+            list.replaceChildren(...items.map((m) => {
                 const li = document.createElement('li');
                 li.className = m.daysLeft === 0 ? 'milestone is-today' : 'milestone';
                 const label = document.createElement('span');
@@ -213,13 +335,12 @@
                 const when = document.createElement('span');
                 when.className = 'milestone-when';
                 const time = document.createElement('time');
-                time.dateTime = new Date(m.date).toISOString().slice(0, 10);
+                time.dateTime = isoDate(m.date);
                 time.textContent = formatDate(m.date);
                 when.append(time, ` · ${countdown(m.daysLeft)}`);
                 li.append(label, when);
                 return li;
-            });
-            out.milestones.replaceChildren(...items);
+            }));
         }
 
         function render(birth) {
@@ -227,7 +348,7 @@
             // Milestones only change at midnight
             if (startOfDay(now) !== milestonesDay) {
                 milestonesDay = startOfDay(now);
-                renderMilestones(birth, now);
+                renderMilestoneList(out.milestones, upcomingMilestones(birth, now));
             }
             const age = calculateAge(birth, now);
             out.weeks.textContent = joinParts([[age.weeks, 'week'], [age.weekDays, 'day']]);
@@ -237,17 +358,35 @@
             return age;
         }
 
+        function renderPregnancy(lmp) {
+            const now = wallClockNow();
+            if (startOfDay(now) === milestonesDay) return; // everything here changes once a day
+            milestonesDay = startOfDay(now);
+            const status = pregnancyStatus(lmp, now);
+            preg.duration.textContent = joinParts([[status.weeks, 'week'], [status.weekDays, 'day']]);
+            // Non-breaking spaces keep "3. tromjesečje" together when the line wraps
+            preg.detail.textContent = `${status.weeks}+${status.weekDays} · ${status.week}.\u00a0tjedan · ${status.trimester}.\u00a0tromjesečje`;
+            preg.due.textContent = formatDate(status.due);
+            preg.due.dateTime = isoDate(status.due);
+            preg.countdown.textContent = dueCountdown(status.daysToDue);
+            preg.progress.value = status.progress;
+            preg.progressText.textContent = `${Math.round(status.progress / PREGNANCY_DAYS * 100)} % trudnoće`;
+            renderMilestoneList(preg.milestones, pregnancyMilestones(lmp, now));
+        }
+
         function calculate() {
             const birth = parseBirth(dateInput.value, timeInput.value);
             if (!dateInput.value) return showError('Unesite datum rođenja.');
             if (birth === null) return showError('Neispravan datum ili vrijeme rođenja.');
-            if (birth > wallClockNow()) return showError('Datum rođenja ne može biti u budućnosti.');
+            if (birth > wallClockNow()) {
+                return showError('Datum rođenja ne može biti u budućnosti. Za trudnoću odaberite „Trudnoća”.');
+            }
 
             save({ date: dateInput.value, time: timeInput.value });
-            error.hidden = true;
-            result.hidden = false;
+            show(result);
             out.bornAt.textContent = `Rođenje: ${formatBirth(birth, Boolean(timeInput.value))}`;
 
+            current = { mode: 'baby', birth };
             milestonesDay = null;
             render(birth);
             announce.textContent = `Dob: ${out.calendar.textContent}, odnosno ${out.weeks.textContent}.`;
@@ -256,9 +395,67 @@
             timer = setInterval(() => render(birth), 1000);
         }
 
+        function calculatePregnancy() {
+            const date = parseBirth(pregnancyDate.value, '');
+            if (!pregnancyDate.value) return showError('Unesite datum.');
+            if (date === null) return showError('Neispravan datum.');
+            const lmp = lmpFrom(basis(), date);
+            const problem = pregnancyError(basis(), lmp, wallClockNow());
+            if (problem) return showError(problem);
+
+            store(PREGNANCY_KEY, { basis: basis(), date: pregnancyDate.value });
+            show(pregnancyResult);
+
+            current = { mode: 'pregnancy', lmp };
+            milestonesDay = null;
+            renderPregnancy(lmp);
+            announce.textContent = `Trudnoća: ${preg.duration.textContent}, termin ${preg.due.textContent}`;
+
+            clearInterval(timer);
+            timer = setInterval(() => renderPregnancy(lmp), 60 * 1000);
+        }
+
+        function updateBasis() {
+            const today = parseBirth(todayValue(), '');
+            if (basis() === 'lmp') {
+                pregnancyDateLabel.textContent = 'Prvi dan zadnje menstruacije';
+                pregnancyDate.min = isoDate(today - 42 * 7 * DAY);
+                pregnancyDate.max = isoDate(today);
+            } else {
+                pregnancyDateLabel.textContent = 'Termin poroda';
+                pregnancyDate.min = isoDate(today - 14 * DAY);
+                pregnancyDate.max = isoDate(today + PREGNANCY_DAYS * DAY);
+            }
+        }
+
+        function setMode(next, recalculate = true) {
+            mode = next;
+            store(MODE_KEY, mode);
+            modeInputs.forEach((input) => { input.checked = input.value === mode; });
+            form.hidden = mode !== 'baby';
+            pregnancyForm.hidden = mode !== 'pregnancy';
+            error.hidden = true;
+            hideResults();
+            if (!recalculate) return;
+            if (mode === 'baby' && dateInput.value) calculate();
+            if (mode === 'pregnancy' && pregnancyDate.value) calculatePregnancy();
+        }
+
         function summary() {
+            if (current && current.mode === 'pregnancy') {
+                const status = pregnancyStatus(current.lmp, wallClockNow());
+                return `Trudnoća: ${preg.duration.textContent} (${status.week}. tjedan). Termin: ${preg.due.textContent}`;
+            }
             const born = out.bornAt.textContent;
             return `Dob: ${out.calendar.textContent} (${out.weeks.textContent}). ${born}${born.endsWith('.') ? '' : '.'}`;
+        }
+
+        function shareUrl() {
+            const base = location.origin + location.pathname;
+            if (current && current.mode === 'pregnancy') {
+                return `${base}?t=${isoDate(current.lmp + PREGNANCY_DAYS * DAY)}`;
+            }
+            return buildShareUrl(base, dateInput.value, timeInput.value);
         }
 
         function showStatus(message) {
@@ -286,7 +483,7 @@
         }
 
         shareButton.addEventListener('click', async function () {
-            const url = buildShareUrl(location.origin + location.pathname, dateInput.value, timeInput.value);
+            const url = shareUrl();
             if (navigator.share) {
                 try {
                     await navigator.share({ title: 'Baby Calculator', text: summary(), url });
@@ -309,10 +506,33 @@
         dateInput.addEventListener('change', () => dateInput.value && calculate());
         timeInput.addEventListener('change', () => dateInput.value && calculate());
 
-        const shared = readSharedBirth(location.search);
-        if (shared) {
-            // The shared date is saved like a normal entry, so the link isn't needed after this
-            save(shared);
+        pregnancyForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            calculatePregnancy();
+        });
+        pregnancyDate.addEventListener('change', () => pregnancyDate.value && calculatePregnancy());
+        basisInputs.forEach((input) => input.addEventListener('change', function () {
+            // Keep the same pregnancy: convert the entered date to the other basis
+            const date = parseBirth(pregnancyDate.value, '');
+            if (date !== null) {
+                pregnancyDate.value = isoDate(basis() === 'lmp' ? date - PREGNANCY_DAYS * DAY : date + PREGNANCY_DAYS * DAY);
+            }
+            updateBasis();
+            if (pregnancyDate.value) calculatePregnancy();
+        }));
+        modeInputs.forEach((input) => input.addEventListener('change', () => setMode(input.value)));
+
+        // Shared links are saved like normal entries, so they aren't needed after this
+        const sharedBirth = readSharedBirth(location.search);
+        const sharedPregnancy = readSharedPregnancy(location.search);
+        if (sharedBirth) {
+            save(sharedBirth);
+            store(MODE_KEY, 'baby');
+        } else if (sharedPregnancy) {
+            store(PREGNANCY_KEY, sharedPregnancy);
+            store(MODE_KEY, 'pregnancy');
+        }
+        if (sharedBirth || sharedPregnancy || /[?&][dt]=/.test(location.search)) {
             history.replaceState(null, '', location.pathname + location.hash);
         }
 
@@ -320,7 +540,7 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').catch(() => { /* the page works without it */ });
         }
-        const installButton = document.getElementById('install-app');
+        const installButton = $('install-app');
         let installPrompt = null;
         window.addEventListener('beforeinstallprompt', function (event) {
             // Chrome/Android: offer our own button instead of the browser's mini-infobar
@@ -341,12 +561,22 @@
         if (saved) {
             dateInput.value = saved.date;
             timeInput.value = saved.time || '';
-            calculate();
         }
+        const savedPregnancy = restore(PREGNANCY_KEY);
+        if (savedPregnancy && savedPregnancy.date) {
+            basisInputs.forEach((input) => { input.checked = input.value === savedPregnancy.basis; });
+            pregnancyDate.value = savedPregnancy.date;
+        }
+        updateBasis();
+        setMode(restore(MODE_KEY) === 'pregnancy' ? 'pregnancy' : 'baby');
     });
 
     // Exposed for tests
     if (typeof module !== 'undefined') {
-        module.exports = { plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate, readSharedBirth, buildShareUrl };
+        module.exports = {
+            plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate,
+            readSharedBirth, buildShareUrl, lmpFrom, pregnancyStatus, pregnancyError, pregnancyMilestones, dueCountdown,
+            readSharedPregnancy,
+        };
     }
 })();
