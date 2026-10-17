@@ -32,7 +32,7 @@ Dependencies are pinned in `requirements.txt`.
 | `utils_dt.py`            | API only: `plural()` and Croatian word forms, `format_datetime()`, `calculate_date_difference()` |
 | `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
 | `requirements.txt`       | Pinned dependencies |
-| `deploy/`                | systemd unit and nginx site config |
+| `deploy/`                | systemd unit, nginx site config, `deploy.sh` (deploys `origin/main` after CI passed, with rollback) |
 | `tests/`, `pytest.ini`   | Python, JavaScript (QuickJS) and browser (Playwright) tests |
 | `requirements-dev.txt`   | Test dependencies |
 | `.github/workflows/tests.yml` | CI: lint job (ruff, ESLint), unit job, browser job with axe-core accessibility audit |
@@ -160,6 +160,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.9**: backup and restore; browser tests run under the production CSP |
 | 2026-10-17 | **v2.10**: calendar export of milestones (`.ics`) |
 | 2026-10-17 | Linting (ruff, ESLint) and axe-core accessibility audit in CI; removed dead code found by ESLint |
+| 2026-10-17 | Separate development clone, pull requests, `deploy/deploy.sh`; heavy tests only in CI |
 
 ## Observations and issues
 

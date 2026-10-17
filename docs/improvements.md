@@ -10,19 +10,14 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## Plan
 
-1. **Next:** separate working copy, API improvements, split `app.js`.
+1. **Next:** API improvements, split `app.js`.
 
-## 1. Workflow and operations
-
-1. **Separate editing from the live site:** this folder is both the working copy and what the site runs. Work in a
-   separate checkout or branch and deploy only after CI passes.
-
-## 2. Small site fixes
+## 1. Small site fixes
 
 1. **Better API:** plain numbers (`years`, `months`, `weeks`, `total_days`…) next to the text, and `lang=en`.
 2. **Split `app.js`** (828 lines) into modules: date math, texts and page code.
 
-## 3. New features
+## 2. New features
 
 1. **Privacy note:** "Podaci ostaju samo na vašem uređaju", visible without opening anything (the backup section
    already says so when opened).
