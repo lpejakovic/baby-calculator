@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.21 – 2026-10-17
+- The birth date is shown under the child's name, at the top of the result.
+- Growth: the chart comes first, measurements are a table (value with its percentile under it), and the form to
+  add a measurement is folded away once there are measurements.
+
 ## 2.20 – 2026-10-17
 - Result first: with saved data the page opens on the result, and the form is folded away behind "Uredi podatke";
   after "Izračunaj" the result is scrolled to and focused. "Ukloni dijete" shows only while editing.

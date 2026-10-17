@@ -263,7 +263,8 @@ h1 {
 }
 .premature summary,
 .backup summary,
-.growth summary {
+.growth > summary,
+.measure-add > summary {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -275,12 +276,14 @@ h1 {
 }
 .premature summary::-webkit-details-marker,
 .backup summary::-webkit-details-marker,
-.growth summary::-webkit-details-marker {
+.growth > summary::-webkit-details-marker,
+.measure-add > summary::-webkit-details-marker {
     display: none;
 }
 .premature summary::before,
 .backup summary::before,
-.growth summary::before {
+.growth > summary::before,
+.measure-add > summary::before {
     /* Our own disclosure arrow; display: flex removes the browser's marker */
     content: "";
     width: 8px;
@@ -292,19 +295,22 @@ h1 {
 }
 .premature[open] summary::before,
 .backup[open] summary::before,
-.growth[open] summary::before {
+.growth[open] > summary::before,
+.measure-add[open] > summary::before {
     transform: rotate(45deg);
 }
 @media (prefers-reduced-motion: reduce) {
     .premature summary::before,
     .backup summary::before,
-    .growth summary::before {
+    .growth > summary::before,
+    .measure-add > summary::before {
         transition: none;
     }
 }
 .premature summary:focus-visible,
 .backup summary:focus-visible,
-.growth summary:focus-visible {
+.growth > summary:focus-visible,
+.measure-add > summary:focus-visible {
     outline: 3px solid var(--primary);
     outline-offset: 2px;
 }
@@ -333,7 +339,7 @@ h1 {
     color: var(--primary-hover);
 }
 .result-title {
-    margin: 0 0 12px;
+    margin: 0 0 2px;
     font-size: 1.25rem;
     text-align: center;
     overflow-wrap: anywhere;
@@ -505,7 +511,7 @@ progress {
     font-weight: 700;
 }
 .born-at {
-    margin: 12px 0 0;
+    margin: 0 0 12px;
     font-size: .875rem;
     color: var(--muted);
     text-align: center;
@@ -556,6 +562,9 @@ progress {
 .growth[open] > * + * {
     margin-top: 12px;
 }
+.measure-add[open] > * + * {
+    margin-top: 12px;
+}
 .measure-form {
     gap: 12px;
 }
@@ -603,21 +612,48 @@ progress {
     color: var(--primary);
 }
 .measurements {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    /* Scrolls sideways rather than squeezing the columns on very narrow screens */
+    overflow-x: auto;
 }
-.measurement {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 4px 0;
-    border-top: 1px solid var(--surface-accent);
+.measurements table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .875rem;
     font-variant-numeric: tabular-nums;
 }
-.measurement .button-link {
-    flex: none;
+.measurements th,
+.measurements td {
+    padding: 4px;
+    border-top: 1px solid var(--surface-accent);
+    text-align: right;
+    vertical-align: top;
+}
+.measurements thead th {
+    border-top: none;
+    font-weight: 600;
+    color: var(--muted);
+    vertical-align: bottom;
+}
+.measurements th:first-child {
+    padding-left: 0;
+    text-align: left;
+}
+.measurements tbody th {
+    font-weight: normal;
+    white-space: nowrap;
+}
+.measurements td:last-child {
+    width: 44px;
+    padding: 0;
+}
+.measurements .unit {
+    font-weight: normal;
+}
+.measurements .percentile {
+    display: block;
+    color: var(--muted);
+}
+.measurements .button-link {
     min-width: 44px;
     padding: 8px;
     text-decoration: none;
