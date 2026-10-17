@@ -29,7 +29,7 @@
     <link rel="alternate" hreflang="x-default" href="{{ page_urls['hr'] }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
     {#- Plain scripts sharing the BC namespace; "defer" keeps this order #}
-    {%- for name in ("texts", "dates", "calendar", "data", "app") %}
+    {%- for name in scripts %}
     <script src="{{ url_for('static', filename='js/' ~ name ~ '.js') }}" defer></script>
     {%- endfor %}
 </head>
@@ -173,6 +173,8 @@
             <div class="actions">
                 <button type="button" class="button-secondary" id="share-link">{{ t.share }}</button>
                 <button type="button" class="button-secondary" id="copy-text">{{ t.copy_text }}</button>
+                <button type="button" class="button-secondary" id="share-picture"
+                        data-icon="{{ url_for('static', filename='images/icon-512.png') }}">{{ t.share_picture }}</button>
             </div>
             <p class="share-status" id="share-status" role="status"></p>
         </div>

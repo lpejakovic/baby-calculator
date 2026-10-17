@@ -14,7 +14,7 @@ import utils_dt
 quickjs = pytest.importorskip("quickjs")
 
 JS_DIR = Path(__file__).resolve().parent.parent / "static" / "js"
-PURE_SCRIPTS = ["texts", "dates", "calendar", "data"]  # browser-free, in load order
+PURE_SCRIPTS = ["texts", "dates", "calendar", "data", "card"]  # browser-free, in load order
 EPOCH = datetime(1970, 1, 1)
 
 
@@ -713,3 +713,66 @@ def test_app_js_loads_after_the_pure_scripts():
     imported = re.search(r"const \{([^}]*)\} = globalThis\.BC;", app_js).group(1)
     missing = [n.strip() for n in imported.split(",") if n.strip() and ctx.eval(f"typeof BC.{n.strip()}") == "undefined"]
     assert missing == []
+
+
+# --- Share card layout (card.js)
+
+# Stand-in for canvas text measuring: every character is 0.55 × the font size wide
+MEASURE = "(text, font) => text.length * parseInt(font.split(' ')[1]) * 0.55"
+
+
+def card(js, content):
+    return call(js, f"M.layoutCard({json.dumps(content)}, {MEASURE})")
+
+
+def card_width(op):
+    return len(op["text"]) * op["size"] * 0.55
+
+
+BABY_CARD = {"title": "Ana", "main": "1 godina, 7 mjeseci i 13 dana",
+             "lines": ["84 tjedna i 4 dana", "Rođenje: 04.03.2025."], "footer": "bc.example"}
+
+
+def test_card_layout_fits_and_keeps_order(js):
+    layout = card(js, BABY_CARD)
+    assert layout["size"] == 1080
+    texts = [op["text"] for op in layout["ops"]]
+    assert texts[0] == "Ana" and texts[-1] == "bc.example"
+    assert texts.index("84 tjedna i 4 dana") < texts.index("Rođenje: 04.03.2025.")
+    body, footer = layout["ops"][:-1], layout["ops"][-1]
+    for op in layout["ops"]:
+        assert card_width(op) <= 1080 - 2 * 96, op  # centred, so inside the 96 px margins
+    ys = [op["y"] for op in body]
+    assert ys == sorted(ys) and ys[0] >= layout["icon"]["y"] + layout["icon"]["size"]
+    last = body[-1]
+    assert last["y"] + last["size"] * 1.2 <= footer["y"]  # nothing runs into the footer
+
+
+def test_card_main_text_shrinks_and_wraps(js):
+    short = card(js, {**BABY_CARD, "main": "5 dana"})["ops"][1]
+    long_main = "10 godina, 11 mjeseci i 30 dana, 11 mjeseci i 30 dana"
+    long_ops = [op for op in card(js, {**BABY_CARD, "main": long_main})["ops"] if op["color"] == "#4f46b8"]
+    assert short["size"] == 104
+    assert 1 < len(long_ops) <= 3 and long_ops[0]["size"] < 104
+
+
+def test_card_clips_a_word_that_cannot_fit(js):
+    ops = card(js, {**BABY_CARD, "title": "Ana" * 40})["ops"]
+    assert ops[0]["text"].endswith("…") and card_width(ops[0]) <= 1080 - 2 * 96
+
+
+def test_card_long_title_wraps_to_two_lines(js):
+    title = "Ana Marija Kovačević Horvat Novak Babić"
+    title_ops = [op for op in card(js, {**BABY_CARD, "title": title})["ops"] if op["color"] == "#2b2838" and op["size"] >= 48]
+    assert 1 <= len(title_ops) <= 2
+    assert " ".join(op["text"] for op in title_ops) == title
+
+
+def test_card_very_long_content_still_fits(js):
+    content = {"title": "Ana Marija Kovačević Horvat", "main": "10 godina, 11 mjeseci i 30 dana",
+               "lines": ["573 tjedna i 6 dana", "Korigirana dob: 10 godina, 9 mjeseci i 2 dana", "Rođenje: 04.03.2015. u 17:45"],
+               "footer": "bc.example"}
+    layout = card(js, content)
+    body, footer = layout["ops"][:-1], layout["ops"][-1]
+    assert body[-1]["y"] + body[-1]["size"] * 1.2 <= footer["y"]
+    assert all(card_width(op) <= 1080 - 2 * 96 for op in layout["ops"])

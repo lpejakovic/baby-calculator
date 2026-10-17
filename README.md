@@ -13,7 +13,8 @@ Live: <https://bc.luka-pejakovic.from.hr>
 - Several children with optional names, and corrected age for babies born early
 - Pregnancy mode from the due date, the last period, an IVF transfer or an ultrasound: weeks + days, trimester, due
   date with progress, and pregnancy milestones
-- Share links and copyable summaries; backup to a file or a transfer link, with merging on restore
+- Share links, copyable summaries and a share picture drawn in the browser; backup to a file or a transfer link,
+  with merging on restore
 - Private by design: everything is calculated and stored in the browser; shared and transfer links keep their data
   after `#`, which browsers never send to the server
 - Installable app (PWA) that works offline; light and dark mode; responsive from 320 px; accessibility checked with

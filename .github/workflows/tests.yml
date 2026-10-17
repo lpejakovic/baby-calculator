@@ -58,3 +58,12 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: python -m playwright install --with-deps --only-shell chromium
       - run: pytest -m ui  # behaviour, layout and the axe-core accessibility audit
+        env:
+          ARTIFACTS_DIR: artifacts
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: generated-files
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

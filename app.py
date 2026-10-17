@@ -12,12 +12,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from i18n import API_ERRORS, LANGUAGES, PAGE_TEXT, UNSUPPORTED_LANG
 from utils_dt import calculate_date_difference, format_datetime, join_units
 
-APP_VERSION = "2.15"
+APP_VERSION = "2.16"
 
 # Cached by the service worker for offline use (besides the page itself)
-SCRIPTS = ["texts", "dates", "calendar", "data", "app"]  # load order, see templates/index.html
+SCRIPTS = ["texts", "dates", "calendar", "data", "card", "app"]  # load order
 PRECACHED_STATIC = ["styles/main.css", *(f"js/{name}.js" for name in SCRIPTS), "favicon.ico",
-                    "apple-touch-icon.png", "manifest.json", "manifest-en.json"]
+                    "apple-touch-icon.png", "images/icon-512.png", "manifest.json", "manifest-en.json"]
 
 app = Flask(__name__)
 # nginx is the only proxy in front of the app; trust its X-Forwarded-* headers
@@ -46,7 +46,7 @@ PAGE_ENDPOINTS = {"hr": "index", "en": "index_en"}
 def render_page(lang):
     page_urls = {code: url_for(PAGE_ENDPOINTS[code], _external=True) for code in LANGUAGES}
     other_lang = "en" if lang == "hr" else "hr"
-    return render_template('index.html', version=APP_VERSION, lang=lang, t=PAGE_TEXT[lang],
+    return render_template('index.html', version=APP_VERSION, lang=lang, t=PAGE_TEXT[lang], scripts=SCRIPTS,
                            page_urls=page_urls, other_lang=other_lang)
 
 @app.route('/')

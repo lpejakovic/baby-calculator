@@ -1,7 +1,9 @@
 """Browser tests: page behaviour and responsive layout in headless Chromium."""
 import json
+import os
 import re
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -854,6 +856,57 @@ def test_does_not_ask_when_already_kept(browser, base_url):
     page.wait_for_timeout(200)
     assert page.evaluate("window.persistCalls") == 0
     context.close()
+
+
+def keep_artifact(data, name):
+    """In CI (ARTIFACTS_DIR set), saves a generated file so it can be looked at after the run."""
+    folder = os.environ.get("ARTIFACTS_DIR")
+    if folder:
+        Path(folder).mkdir(parents=True, exist_ok=True)
+        (Path(folder) / name).write_bytes(bytes(data))
+
+
+SHARE_FILES_STUB = """
+    navigator.canShare = (data) => Boolean(data && data.files);
+    navigator.share = async (data) => {
+        const file = data.files[0];
+        const bitmap = await createImageBitmap(file);
+        window.sharedPicture = { name: file.name, type: file.type, size: file.size, width: bitmap.width, height: bitmap.height };
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        window.sharedPictureData = Array.from(bytes);
+    };
+"""
+
+
+def test_share_picture(open_page):
+    page = open_page()
+    page.add_init_script(SHARE_FILES_STUB)
+    page.reload()
+    calculate(page, "2025-03-04", name="Ana")
+    page.click("#share-picture")
+    picture = poll(page, "window.sharedPicture || null")
+    assert picture["name"] == "baby-calculator-2025-03-04.png" and picture["type"] == "image/png"
+    assert (picture["width"], picture["height"]) == (1080, 1080)
+    assert picture["size"] > 20_000  # text and icon were drawn, not an empty canvas
+    keep_artifact(page.evaluate("window.sharedPictureData"), "share-card-hr.png")
+
+
+def test_share_picture_downloads_without_file_sharing(open_page, base_url, tmp_path):
+    page = open_page()
+    page.goto(base_url + "en/")
+    page.evaluate("delete Navigator.prototype.canShare; delete navigator.canShare")
+    page.click("text=Pregnancy")
+    page.fill("#pregnancy-date", due_in(50))
+    page.click("#pregnancy-form button[type=submit]")
+    with page.expect_download() as info:
+        page.click("#share-picture")
+    path = tmp_path / info.value.suggested_filename
+    info.value.save_as(path)
+    assert path.name == f"baby-calculator-pregnancy-{due_in(50)}.png"
+    data = path.read_bytes()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n" and data[16:24] == (1080).to_bytes(4, "big") * 2
+    sync_api.expect(page.locator("#share-status")).to_have_text("Picture saved.")
+    keep_artifact(list(data), "share-card-pregnancy-en.png")
 
 
 def test_restores_saved_date(open_page):
