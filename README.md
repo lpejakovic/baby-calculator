@@ -73,7 +73,7 @@ static/images/og-image*.png  Link preview images (1200×630, Croatian and Englis
 scripts/make_og_image.py     Regenerates the preview images (needs Pillow and DejaVu fonts)
 docs/project_digest.md       Project digest / technical overview
 docs/improvements.md         Improvement list (the 2026-10-17 review is complete)
-deploy/                      systemd unit and nginx site config
+deploy/                      systemd unit, nginx site config and deploy.sh
 .github/workflows/tests.yml  CI: lint, unit tests, browser tests and accessibility audit
 pyproject.toml               ruff settings
 package.json                 ESLint (JavaScript tooling only; package-lock.json pins it)
@@ -161,6 +161,22 @@ Response:
 }
 ```
 
+## Development workflow
+
+The live site runs from `/var/www/bc.luka-pejakovic.from.hr/baby-calculator`. **Nobody edits that folder**; it only
+changes through `deploy/deploy.sh`. The server is shared with other sites, so heavy work (browser tests, the
+accessibility audit) runs only in GitHub Actions.
+
+1. Work in a separate clone (on the server: `~/baby-calculator`), on a branch.
+2. Check locally with the light checks only: `ruff check` and `pytest -m "not ui"` (about 2 seconds).
+3. Push the branch and open a pull request; CI runs lint, unit, browser and accessibility tests.
+4. Merge when CI passes, then wait for CI on the merge commit on `main`.
+5. Deploy: `deploy/deploy.sh` (or `deploy/deploy.sh --check` to see what it would do).
+
+`deploy/deploy.sh` refuses to run when the live folder has local edits, when its commit isn't part of `origin/main`, or
+when CI hasn't passed for exactly that commit. It fast-forwards, reinstalls `requirements.txt` if it changed, restarts
+the service and waits for `/health` to report the new version; if that fails, it rolls back to the previous commit.
+
 ## Deployment
 
 In production the app runs under Gunicorn as `www-data` (systemd), behind nginx. Both config files are in `deploy/`:
@@ -184,7 +200,7 @@ sudo systemctl daemon-reload && sudo systemctl restart baby-calculator
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-After code changes, only `sudo systemctl restart baby-calculator` is needed. On the server, a sudoers rule in
+Code changes are deployed with `deploy/deploy.sh` (see above), which restarts the service. A sudoers rule in
 `/etc/sudoers.d/baby-calculator` allows exactly that command without a password for the `ubuntu` user:
 
 ```
@@ -198,7 +214,7 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl restart baby-calculator
   A failed run means the site is down; GitHub emails the failure to whoever last changed the schedule.
   GitHub pauses scheduled workflows after 60 days without repository activity; re-enable it under Actions if that happens.
 - `.github/dependabot.yml` opens weekly update PRs for pip packages, npm (ESLint) and GitHub Actions (minor and patch updates
-  grouped into one PR). The tests run on each PR; merge, then pull on the server and restart.
+  grouped into one PR). The tests run on each PR; merge, then deploy with `deploy/deploy.sh`.
 
 ## Notes
 
