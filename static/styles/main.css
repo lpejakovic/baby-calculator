@@ -159,6 +159,36 @@ button:focus-visible {
     font-size: 1.125rem;
     font-weight: 600;
 }
+.milestones {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.milestone {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 2px 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--surface-accent);
+}
+.milestone:first-child {
+    border-top: none;
+    padding-top: 2px;
+}
+.milestone-label {
+    font-weight: 700;
+}
+.milestone-when {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.milestone.is-today .milestone-label,
+.milestone.is-today .milestone-when {
+    color: var(--primary);
+    font-weight: 700;
+}
 .born-at {
     margin: 12px 0 0;
     font-size: .875rem;
@@ -188,7 +218,8 @@ button:focus-visible {
     .cards {
         grid-template-columns: 1fr 1fr;
     }
-    .card-primary {
+    .card-primary,
+    .card-wide {
         grid-column: 1 / -1;
     }
 }

@@ -1,4 +1,5 @@
 """Browser tests: page behaviour and responsive layout in headless Chromium."""
+import re
 import threading
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -67,6 +68,18 @@ def test_result_and_live_counter(open_page):
     assert page.text_content("#announce").startswith("Dob: ")
     first = page.text_content("#age-total")
     page.wait_for_function(f"document.getElementById('age-total').textContent !== {first!r}", timeout=3000)
+
+
+def test_milestones(open_page):
+    page = open_page()
+    calculate(page)
+    items = page.locator("#milestones li")
+    assert items.count() == 3
+    for i in range(3):
+        assert items.nth(i).locator(".milestone-label").text_content()
+        when = items.nth(i).locator(".milestone-when").text_content()
+        assert re.fullmatch(r"\d{2}\.\d{2}\.\d{4}\. · (danas|sutra|za \d+ dana?)", when), when
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", items.nth(i).locator("time").get_attribute("datetime"))
 
 
 def test_restores_saved_date(open_page):

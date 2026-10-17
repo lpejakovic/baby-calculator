@@ -5,9 +5,9 @@ _Generated 2026-10-17 at v1.3 (commit `4415c13`); updated for v2.0._
 ## Summary
 
 baby-calculator is a single-page app that takes a baby's date and time of birth and shows the age
-as weeks/days, years/months/days and a live days/hours/minutes/seconds counter, with Croatian
+as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 93 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 103 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -35,7 +35,7 @@ Dependencies are pinned in `requirements.txt`.
 | `requirements-dev.txt`   | Test dependencies |
 | `.github/workflows/tests.yml` | CI: unit job and browser job |
 | `templates/index.html`   | Form, result cards, meta/Open Graph tags |
-| `static/js/app.js`       | Date parsing, `calculateAge()`, Croatian plurals, live counter, `localStorage` |
+| `static/js/app.js`       | Date parsing, `calculateAge()`, `upcomingMilestones()`, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
 | `static/favicon.ico`     | Favicon, 16 and 32 px (3.9 KB) |
 | `static/apple-touch-icon.png` | Home-screen icon, 180 px |
@@ -50,7 +50,10 @@ Dependencies are pinned in `requirements.txt`.
    saves it and renders three cards. A 1-second timer re-renders them, so the total ticks live.
 4. All date math uses wall-clock time stored as UTC milliseconds, so it uses the visitor's time zone and isn't shifted by DST.
    `calculateAge()` uses the same month clipping as `relativedelta` (31 Jan + 1 month = 28/29 Feb).
-5. A visually hidden `aria-live` region announces the result once; the ticking counter is not announced.
+5. `upcomingMilestones()` lists month birthdays (1–23 months), birthdays (`N. rođendan`) and day counts (100 … 10,000 days)
+   by date only, keeps those from today on and shows the nearest three with "danas" / "sutra" / "za N dana".
+   The list is rebuilt only when the date changes, not every second.
+6. A visually hidden `aria-live` region announces the result once; the ticking counter is not announced.
 
 ## API flow (`POST /calculate`)
 
@@ -92,6 +95,8 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2024-06-08 | Limits set to 8/min and 32/h; plural labels corrected; **v1.3**; button timeout after request |
 | 2026-10-17 | Docs, `requirements.txt`, JSON errors, `ProxyFix`, package upgrades, future dates rejected, accessibility fixes |
 | 2026-10-17 | **v2.0**: calculation in the browser, live counter, result cards, dark mode, no jQuery, `localStorage` |
+| 2026-10-17 | Server hardening (`deploy/`), cleanup, new icons, 93 tests and CI |
+| 2026-10-17 | **v2.1**: upcoming milestones |
 
 ## Observations and issues
 
@@ -110,7 +115,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 93 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 103 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps

@@ -4,6 +4,7 @@
     const STORAGE_KEY = 'birth';
     const LEGACY_COOKIE = 'datetime';
     const DAY = 24 * 60 * 60 * 1000;
+    const DAY_MILESTONES = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000];
 
     // Croatian forms: [1, 21, 31…], [2–4, 22–24…], [0, 5–20, 25–30…]
     const FORMS = {
@@ -87,10 +88,46 @@
         };
     }
 
+    function startOfDay(ms) {
+        const d = new Date(ms);
+        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    }
+
+    // Upcoming month birthdays (1–23 months), birthdays and day counts, nearest first.
+    // Dates only: a milestone is "today" for the whole day.
+    function upcomingMilestones(birth, now, count = 3) {
+        const birthDay = startOfDay(birth);
+        const today = startOfDay(now);
+        const all = DAY_MILESTONES.map((n) => ({ date: birthDay + n * DAY, label: unit(n, 'day') }));
+        for (let m = 1; m < 24; m++) {
+            if (m % 12) all.push({ date: addMonths(birthDay, m), label: unit(m, 'month') });
+        }
+        for (let y = 1; y <= 120; y++) {
+            all.push({ date: addMonths(birthDay, y * 12), label: `${y}. rođendan` });
+        }
+        return all
+            .filter((m) => m.date >= today)
+            .sort((a, b) => a.date - b.date)
+            .slice(0, count)
+            .map((m) => ({ ...m, daysLeft: Math.round((m.date - today) / DAY) }));
+    }
+
+    function countdown(daysLeft) {
+        if (daysLeft === 0) return 'danas';
+        if (daysLeft === 1) return 'sutra';
+        return `za ${unit(daysLeft, 'day')}`;
+    }
+
+    function formatDate(ms) {
+        const d = new Date(ms);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}.`;
+    }
+
     function formatBirth(ms, hasTime) {
         const d = new Date(ms);
         const pad = (n) => String(n).padStart(2, '0');
-        const date = `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}.`;
+        const date = formatDate(ms);
         return hasTime ? `${date} u ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}` : date;
     }
 
@@ -136,8 +173,10 @@
             calendar: document.getElementById('age-calendar'),
             total: document.getElementById('age-total'),
             bornAt: document.getElementById('born-at'),
+            milestones: document.getElementById('milestones'),
         };
         let timer = null;
+        let milestonesDay = null;
 
         dateInput.max = todayValue();
 
@@ -148,8 +187,33 @@
             error.hidden = false;
         }
 
+        function renderMilestones(birth, now) {
+            const items = upcomingMilestones(birth, now).map((m) => {
+                const li = document.createElement('li');
+                li.className = m.daysLeft === 0 ? 'milestone is-today' : 'milestone';
+                const label = document.createElement('span');
+                label.className = 'milestone-label';
+                label.textContent = m.label;
+                const when = document.createElement('span');
+                when.className = 'milestone-when';
+                const time = document.createElement('time');
+                time.dateTime = new Date(m.date).toISOString().slice(0, 10);
+                time.textContent = formatDate(m.date);
+                when.append(time, ` · ${countdown(m.daysLeft)}`);
+                li.append(label, when);
+                return li;
+            });
+            out.milestones.replaceChildren(...items);
+        }
+
         function render(birth) {
-            const age = calculateAge(birth, Math.max(wallClockNow(), birth));
+            const now = Math.max(wallClockNow(), birth);
+            // Milestones only change at midnight
+            if (startOfDay(now) !== milestonesDay) {
+                milestonesDay = startOfDay(now);
+                renderMilestones(birth, now);
+            }
+            const age = calculateAge(birth, now);
             out.weeks.textContent = joinParts([[age.weeks, 'week'], [age.weekDays, 'day']]);
             out.calendar.textContent = joinParts([[age.years, 'year'], [age.months, 'month'], [age.days, 'day']]);
             out.total.textContent = joinParts([[age.totalDays, 'day'], [age.hours, 'hour'],
@@ -168,6 +232,7 @@
             result.hidden = false;
             out.bornAt.textContent = `Rođenje: ${formatBirth(birth, Boolean(timeInput.value))}`;
 
+            milestonesDay = null;
             render(birth);
             announce.textContent = `Dob: ${out.calendar.textContent}, odnosno ${out.weeks.textContent}.`;
 
@@ -192,6 +257,6 @@
 
     // Exposed for tests
     if (typeof module !== 'undefined') {
-        module.exports = { plural, FORMS, joinParts, parseBirth, addMonths, calculateAge };
+        module.exports = { plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate };
     }
 })();

@@ -109,3 +109,53 @@ def test_parse_birth(js, date, time, expected):
 ])
 def test_join_parts(js, parts, expected):
     assert js.eval(f"M.joinParts({json.dumps(parts)})") == expected
+
+
+DAY_MILESTONES = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000]
+NOMINATIVE = {"day": ("dan", "dana", "dana"), "month": ("mjesec", "mjeseca", "mjeseci")}
+
+
+def expected_milestones(birth, now, count=3):
+    """Reference implementation with relativedelta (same month-end clipping as the page)."""
+    birth_day, today = birth.date(), now.date()
+    items = [(birth_day + timedelta(days=n), f"{n} {utils_dt.plural(n, NOMINATIVE['day'])}") for n in DAY_MILESTONES]
+    items += [(birth_day + relativedelta(months=m), f"{m} {utils_dt.plural(m, NOMINATIVE['month'])}")
+              for m in range(1, 24) if m % 12]
+    items += [(birth_day + relativedelta(years=y), f"{y}. rođendan") for y in range(1, 121)]
+    upcoming = sorted((item for item in items if item[0] >= today), key=lambda item: item[0])[:count]
+    return [{"date": ms(datetime.combine(d, datetime.min.time())), "label": label, "daysLeft": (d - today).days}
+            for d, label in upcoming]
+
+
+def milestones(js, birth, now):
+    return call(js, f"M.upcomingMilestones({ms(birth)}, {ms(now)})")
+
+
+def test_milestones_example(js):
+    result = milestones(js, datetime(2026, 9, 1, 8, 30), datetime(2026, 10, 17, 15, 30))
+    assert [(m["label"], m["daysLeft"]) for m in result] == [("2 mjeseca", 15), ("3 mjeseca", 45), ("100 dana", 54)]
+    assert [js.eval(f"M.formatDate({m['date']})") for m in result] == ["01.11.2026.", "01.12.2026.", "10.12.2026."]
+
+
+def test_milestone_today(js):
+    # Still "today" late in the evening, even though the birth time has passed
+    result = milestones(js, datetime(2025, 10, 17, 6, 0), datetime(2026, 10, 17, 23, 59))
+    assert result[0] == {"date": ms(datetime(2026, 10, 17)), "label": "1. rođendan", "daysLeft": 0}
+
+
+def test_leap_day_birthday(js):
+    result = milestones(js, datetime(2024, 2, 29, 12), datetime(2025, 2, 1))
+    assert {"date": ms(datetime(2025, 2, 28)), "label": "1. rođendan", "daysLeft": 27} in result
+
+
+def test_milestones_match_reference(js):
+    rng = random.Random(2)
+    for _ in range(500):
+        birth = datetime(2010, 1, 1) + timedelta(minutes=rng.randint(0, 16 * 365 * 24 * 60))
+        now = birth + timedelta(minutes=rng.randint(0, 12 * 365 * 24 * 60))
+        assert milestones(js, birth, now) == expected_milestones(birth, now), (birth, now)
+
+
+@pytest.mark.parametrize("days, expected", [(0, "danas"), (1, "sutra"), (2, "za 2 dana"), (21, "za 21 dan"), (100, "za 100 dana")])
+def test_countdown(js, days, expected):
+    assert js.eval(f"M.countdown({days})") == expected
