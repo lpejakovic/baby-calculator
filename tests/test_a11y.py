@@ -59,7 +59,13 @@ def editing(page):
     page.click("#share-toggle")
 
 
-STATES = {"editing": editing, "growth": growth, "empty": None, "baby": baby, "pregnancy": pregnancy, "ultrasound": ultrasound, "backup": backup, "error": error}
+def undo(page):
+    baby(page)
+    page.click("#edit-entry")
+    page.click("#remove-child")
+
+
+STATES = {"undo": undo, "editing": editing, "growth": growth, "empty": None, "baby": baby, "pregnancy": pregnancy, "ultrasound": ultrasound, "backup": backup, "error": error}
 
 
 def audit(page):

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.23 – 2026-10-17
+- Removing a child or a measurement happens straight away and can be undone for a few seconds ("Poništi"),
+  instead of a confirmation dialog for children and no way back for measurements.
+
 ## 2.22 – 2026-10-17
 - A one-line intro on the first visit (hidden once something is saved).
 - Desktop (1024 px and wider): the form and the result side by side.

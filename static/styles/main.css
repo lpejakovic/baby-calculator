@@ -11,6 +11,7 @@
     --border: #8a8599;
     --error: #b42318;
     --shadow: 0 4px 24px rgba(43, 40, 56, 0.08);
+    --undo-action: #c9c3ff; /* on the dark undo bar */
 }
 @media (prefers-color-scheme: dark) {
     :root {
@@ -25,6 +26,7 @@
         --border: #6f6986;
         --error: #ff8a80;
         --shadow: none;
+        --undo-action: #4f46b8; /* on the light undo bar */
     }
 }
 *,
@@ -706,6 +708,41 @@ progress {
 .button:focus-visible {
     outline: 3px solid var(--primary);
     outline-offset: 2px;
+}
+.undo-bar {
+    /* Bottom of the screen, clear of the home bar of an installed app */
+    position: fixed;
+    left: 50%;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: min(480px, calc(100% - 32px));
+    padding: 4px 4px 4px 16px;
+    border-radius: 12px;
+    color: var(--bg);
+    background: var(--text);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    transform: translateX(-50%);
+}
+.undo-text {
+    flex: 1;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.undo-button {
+    flex: none;
+    color: var(--undo-action);
+    background: transparent;
+}
+.undo-button:hover {
+    color: var(--undo-action);
+    background: transparent;
+    text-decoration: underline;
+}
+.undo-button:focus-visible {
+    outline-color: var(--undo-action);
 }
 .visually-hidden {
     position: absolute;
