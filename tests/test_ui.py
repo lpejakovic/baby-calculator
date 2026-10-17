@@ -945,11 +945,14 @@ def test_no_button_label_is_cut_off(open_page, base_url, lang, width):
     page.goto(base_url + lang)
     calculate(page, "2025-03-04", name="Ana")
     page.click("#backup summary")
-    overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    # Elements reaching past the right edge (named, so a failure says what to fix)
+    sticking_out = page.evaluate("""[...document.querySelectorAll('main *')]
+        .filter(el => el.offsetParent !== null && el.getBoundingClientRect().right > document.documentElement.clientWidth)
+        .map(el => `${el.tagName.toLowerCase()}#${el.id}.${el.className}: ${el.textContent.trim().slice(0, 40)}`)""")
     cut = page.evaluate("""[...document.querySelectorAll('button, a, .chip, .mode-switch label, .basis label')]
         .filter(el => el.offsetParent !== null && el.scrollWidth > el.clientWidth + 1)
         .map(el => el.textContent.trim())""")
-    assert not overflow and cut == []
+    assert sticking_out == [] and cut == []
 
 
 def test_restores_saved_date(open_page):
