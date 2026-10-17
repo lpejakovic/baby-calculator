@@ -1,28 +1,23 @@
-// Page code: forms, results, storage and events. The pure logic is in texts.js, dates.js,
-// calendar.js and data.js, loaded before this file.
+// Page code: forms, results, storage and events. The pure logic is in texts.js, dates.js, growth.js, calendar.js,
+// data.js and card.js; the growth, share picture and backup parts of the page are in growth-page.js,
+// picture-page.js and backup-page.js. All are loaded before this file.
 (function () {
     'use strict';
 
     const {
-        addSharedChild, ageInMonths, babyCalendarEvents, backupReminderDue, BACKUP_MAX_BYTES, buildBackupLink, buildIcs,
-        buildShareUrl, calculateAge, chartMonths, childLabel, cleanChild, convertPregnancy, correctedAge, correctedAgeError,
-        countdown, DAY, drawCard, GROWTH_LYING_MONTHS, dueCountdown, formatBirth, formatDate, formatPercentile, growthChart, isoDate,
-        joinClock, joinParts, layoutCard, makeBackup, measurePercentile, MEASURES, mergeChildren, nextChildId,
-        normalizeChildren, parseBackup, parseBirth, PREGNANCY_DAYS, pregnancyCalendarEvents, pregnancyError,
-        pregnancyLmp, pregnancyMilestones, pregnancyStatus, readBackupLink, readSharedBirth, readSharedPregnancy,
-        removeChild, startOfDay, TEXT, texts, todayValue, upcomingMilestones, validPregnancy, wallClockNow,
-        wallToReal, WHO_GROWTH,
+        addSharedChild, babyCalendarEvents, buildIcs, buildShareUrl, calculateAge, childLabel, cleanChild,
+        convertPregnancy, correctedAge, correctedAgeError, countdown, DAY, dueCountdown, formatBirth, formatDate,
+        isoDate, joinClock, joinParts, nextChildId, normalizeChildren, parseBirth, PREGNANCY_DAYS,
+        pregnancyCalendarEvents, pregnancyError, pregnancyLmp, pregnancyMilestones, pregnancyStatus,
+        readSharedBirth, readSharedPregnancy, removeChild, setupBackup, setupGrowth, setupPicture, startOfDay, TEXT,
+        texts, todayValue, upcomingMilestones, validPregnancy, wallClockNow, wallToReal,
     } = globalThis.BC;
 
     const CHILDREN_KEY = 'children';
     const ACTIVE_CHILD_KEY = 'activeChild';
     const MODE_KEY = 'mode';
     const PREGNANCY_KEY = 'pregnancy';
-    // For the backup reminder: when something was first saved, the last backup, the last "Kasnije"
-    const FIRST_SAVED_KEY = 'firstSaved';
-    const LAST_BACKUP_KEY = 'lastBackup';
-    const REMINDER_SNOOZED_KEY = 'backupReminderSnoozed';
-    const IOS_HINT_CLOSED_KEY = 'iosHintClosed';
+    const FIRST_SAVED_KEY = 'firstSaved'; // for the backup reminder (backup-page.js)
 
     function loadChildren() {
         return normalizeChildren(restore(CHILDREN_KEY));
@@ -209,9 +204,7 @@
             timeInput.value = child ? child.time : '';
             dueInput.value = child ? child.due : '';
             premature.open = Boolean(dueInput.value);
-            growth.box.open = Boolean(child && child.measurements);
-            growth.add.open = false;
-            growth.date.value = '';
+            growthUi.reset(child);
             renderChildren();
             if (child) {
                 calculate();
@@ -296,11 +289,11 @@
         function show(section) {
             error.hidden = true;
             intro.hidden = true; // only for the first visit, before anything is calculated
-            updateBackupReminder(); // e.g. the iPhone hint, right after the first save
+            backupUi.updateReminder(); // e.g. the iPhone hint, right after the first save
             result.hidden = section !== result;
             pregnancyResult.hidden = section !== pregnancyResult;
             share.hidden = false;
-            loadCardIcon(); // ready before "Podijeli sliku" is pressed, so sharing stays within the user's gesture
+            pictureUi.loadCardIcon(); // ready before "Podijeli sliku" is pressed, so sharing stays within the user's gesture
         }
 
         function renderMilestoneList(list, items) {
@@ -403,7 +396,7 @@
             current = { mode: 'baby', birth };
             milestonesDay = null;
             render(birth, due);
-            renderGrowth();
+            growthUi.render();
             if (how !== 'live') setEditing(false);
             if (how === 'submit') focusResult(result);
             announce.textContent = `${named || t.age}: ${out.calendar.textContent}, ${t.or} ${out.weeks.textContent}.`;
@@ -650,300 +643,27 @@
         });
         window.addEventListener('appinstalled', () => { installButton.hidden = true; });
 
-        // --- Backup and restore ---
-        const backupBox = $('backup');
-        const backupStatus = $('backup-status');
-        const backupFile = $('backup-file');
-
-        function currentBackup() {
-            return makeBackup({ children, activeChild: activeId, pregnancy: restore(PREGNANCY_KEY), mode },
-                new Date().toISOString());
-        }
-
-        // Merges a backup into the saved data and returns the message to show
-        function applyBackup(backup) {
-            const merged = mergeChildren(children, backup.children);
-            children = merged.children;
-            if (activeChild() === null && children.length) activeId = children[0].id;
-            saveChildren();
-            let pregnancyChanged = false;
-            if (backup.pregnancy) {
-                const local = restore(PREGNANCY_KEY);
-                const same = JSON.stringify(validPregnancy(local)) === JSON.stringify(backup.pregnancy);
-                if (!same && (!local || !local.date || confirm(t.backupReplacePregnancy))) {
-                    store(PREGNANCY_KEY, backup.pregnancy);
-                    pregnancyChanged = true;
-                }
-            }
-            if (!merged.added && !merged.changed && !pregnancyChanged) return t.backupNothingNew;
-            // Show what was restored
-            store(MODE_KEY, merged.added || merged.changed || !pregnancyChanged ? 'baby' : 'pregnancy');
-            return t.backupRestored;
-        }
-
-        // --- Growth (growth.js, who-growth.js) ---
-        const growth = {
-            box: $('growth'), form: $('measure-form'), date: $('measure-date'), error: $('measure-error'),
-            chart: $('growth-chart'), list: $('measurements'), listBox: $('measurements-box'),
-            corrected: $('growth-corrected'), add: $('measure-add'),
+        // What the page parts in growth-page.js, picture-page.js and backup-page.js share with this file
+        const page = {
+            t, lang, store, restore,
+            keys: { pregnancy: PREGNANCY_KEY, mode: MODE_KEY, firstSaved: FIRST_SAVED_KEY },
+            get children() { return children; },
+            set children(value) { children = value; },
+            get activeId() { return activeId; },
+            set activeId(value) { activeId = value; },
+            get mode() { return mode; },
+            current: () => current,
+            babyShown: () => Boolean(current && current.mode === 'baby'),
+            snapshot: () => ({ children, activeId }),
+            activeChild, saveChildren, noteSaved, offerUndo, showStatus, copy, downloadFile, showSaved,
+            updateActiveChild(changes) {
+                children = children.map((c) => (c.id === activeId ? cleanChild({ ...c, ...changes }) : c));
+                saveChildren();
+            },
         };
-        const measureInputs = { weight: $('measure-weight'), length: $('measure-length'), head: $('measure-head') };
-        const sexInputs = document.querySelectorAll('input[name="sex"]');
-        const measureTabs = document.querySelectorAll('input[name="measure"]');
-        const UNITS = { weight: 'kg', length: 'cm', head: 'cm' };
-        const SVG = 'http://www.w3.org/2000/svg';
-
-        function chosenMeasure() {
-            return document.querySelector('input[name="measure"]:checked').value;
-        }
-
-        function updateActiveChild(changes) {
-            children = children.map((c) => (c.id === activeId ? cleanChild({ ...c, ...changes }) : c));
-            saveChildren();
-        }
-
-        // Age on the WHO curves at a date: for a baby born early the corrected age (from the due date), as is usual
-        // up to 2 years of actual age; otherwise, and after that, the actual age
-        function growthAge(child, dateMs) {
-            const birth = startOfDay(parseBirth(child.date, ''));
-            const due = child.due ? parseBirth(child.due, '') : null;
-            const actual = ageInMonths(birth, dateMs);
-            return due !== null && due > birth && actual < GROWTH_LYING_MONTHS ? ageInMonths(due, dateMs) : actual;
-        }
-
-        function bornEarly(child) {
-            return Boolean(child.due) && parseBirth(child.due, '') > parseBirth(child.date, '');
-        }
-
-        function formatNumber(value) {
-            return new Intl.NumberFormat(lang, { maximumFractionDigits: 2 }).format(value);
-        }
-
-        function svg(name, attributes, text) {
-            const element = document.createElementNS(SVG, name);
-            Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
-            if (text !== undefined) element.textContent = text;
-            return element;
-        }
-
-        function chartSvg(model, label) {
-            const root = svg('svg', {
-                viewBox: `0 0 ${model.width} ${model.height}`, width: model.width, height: model.height,
-                role: 'img', 'aria-label': label,
-            });
-            const left = model.pad.left;
-            const right = model.width - model.pad.right;
-            const bottom = model.height - model.pad.bottom;
-            model.yTicks.forEach((tick) => {
-                root.append(svg('line', { class: 'grid', x1: left, x2: right, y1: tick.y, y2: tick.y }));
-                root.append(svg('text', { class: 'axis', x: left - 6, y: tick.y + 4, 'text-anchor': 'end' }, formatNumber(tick.value)));
-            });
-            model.xTicks.forEach((tick) => {
-                root.append(svg('text', { class: 'axis', x: tick.x, y: bottom + 18, 'text-anchor': 'middle' }, String(tick.months)));
-            });
-            root.append(svg('text', { class: 'axis', x: right, y: model.height - 2, 'text-anchor': 'end' }, t.axisMonths));
-            model.curves.forEach((curve) => {
-                root.append(svg('path', { class: `curve curve-${curve.percentile}`, d: curve.d }));
-                root.append(svg('text', { class: 'axis', x: curve.labelX, y: curve.labelY + 4 }, `P${curve.percentile}`));
-            });
-            if (model.points.length > 1) {
-                const d = model.points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
-                root.append(svg('path', { class: 'child-line', d }));
-            }
-            model.points.forEach((p) => root.append(svg('circle', { class: 'point', cx: p.x, cy: p.y, r: 5 })));
-            return root;
-        }
-
-        // "P50", or why there is no percentile
-        function percentileText(table, child, date, value) {
-            const months = growthAge(child, parseBirth(date, ''));
-            if (months < 0) return t.beforeTerm;
-            const p = measurePercentile(table, months, value);
-            return p === null ? t.after60 : formatPercentile(p);
-        }
-
-        function renderGrowth() {
-            const child = activeChild();
-            if (!child) return;
-            sexInputs.forEach((input) => { input.checked = input.value === child.sex; });
-            growth.date.min = child.date;
-            growth.date.max = todayValue();
-            if (!growth.date.value) growth.date.value = todayValue();
-            const tables = child.sex ? WHO_GROWTH[child.sex === 'f' ? 'girls' : 'boys'] : null;
-            const measurements = child.measurements || [];
-
-            // Newest first: date, then each value with its percentile under it
-            growth.listBox.hidden = measurements.length === 0;
-            growth.list.replaceChildren(...[...measurements].reverse().map((m) => {
-                const row = document.createElement('tr');
-                const when = formatDate(parseBirth(m.date, ''), lang);
-                const date = document.createElement('th');
-                date.scope = 'row';
-                date.textContent = when;
-                row.append(date, ...Object.keys(UNITS).map((key) => {
-                    const cell = document.createElement('td');
-                    if (m[key] === undefined) return cell;
-                    cell.textContent = formatNumber(m[key]);
-                    if (tables) {
-                        const p = document.createElement('span');
-                        p.className = 'percentile';
-                        p.textContent = percentileText(tables[key], child, m.date, m[key]);
-                        cell.append(p);
-                    }
-                    return cell;
-                }));
-                const remove = document.createElement('button');
-                remove.type = 'button';
-                remove.className = 'button-link';
-                remove.textContent = '×';
-                remove.setAttribute('aria-label', t.removeMeasurement(when));
-                remove.addEventListener('click', () => {
-                    const before = { children, activeId };
-                    updateActiveChild({ measurements: measurements.filter((other) => other.date !== m.date) });
-                    renderGrowth();
-                    offerUndo(t.measurementRemoved(when), before);
-                });
-                const removeCell = document.createElement('td');
-                removeCell.append(remove);
-                row.append(removeCell);
-                return row;
-            }));
-            // Nothing measured yet: the form is all there is to do, so it is open
-            if (!measurements.length) growth.add.open = true;
-
-            growth.corrected.hidden = !(tables && bornEarly(child));
-            growth.corrected.textContent = t.correctedNote;
-            if (!tables) {
-                const hint = document.createElement('p');
-                hint.className = 'hint';
-                hint.textContent = t.sexMissing;
-                growth.chart.replaceChildren(hint);
-                return;
-            }
-            const measure = chosenMeasure();
-            const points = measurements.filter((m) => m[measure] !== undefined)
-                .map((m) => ({ months: growthAge(child, parseBirth(m.date, '')), value: m[measure] }));
-            const months = chartMonths(ageInMonths(startOfDay(parseBirth(child.date, '')), wallClockNow()), points);
-            // Drawn at the real width, so the text keeps its size on phones (a closed section has no width yet)
-            const width = Math.max(280, Math.round(growth.chart.clientWidth || 600));
-            const height = Math.round(Math.min(360, Math.max(240, width * 0.62)));
-            const model = growthChart(tables[measure], points, width, height, months);
-            growth.chart.replaceChildren(chartSvg(model, t.growthChartLabel(t.measures[measure])));
-        }
-
-        function showMeasureError(message) {
-            growth.error.textContent = message;
-            growth.error.hidden = false;
-        }
-
-        growth.form.addEventListener('submit', function (event) {
-            event.preventDefault();
-            const child = activeChild();
-            if (!child) return;
-            const date = parseBirth(growth.date.value, '');
-            if (date === null || date < startOfDay(parseBirth(child.date, '')) || date > parseBirth(todayValue(), '')) {
-                showMeasureError(t.measureDate);
-                return;
-            }
-            const entry = { date: growth.date.value };
-            for (const [key, input] of Object.entries(measureInputs)) {
-                const raw = input.value.trim().replace(',', '.');
-                if (!raw) continue;
-                const value = Number(raw);
-                const range = MEASURES[key];
-                if (!(value >= range.min && value <= range.max)) {
-                    showMeasureError(t.measureRange(t.measures[key], formatNumber(range.min), formatNumber(range.max), UNITS[key]));
-                    input.focus();
-                    return;
-                }
-                entry[key] = value;
-            }
-            if (Object.keys(entry).length === 1) {
-                showMeasureError(t.measureNoValue);
-                return;
-            }
-            // A second measurement on the same date adds to it (new values win)
-            updateActiveChild({ measurements: [...(child.measurements || []), entry] });
-            Object.values(measureInputs).forEach((input) => { input.value = ''; });
-            growth.error.hidden = true;
-            renderGrowth();
-        });
-        sexInputs.forEach((input) => input.addEventListener('change', function () {
-            updateActiveChild({ sex: input.value });
-            renderGrowth();
-        }));
-        measureTabs.forEach((input) => input.addEventListener('change', renderGrowth));
-        growth.box.addEventListener('toggle', () => growth.box.open && renderGrowth());
-        let resizeFrame = null;
-        window.addEventListener('resize', function () {
-            cancelAnimationFrame(resizeFrame);
-            resizeFrame = requestAnimationFrame(() => growth.box.open && current && current.mode === 'baby' && renderGrowth());
-        });
-
-        // --- Share picture (card.js) ---
-        const pictureButton = $('share-picture');
-        let cardIcon = null;
-
-        function loadCardIcon() {
-            if (!cardIcon) {
-                const image = new Image();
-                image.src = pictureButton.dataset.icon;
-                cardIcon = image.decode().then(() => image).catch(() => null); // the card works without the icon
-            }
-            return cardIcon;
-        }
-
-        function cardContent() {
-            const footer = location.host;
-            if (current && current.mode === 'pregnancy') {
-                return {
-                    title: t.pregnancy, main: preg.duration.textContent,
-                    lines: [preg.detail.textContent, `${t.dueDate}: ${preg.due.textContent}`], footer,
-                };
-            }
-            const child = activeChild();
-            const lines = [out.weeks.textContent];
-            if (!corrected.card.hidden && /\d/.test(corrected.value.textContent)) {
-                lines.push(`${t.corrected}: ${corrected.value.textContent}`);
-            }
-            lines.push(out.bornAt.textContent);
-            return { title: child && child.name ? child.name : t.childAgeHeading, main: out.calendar.textContent, lines, footer };
-        }
-
-        function pictureName() {
-            if (current && current.mode === 'pregnancy') {
-                return `baby-calculator-pregnancy-${isoDate(current.lmp + PREGNANCY_DAYS * DAY)}.png`;
-            }
-            const child = activeChild();
-            return `baby-calculator-${child ? child.date : todayValue()}.png`;
-        }
-
-        pictureButton.addEventListener('click', async function () {
-            if (!current) return;
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const measure = (text, font) => {
-                ctx.font = font;
-                return ctx.measureText(text).width;
-            };
-            drawCard(canvas, layoutCard(cardContent(), measure), await loadCardIcon());
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-            if (!blob) {
-                showStatus(t.pictureFailed);
-                return;
-            }
-            const file = new File([blob], pictureName(), { type: 'image/png' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({ files: [file], title: 'Baby Calculator' });
-                    return;
-                } catch (e) {
-                    if (e.name === 'AbortError') return;
-                }
-            }
-            downloadFile(file.name, blob, 'image/png');
-            showStatus(t.pictureSaved);
-        });
+        const growthUi = setupGrowth(page);
+        const pictureUi = setupPicture(page);
+        const backupUi = setupBackup(page);
 
         function downloadFile(name, content, type) {
             const link = document.createElement('a');
@@ -954,11 +674,6 @@
             link.remove();
             setTimeout(() => URL.revokeObjectURL(link.href), 1000);
         }
-
-        $('backup-download').addEventListener('click', function () {
-            downloadFile(`baby-calculator-${todayValue()}.json`, JSON.stringify(currentBackup(), null, 2), 'application/json');
-            markBackedUp();
-        });
 
         // Calendar export of the milestones (.ics)
         const site = location.origin + location.pathname;
@@ -975,82 +690,6 @@
             downloadFile(`baby-calculator-pregnancy-${isoDate(current.lmp + PREGNANCY_DAYS * DAY)}.ics`,
                 buildIcs(events, Date.now()), 'text/calendar');
         });
-        $('backup-restore').addEventListener('click', () => backupFile.click());
-        backupFile.addEventListener('change', async function () {
-            const file = backupFile.files[0];
-            backupFile.value = '';
-            if (!file) return;
-            if (file.size > BACKUP_MAX_BYTES) {
-                backupStatus.textContent = t.backupTooLarge;
-                return;
-            }
-            const backup = parseBackup(await file.text());
-            if (!backup) {
-                backupStatus.textContent = t.backupInvalid;
-                return;
-            }
-            backupStatus.textContent = applyBackup(backup);
-            showSaved();
-        });
-        $('backup-link').addEventListener('click', async function () {
-            const ok = await copy(buildBackupLink(location.origin + location.pathname, currentBackup()));
-            backupStatus.textContent = ok ? t.backupLinkCopied : t.copyFailed;
-            if (ok) markBackedUp();
-        });
-
-        // A transfer link (#backup=...) is merged once and then removed from the address bar
-        function takeBackupLink() {
-            if (!/^#backup=/.test(location.hash)) return null;
-            const linked = readBackupLink(location.hash);
-            history.replaceState(null, '', location.pathname + location.search);
-            return linked ? applyBackup(linked) : t.backupInvalid;
-        }
-        const backupMessage = takeBackupLink();
-
-        // --- Backup reminder and the iPhone install hint ---
-        // The data lives only in this browser; Safari clears it after about a week without a visit, unless the
-        // site was added to the Home Screen (where Safari offers no install prompt, so the page explains how).
-        const reminder = $('backup-reminder');
-        const iosHint = $('ios-install');
-        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
-            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS reports a Mac
-        const standalone = navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-
-        function hasData() {
-            return children.length > 0 || Boolean(validPregnancy(restore(PREGNANCY_KEY)));
-        }
-
-        function updateBackupReminder() {
-            const today = todayValue();
-            const last = restore(LAST_BACKUP_KEY);
-            $('backup-last').textContent = last ? t.lastBackup(formatDate(parseBirth(last, ''), lang)) : t.lastBackupNever;
-            if (hasData()) noteSaved(); // data saved before this version counts from today
-            reminder.hidden = !backupReminderDue({
-                hasData: hasData(), firstSaved: restore(FIRST_SAVED_KEY), lastBackup: last,
-                snoozed: restore(REMINDER_SNOOZED_KEY), today,
-            });
-            iosHint.hidden = !(isIos && !standalone && hasData() && !restore(IOS_HINT_CLOSED_KEY));
-        }
-
-        function markBackedUp() {
-            store(LAST_BACKUP_KEY, todayValue());
-            updateBackupReminder();
-        }
-
-        $('reminder-backup').addEventListener('click', function () {
-            $('backup-download').click();
-            $('backup').querySelector('summary').focus();
-        });
-        $('reminder-later').addEventListener('click', function () {
-            store(REMINDER_SNOOZED_KEY, todayValue());
-            reminder.hidden = true;
-            $('backup').querySelector('summary').focus();
-        });
-        $('ios-install-close').addEventListener('click', function () {
-            store(IOS_HINT_CLOSED_KEY, true);
-            iosHint.hidden = true;
-        });
-
         // Fills the forms from the saved data and shows the saved mode
         function showSaved() {
             const child = activeChild();
@@ -1059,8 +698,7 @@
             timeInput.value = child ? child.time : '';
             dueInput.value = child ? child.due : '';
             premature.open = Boolean(dueInput.value);
-            growth.box.open = Boolean(child && child.measurements);
-            growth.add.open = false;
+            growthUi.reset(child);
             store(ACTIVE_CHILD_KEY, activeId);
             renderChildren();
             const savedPregnancy = validPregnancy(restore(PREGNANCY_KEY));
@@ -1068,27 +706,22 @@
             intro.hidden = Boolean(children.length || savedPregnancy);
             refreshDateLimits();
             setMode(restore(MODE_KEY) === 'pregnancy' ? 'pregnancy' : 'baby');
-            updateBackupReminder();
+            backupUi.updateReminder();
         }
 
-        function showBackupMessage(message) {
-            if (!message) return;
-            backupBox.open = true;
-            backupStatus.textContent = message;
-        }
-
+        const backupMessage = backupUi.takeLink();
         showSaved();
-        showBackupMessage(backupMessage);
+        backupUi.showMessage(backupMessage);
         // A share or transfer link opened while the page is already open only changes the "#" part
         window.addEventListener('hashchange', function () {
             if (takeShareLink()) {
                 showSaved();
                 return;
             }
-            const message = takeBackupLink();
+            const message = backupUi.takeLink();
             if (!message) return;
             showSaved();
-            showBackupMessage(message);
+            backupUi.showMessage(message);
         });
     });
 })();

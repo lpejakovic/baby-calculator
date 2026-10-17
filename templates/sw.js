@@ -1,4 +1,4 @@
-// Service worker, rendered by Flask (app.py: service_worker). The asset URLs carry ?v=<mtime>,
+// Service worker, rendered by Flask (app.py: service_worker). The asset URLs carry ?v=<content hash>,
 // so this file changes whenever a static file changes, and browsers install the new version.
 const CACHE = 'bc-{{ version }}';
 const PRECACHE = {{ assets|tojson }};

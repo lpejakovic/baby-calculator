@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.27 – 2026-10-18
+- The growth, share picture and backup parts of the page script are in their own files
+  (`growth-page.js`, `picture-page.js`, `backup-page.js`).
+- Static URLs carry a hash of the file's content instead of its modification time.
+- The uptime check also covers `/de/`, `/it/` and a static file.
+
 ## 2.26 – 2026-10-18
 - Growth charts up to 5 years, from WHO's own tables: the chart shows two years for younger children and five
   after that; length lying down up to 2 years, then standing height. Corrected age for babies born early is used
