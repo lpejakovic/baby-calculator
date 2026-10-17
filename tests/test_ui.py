@@ -1217,3 +1217,33 @@ def test_compact_header_and_footer(open_page):
     assert abs(tops[0] - tops[1]) <= 4, tops
     assert re.fullmatch(r"Baby Calculator v\d+\.\d+(\.\d+)?", page.text_content(".site-footer .version-text"))
     assert page.text_content("h1") == "Baby Calculator"
+
+
+def test_intro_only_on_first_visit(open_page):
+    page = open_page()
+    assert page.text_content("#intro").startswith("Izračunajte dob bebe")
+    calculate(page)
+    assert page.is_hidden("#intro")
+    page.reload()  # something is saved: straight to the result
+    assert page.is_hidden("#intro")
+
+
+@pytest.mark.parametrize("width, side_by_side", [(1280, True), (1024, True), (768, False), (390, False)])
+def test_desktop_form_and_result_side_by_side(open_page, width, side_by_side):
+    page = open_page(viewport={"width": width, "height": 900})
+    calculate(page, name="Ana")
+    edit(page)
+    box = page.evaluate("""() => {
+        const form = document.querySelector('#birth-form').getBoundingClientRect();
+        const result = document.querySelector('#result').getBoundingClientRect();
+        return { formRight: form.right, resultLeft: result.left, formTop: form.top, resultTop: result.top,
+                 overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+    }""")
+    assert not box["overflow"]
+    if side_by_side:
+        assert box["resultLeft"] > box["formRight"] and box["resultTop"] < box["formTop"] + 200, box
+    else:
+        assert box["resultTop"] > box["formTop"], box
+    if width == 1280:
+        page.click("#growth > summary")
+        keep_artifact(page.screenshot(full_page=True), "desktop-1280.png")

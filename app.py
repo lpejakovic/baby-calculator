@@ -9,7 +9,7 @@ from api import api
 from extensions import limiter
 from i18n import LANGUAGE_NAMES, LANGUAGES, PAGE_TEXT
 
-APP_VERSION = "2.21"
+APP_VERSION = "2.22"
 
 # Cached by the service worker for offline use (besides the page itself)
 SCRIPTS = ["texts", "dates", "who-growth", "growth", "calendar", "data", "card", "app"]  # load order

@@ -2,7 +2,7 @@
 <html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Baby Calculator</title>
     <meta name="description" content="{{ t.description }}">
     <meta name="theme-color" content="#f6f3fb" media="(prefers-color-scheme: light)">
@@ -48,222 +48,227 @@
                 {%- endfor %}
             </nav>
         </header>
+        <p class="intro" id="intro">{{ t.intro }}</p>
 
-        <fieldset class="mode-switch">
-            <legend class="visually-hidden">{{ t.mode_legend }}</legend>
-            <label><input type="radio" name="mode" value="baby" checked> {{ t.mode_baby }}</label>
-            <label><input type="radio" name="mode" value="pregnancy"> {{ t.mode_pregnancy }}</label>
-        </fieldset>
-
-        <form id="birth-form">
-            <fieldset class="children" id="children" hidden>
-                <legend>{{ t.child }}</legend>
-                <div class="chips">
-                    <div class="chip-list" id="child-list"></div>
-                    <button type="button" class="chip chip-add" id="add-child">{{ t.add_child }}</button>
-                </div>
+        <div class="column-input">
+            <fieldset class="mode-switch">
+                <legend class="visually-hidden">{{ t.mode_legend }}</legend>
+                <label><input type="radio" name="mode" value="baby" checked> {{ t.mode_baby }}</label>
+                <label><input type="radio" name="mode" value="pregnancy"> {{ t.mode_pregnancy }}</label>
             </fieldset>
-            <div class="form-fields" id="birth-fields">
-                <div class="field">
-                    <label for="child-name">{{ t.child_name }} <span class="optional">({{ t.optional|lower }})</span></label>
-                    <input type="text" id="child-name" name="name" maxlength="40" autocomplete="off">
-                </div>
-                <div class="fields">
-                    <div class="field">
-                        <label for="birth-date">{{ t.birth_date }}</label>
-                        <input type="date" id="birth-date" name="date" required>
-                    </div>
-                    <div class="field">
-                        <label for="birth-time">{{ t.birth_time }} <span class="optional">({{ t.optional|lower }})</span></label>
-                        <input type="time" id="birth-time" name="time">
-                    </div>
-                </div>
-                <details class="premature" id="premature">
-                    <summary>{{ t.premature }}</summary>
-                    <div class="field">
-                        <label for="due-date">{{ t.premature_due }}</label>
-                        <input type="date" id="due-date" name="due" aria-describedby="due-hint">
-                        <small id="due-hint" class="hint">{{ t.premature_hint }}</small>
-                    </div>
-                </details>
-                <button type="submit">{{ t.calculate_age }}</button>
-                <button type="button" class="button-link" id="remove-child" hidden>{{ t.remove_child }}</button>
-            </div>
-        </form>
 
-        <form id="pregnancy-form" hidden>
-            <div class="form-fields" id="pregnancy-fields">
-                <fieldset class="basis">
-                    <legend>{{ t.basis_legend }}</legend>
-                    <label class="radio"><input type="radio" name="basis" value="due" checked> {{ t.basis_due }}</label>
-                    <label class="radio"><input type="radio" name="basis" value="lmp"> {{ t.basis_lmp }}</label>
-                    <label class="radio"><input type="radio" name="basis" value="ivf"> {{ t.basis_ivf }}</label>
-                    <label class="radio"><input type="radio" name="basis" value="ultrasound"> {{ t.basis_ultrasound }}</label>
-                </fieldset>
-                <div class="field">
-                    <label for="pregnancy-date" id="pregnancy-date-label">{{ t.due_date }}</label>
-                    <input type="date" id="pregnancy-date" name="pregnancy-date" required>
-                </div>
-                <div class="field" id="ivf-fields" hidden>
-                    <label for="embryo-days">{{ t.embryo_age }}</label>
-                    <select id="embryo-days" name="embryo-days">
-                        {%- for days in (3, 5, 6) %}
-                        <option value="{{ days }}"{% if days == 5 %} selected{% endif %}>{{ t.embryo_days.format(days) }}</option>
-                        {%- endfor %}
-                    </select>
-                </div>
-                <fieldset class="gestation" id="ultrasound-fields" hidden>
-                    <legend>{{ t.ga_legend }}</legend>
-                    <div class="field">
-                        <label for="ga-weeks">{{ t.ga_weeks }}</label>
-                        <input type="number" id="ga-weeks" name="ga-weeks" min="0" max="42" step="1" inputmode="numeric">
-                    </div>
-                    <div class="field">
-                        <label for="ga-days">{{ t.ga_days }}</label>
-                        <input type="number" id="ga-days" name="ga-days" min="0" max="6" step="1" inputmode="numeric">
+            <form id="birth-form">
+                <fieldset class="children" id="children" hidden>
+                    <legend>{{ t.child }}</legend>
+                    <div class="chips">
+                        <div class="chip-list" id="child-list"></div>
+                        <button type="button" class="chip chip-add" id="add-child">{{ t.add_child }}</button>
                     </div>
                 </fieldset>
-                <button type="submit">{{ t.calculate_pregnancy }}</button>
-            </div>
-        </form>
-
-        <button type="button" class="button-secondary edit-button" id="edit-entry" hidden>{{ t.edit }}</button>
-
-        <p id="error" class="error-text" role="alert" hidden></p>
-
-        <section id="result" aria-labelledby="result-title" tabindex="-1" hidden>
-            <h2 id="result-title" class="result-title visually-hidden">{{ t.child_age }}</h2>
-            <p class="born-at" id="born-at"></p>
-            <div class="cards">
-                <div class="card card-primary">
-                    <p class="card-label">{{ t.weeks }}</p>
-                    <p class="card-value" id="age-weeks"></p>
-                </div>
-                <div class="card">
-                    <p class="card-label">{{ t.age }}</p>
-                    <p class="card-value" id="age-calendar"></p>
-                </div>
-                <div class="card">
-                    <p class="card-label">{{ t.total }}</p>
-                    <p class="card-value card-value-small" id="age-total"></p>
-                </div>
-                <div class="card card-wide" id="corrected-card" hidden>
-                    <p class="card-label">{{ t.corrected_age }}</p>
-                    <p class="card-value" id="corrected-value"></p>
-                    <p class="card-sub" id="corrected-detail"></p>
-                </div>
-                <div class="card card-wide">
-                    <h3 class="card-label" id="milestones-title">{{ t.milestones }}</h3>
-                    <ul class="milestones" id="milestones" aria-labelledby="milestones-title"></ul>
-                    <button type="button" class="button-link calendar-button" id="calendar-baby">{{ t.add_to_calendar }}</button>
-                </div>
-                <details class="card card-wide growth" id="growth">
-                    <summary>{{ t.growth }}</summary>
-                    <fieldset class="basis sex">
-                        <legend>{{ t.sex }}</legend>
-                        <label class="radio"><input type="radio" name="sex" value="f"> {{ t.girl }}</label>
-                        <label class="radio"><input type="radio" name="sex" value="m"> {{ t.boy }}</label>
-                    </fieldset>
-                    <fieldset class="basis measure-tabs">
-                        <legend class="visually-hidden">{{ t.chart_measure }}</legend>
-                        <label class="radio"><input type="radio" name="measure" value="weight" checked> {{ t.measure_weight }}</label>
-                        <label class="radio"><input type="radio" name="measure" value="length"> {{ t.measure_length }}</label>
-                        <label class="radio"><input type="radio" name="measure" value="head"> {{ t.measure_head }}</label>
-                    </fieldset>
-                    <div class="growth-chart" id="growth-chart"></div>
-                    <p class="hint" id="growth-corrected" hidden></p>
-                    <div class="measurements" id="measurements-box" hidden>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th scope="col">{{ t.table_date }}</th>
-                                    <th scope="col">{{ t.measure_weight }} <span class="unit">kg</span></th>
-                                    <th scope="col">{{ t.measure_length }} <span class="unit">cm</span></th>
-                                    <th scope="col">{{ t.table_head }} <span class="unit">cm</span></th>
-                                    <th scope="col"><span class="visually-hidden">{{ t.remove }}</span></th>
-                                </tr>
-                            </thead>
-                            <tbody id="measurements"></tbody>
-                        </table>
+                <div class="form-fields" id="birth-fields">
+                    <div class="field">
+                        <label for="child-name">{{ t.child_name }} <span class="optional">({{ t.optional|lower }})</span></label>
+                        <input type="text" id="child-name" name="name" maxlength="40" autocomplete="off">
                     </div>
-                    <details class="measure-add" id="measure-add">
-                        <summary>{{ t.add_measurement }}</summary>
-                        <form id="measure-form" class="measure-form" novalidate>
-                            <div class="measure-fields">
-                                <div class="field">
-                                    <label for="measure-date">{{ t.measure_date }}</label>
-                                    <input type="date" id="measure-date" name="measure-date">
-                                </div>
-                                <div class="field">
-                                    <label for="measure-weight">{{ t.weight_kg }}</label>
-                                    <input type="text" id="measure-weight" name="weight" inputmode="decimal" autocomplete="off">
-                                </div>
-                                <div class="field">
-                                    <label for="measure-length">{{ t.length_cm }}</label>
-                                    <input type="text" id="measure-length" name="length" inputmode="decimal" autocomplete="off">
-                                </div>
-                                <div class="field">
-                                    <label for="measure-head">{{ t.head_cm }}</label>
-                                    <input type="text" id="measure-head" name="head" inputmode="decimal" autocomplete="off">
-                                </div>
-                            </div>
-                            <button type="submit">{{ t.add_measurement }}</button>
-                        </form>
-                        <p class="error-text" id="measure-error" role="alert" hidden></p>
+                    <div class="fields">
+                        <div class="field">
+                            <label for="birth-date">{{ t.birth_date }}</label>
+                            <input type="date" id="birth-date" name="date" required>
+                        </div>
+                        <div class="field">
+                            <label for="birth-time">{{ t.birth_time }} <span class="optional">({{ t.optional|lower }})</span></label>
+                            <input type="time" id="birth-time" name="time">
+                        </div>
+                    </div>
+                    <details class="premature" id="premature">
+                        <summary>{{ t.premature }}</summary>
+                        <div class="field">
+                            <label for="due-date">{{ t.premature_due }}</label>
+                            <input type="date" id="due-date" name="due" aria-describedby="due-hint">
+                            <small id="due-hint" class="hint">{{ t.premature_hint }}</small>
+                        </div>
                     </details>
-                    <p class="hint">{{ t.growth_note }}
-                        <a href="https://www.who.int/tools/child-growth-standards" rel="noopener">{{ t.growth_source }}</a></p>
-                </details>
-            </div>
-        </section>
+                    <button type="submit">{{ t.calculate_age }}</button>
+                    <button type="button" class="button-link" id="remove-child" hidden>{{ t.remove_child }}</button>
+                </div>
+            </form>
 
-        <section id="pregnancy-result" aria-labelledby="pregnancy-result-title" tabindex="-1" hidden>
-            <h2 id="pregnancy-result-title" class="visually-hidden">{{ t.pregnancy }}</h2>
-            <div class="cards">
-                <div class="card card-primary">
-                    <p class="card-label">{{ t.pregnancy_duration }}</p>
-                    <p class="card-value" id="pregnancy-duration"></p>
-                    <p class="card-sub" id="pregnancy-detail"></p>
+            <form id="pregnancy-form" hidden>
+                <div class="form-fields" id="pregnancy-fields">
+                    <fieldset class="basis">
+                        <legend>{{ t.basis_legend }}</legend>
+                        <label class="radio"><input type="radio" name="basis" value="due" checked> {{ t.basis_due }}</label>
+                        <label class="radio"><input type="radio" name="basis" value="lmp"> {{ t.basis_lmp }}</label>
+                        <label class="radio"><input type="radio" name="basis" value="ivf"> {{ t.basis_ivf }}</label>
+                        <label class="radio"><input type="radio" name="basis" value="ultrasound"> {{ t.basis_ultrasound }}</label>
+                    </fieldset>
+                    <div class="field">
+                        <label for="pregnancy-date" id="pregnancy-date-label">{{ t.due_date }}</label>
+                        <input type="date" id="pregnancy-date" name="pregnancy-date" required>
+                    </div>
+                    <div class="field" id="ivf-fields" hidden>
+                        <label for="embryo-days">{{ t.embryo_age }}</label>
+                        <select id="embryo-days" name="embryo-days">
+                            {%- for days in (3, 5, 6) %}
+                            <option value="{{ days }}"{% if days == 5 %} selected{% endif %}>{{ t.embryo_days.format(days) }}</option>
+                            {%- endfor %}
+                        </select>
+                    </div>
+                    <fieldset class="gestation" id="ultrasound-fields" hidden>
+                        <legend>{{ t.ga_legend }}</legend>
+                        <div class="field">
+                            <label for="ga-weeks">{{ t.ga_weeks }}</label>
+                            <input type="number" id="ga-weeks" name="ga-weeks" min="0" max="42" step="1" inputmode="numeric">
+                        </div>
+                        <div class="field">
+                            <label for="ga-days">{{ t.ga_days }}</label>
+                            <input type="number" id="ga-days" name="ga-days" min="0" max="6" step="1" inputmode="numeric">
+                        </div>
+                    </fieldset>
+                    <button type="submit">{{ t.calculate_pregnancy }}</button>
                 </div>
-                <div class="card card-wide">
-                    <p class="card-label">{{ t.due_date }}</p>
-                    <p class="card-value"><time id="pregnancy-due"></time> <span class="card-value-note" id="pregnancy-countdown"></span></p>
-                    <progress id="pregnancy-progress" max="280" value="0" aria-labelledby="pregnancy-progress-text"></progress>
-                    <p class="card-sub" id="pregnancy-progress-text"></p>
-                </div>
-                <div class="card card-wide">
-                    <h3 class="card-label" id="pregnancy-milestones-title">{{ t.milestones }}</h3>
-                    <ul class="milestones" id="pregnancy-milestones" aria-labelledby="pregnancy-milestones-title"></ul>
-                    <button type="button" class="button-link calendar-button" id="calendar-pregnancy">{{ t.add_to_calendar }}</button>
-                </div>
-            </div>
-        </section>
+            </form>
 
-        <div id="share" hidden>
-            <button type="button" class="button-secondary share-toggle" id="share-toggle"
-                    aria-expanded="false" aria-controls="share-menu">{{ t.share }}</button>
-            <div class="share-menu" id="share-menu" hidden>
-                <button type="button" class="button-secondary" id="share-link">{{ t.share_link }}</button>
-                <button type="button" class="button-secondary" id="copy-text">{{ t.copy_text }}</button>
-                <button type="button" class="button-secondary" id="share-picture"
-                        data-icon="{{ url_for('static', filename='images/icon-512.png') }}">{{ t.share_picture }}</button>
-            </div>
-            <p class="share-status" id="share-status" role="status"></p>
+            <button type="button" class="button-secondary edit-button" id="edit-entry" hidden>{{ t.edit }}</button>
+
+            <p id="error" class="error-text" role="alert" hidden></p>
         </div>
 
-        <button type="button" class="button-secondary install-button" id="install-app" hidden>{{ t.install }}</button>
+        <div class="column-output">
+            <section id="result" aria-labelledby="result-title" tabindex="-1" hidden>
+                <h2 id="result-title" class="result-title visually-hidden">{{ t.child_age }}</h2>
+                <p class="born-at" id="born-at"></p>
+                <div class="cards">
+                    <div class="card card-primary">
+                        <p class="card-label">{{ t.weeks }}</p>
+                        <p class="card-value" id="age-weeks"></p>
+                    </div>
+                    <div class="card">
+                        <p class="card-label">{{ t.age }}</p>
+                        <p class="card-value" id="age-calendar"></p>
+                    </div>
+                    <div class="card">
+                        <p class="card-label">{{ t.total }}</p>
+                        <p class="card-value card-value-small" id="age-total"></p>
+                    </div>
+                    <div class="card card-wide" id="corrected-card" hidden>
+                        <p class="card-label">{{ t.corrected_age }}</p>
+                        <p class="card-value" id="corrected-value"></p>
+                        <p class="card-sub" id="corrected-detail"></p>
+                    </div>
+                    <div class="card card-wide">
+                        <h3 class="card-label" id="milestones-title">{{ t.milestones }}</h3>
+                        <ul class="milestones" id="milestones" aria-labelledby="milestones-title"></ul>
+                        <button type="button" class="button-link calendar-button" id="calendar-baby">{{ t.add_to_calendar }}</button>
+                    </div>
+                    <details class="card card-wide growth" id="growth">
+                        <summary>{{ t.growth }}</summary>
+                        <fieldset class="basis sex">
+                            <legend>{{ t.sex }}</legend>
+                            <label class="radio"><input type="radio" name="sex" value="f"> {{ t.girl }}</label>
+                            <label class="radio"><input type="radio" name="sex" value="m"> {{ t.boy }}</label>
+                        </fieldset>
+                        <fieldset class="basis measure-tabs">
+                            <legend class="visually-hidden">{{ t.chart_measure }}</legend>
+                            <label class="radio"><input type="radio" name="measure" value="weight" checked> {{ t.measure_weight }}</label>
+                            <label class="radio"><input type="radio" name="measure" value="length"> {{ t.measure_length }}</label>
+                            <label class="radio"><input type="radio" name="measure" value="head"> {{ t.measure_head }}</label>
+                        </fieldset>
+                        <div class="growth-chart" id="growth-chart"></div>
+                        <p class="hint" id="growth-corrected" hidden></p>
+                        <div class="measurements" id="measurements-box" hidden>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">{{ t.table_date }}</th>
+                                        <th scope="col">{{ t.measure_weight }} <span class="unit">kg</span></th>
+                                        <th scope="col">{{ t.measure_length }} <span class="unit">cm</span></th>
+                                        <th scope="col">{{ t.table_head }} <span class="unit">cm</span></th>
+                                        <th scope="col"><span class="visually-hidden">{{ t.remove }}</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="measurements"></tbody>
+                            </table>
+                        </div>
+                        <details class="measure-add" id="measure-add">
+                            <summary>{{ t.add_measurement }}</summary>
+                            <form id="measure-form" class="measure-form" novalidate>
+                                <div class="measure-fields">
+                                    <div class="field">
+                                        <label for="measure-date">{{ t.measure_date }}</label>
+                                        <input type="date" id="measure-date" name="measure-date">
+                                    </div>
+                                    <div class="field">
+                                        <label for="measure-weight">{{ t.weight_kg }}</label>
+                                        <input type="text" id="measure-weight" name="weight" inputmode="decimal" autocomplete="off">
+                                    </div>
+                                    <div class="field">
+                                        <label for="measure-length">{{ t.length_cm }}</label>
+                                        <input type="text" id="measure-length" name="length" inputmode="decimal" autocomplete="off">
+                                    </div>
+                                    <div class="field">
+                                        <label for="measure-head">{{ t.head_cm }}</label>
+                                        <input type="text" id="measure-head" name="head" inputmode="decimal" autocomplete="off">
+                                    </div>
+                                </div>
+                                <button type="submit">{{ t.add_measurement }}</button>
+                            </form>
+                            <p class="error-text" id="measure-error" role="alert" hidden></p>
+                        </details>
+                        <p class="hint">{{ t.growth_note }}
+                            <a href="https://www.who.int/tools/child-growth-standards" rel="noopener">{{ t.growth_source }}</a></p>
+                    </details>
+                </div>
+            </section>
 
-        <details class="backup" id="backup">
-            <summary>{{ t.backup }}</summary>
-            <p class="hint">{{ t.backup_text }}</p>
-            <div class="actions">
-                <button type="button" class="button-secondary" id="backup-download">{{ t.backup_download }}</button>
-                <button type="button" class="button-secondary" id="backup-restore">{{ t.backup_restore }}</button>
-                <button type="button" class="button-secondary backup-link" id="backup-link">{{ t.backup_link }}</button>
+            <section id="pregnancy-result" aria-labelledby="pregnancy-result-title" tabindex="-1" hidden>
+                <h2 id="pregnancy-result-title" class="visually-hidden">{{ t.pregnancy }}</h2>
+                <div class="cards">
+                    <div class="card card-primary">
+                        <p class="card-label">{{ t.pregnancy_duration }}</p>
+                        <p class="card-value" id="pregnancy-duration"></p>
+                        <p class="card-sub" id="pregnancy-detail"></p>
+                    </div>
+                    <div class="card card-wide">
+                        <p class="card-label">{{ t.due_date }}</p>
+                        <p class="card-value"><time id="pregnancy-due"></time> <span class="card-value-note" id="pregnancy-countdown"></span></p>
+                        <progress id="pregnancy-progress" max="280" value="0" aria-labelledby="pregnancy-progress-text"></progress>
+                        <p class="card-sub" id="pregnancy-progress-text"></p>
+                    </div>
+                    <div class="card card-wide">
+                        <h3 class="card-label" id="pregnancy-milestones-title">{{ t.milestones }}</h3>
+                        <ul class="milestones" id="pregnancy-milestones" aria-labelledby="pregnancy-milestones-title"></ul>
+                        <button type="button" class="button-link calendar-button" id="calendar-pregnancy">{{ t.add_to_calendar }}</button>
+                    </div>
+                </div>
+            </section>
+
+            <div id="share" hidden>
+                <button type="button" class="button-secondary share-toggle" id="share-toggle"
+                        aria-expanded="false" aria-controls="share-menu">{{ t.share }}</button>
+                <div class="share-menu" id="share-menu" hidden>
+                    <button type="button" class="button-secondary" id="share-link">{{ t.share_link }}</button>
+                    <button type="button" class="button-secondary" id="copy-text">{{ t.copy_text }}</button>
+                    <button type="button" class="button-secondary" id="share-picture"
+                            data-icon="{{ url_for('static', filename='images/icon-512.png') }}">{{ t.share_picture }}</button>
+                </div>
+                <p class="share-status" id="share-status" role="status"></p>
             </div>
-            <input type="file" id="backup-file" accept="application/json,.json" hidden>
-            <p class="share-status" id="backup-status" role="status"></p>
-        </details>
+
+            <button type="button" class="button-secondary install-button" id="install-app" hidden>{{ t.install }}</button>
+
+            <details class="backup" id="backup">
+                <summary>{{ t.backup }}</summary>
+                <p class="hint">{{ t.backup_text }}</p>
+                <div class="actions">
+                    <button type="button" class="button-secondary" id="backup-download">{{ t.backup_download }}</button>
+                    <button type="button" class="button-secondary" id="backup-restore">{{ t.backup_restore }}</button>
+                    <button type="button" class="button-secondary backup-link" id="backup-link">{{ t.backup_link }}</button>
+                </div>
+                <input type="file" id="backup-file" accept="application/json,.json" hidden>
+                <p class="share-status" id="backup-status" role="status"></p>
+            </details>
+        </div>
 
         <footer class="site-footer">
             <p class="privacy-note">{{ t.privacy_note }}</p>
