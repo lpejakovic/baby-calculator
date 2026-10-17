@@ -1,0 +1,29 @@
+name: Uptime
+
+# Checks the live site every 15 minutes. A failed run means the site is down or broken;
+# GitHub emails the failure to whoever last changed this schedule.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE: https://bc.luka-pejakovic.from.hr
+    steps:
+      - name: Health endpoint
+        run: |
+          body=$(curl -fsS --max-time 20 --retry 3 --retry-delay 10 --retry-all-errors "$SITE/health")
+          echo "$body"
+          echo "$body" | jq -e '.status == "ok"'
+      - name: Croatian and English pages
+        run: |
+          for path in / /en/; do
+            curl -fsS --max-time 20 --retry 3 --retry-delay 10 --retry-all-errors "$SITE$path" | grep -q "Baby Calculator"
+            echo "$path OK"
+          done

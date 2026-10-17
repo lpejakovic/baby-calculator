@@ -57,10 +57,18 @@ def index():
 def index_en():
     return render_page("en")
 
+@app.route('/health')
+@limiter.exempt
+def health():
+    # For uptime monitoring (.github/workflows/uptime.yml)
+    response = jsonify({"status": "ok", "version": APP_VERSION})
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
 @app.route('/robots.txt')
 @limiter.exempt
 def robots():
-    body = f"User-agent: *\nDisallow: /calculate\n\nSitemap: {url_for('sitemap', _external=True)}\n"
+    body = f"User-agent: *\nDisallow: /calculate\nDisallow: /health\n\nSitemap: {url_for('sitemap', _external=True)}\n"
     return Response(body, mimetype='text/plain')
 
 @app.route('/sitemap.xml')

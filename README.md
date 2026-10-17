@@ -42,7 +42,7 @@ The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.7.1**.
 ## Project structure
 
 ```
-app.py                       Flask app, routes (/, /en/, /sw.js, /robots.txt, /sitemap.xml, /calculate), 404 page,
+app.py                       Flask app, routes (/, /en/, /sw.js, /health, /robots.txt, /sitemap.xml, /calculate), 404 page,
                              rate limits, APP_VERSION
 i18n.py                      Page texts in Croatian and English
 utils_dt.py                  Croatian plural helpers and date math for the API
@@ -67,8 +67,9 @@ scripts/make_og_image.py     Regenerates the preview images (needs Pillow and De
 docs/project_digest.md       Project digest / technical overview
 docs/improvements.md         Improvement list (the 2026-10-17 review is complete)
 deploy/                      systemd unit and nginx site config
-setup-sudoers.sh             Allows `sudo systemctl restart baby-calculator` without a password
 .github/workflows/tests.yml  CI
+.github/workflows/uptime.yml Uptime check every 15 minutes
+.github/dependabot.yml       Weekly dependency update PRs
 ```
 
 ## Requirements
@@ -158,8 +159,21 @@ sudo systemctl daemon-reload && sudo systemctl restart baby-calculator
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-After code changes, only `sudo systemctl restart baby-calculator` is needed. `./setup-sudoers.sh` (run once) allows
-exactly that command without a password, for the user who runs it; nothing else is allowed.
+After code changes, only `sudo systemctl restart baby-calculator` is needed. On the server, a sudoers rule in
+`/etc/sudoers.d/baby-calculator` allows exactly that command without a password for the `ubuntu` user:
+
+```
+ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl restart baby-calculator
+```
+
+## Monitoring and updates
+
+- `GET /health` returns `{"status": "ok", "version": "…"}` (never rate limited, not cached).
+- `.github/workflows/uptime.yml` checks `/health`, `/` and `/en/` on the live site every 15 minutes (with retries).
+  A failed run means the site is down; GitHub emails the failure to whoever last changed the schedule.
+  GitHub pauses scheduled workflows after 60 days without repository activity; re-enable it under Actions if that happens.
+- `.github/dependabot.yml` opens weekly update PRs for pip packages and GitHub Actions (minor and patch updates
+  grouped into one PR). The tests run on each PR; merge, then pull on the server and restart.
 
 ## Notes
 

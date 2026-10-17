@@ -234,7 +234,8 @@ def test_robots_txt(client):
     response = client.get("/robots.txt", headers=NGINX)
     assert response.status_code == 200 and response.mimetype == "text/plain"
     assert response.get_data(as_text=True) == (
-        "User-agent: *\nDisallow: /calculate\n\nSitemap: https://bc.luka-pejakovic.from.hr/sitemap.xml\n")
+        "User-agent: *\nDisallow: /calculate\nDisallow: /health\n\n"
+        "Sitemap: https://bc.luka-pejakovic.from.hr/sitemap.xml\n")
 
 
 def test_sitemap(client):
@@ -262,3 +263,12 @@ def test_not_found(client, path, lang, title, home):
     assert f'<html lang="{lang}">' in html and f"<h1>{title}</h1>" in html
     assert f'<a class="button" href="{home}">' in html
     assert '<meta name="robots" content="noindex">' in html
+
+
+def test_health(limiter):
+    client = app_module.app.test_client()
+    for _ in range(60):  # never rate limited, so monitoring can't trip it
+        response = client.get("/health")
+        assert response.status_code == 200
+    assert response.get_json() == {"status": "ok", "version": app_module.APP_VERSION}
+    assert response.headers["Cache-Control"] == "no-store"
