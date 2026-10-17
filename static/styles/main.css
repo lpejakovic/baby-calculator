@@ -55,8 +55,18 @@ body {
 }
 .lang-switch {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
+    column-gap: 4px;
     margin: -8px -8px 0 0;
+}
+.lang-current {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 8px;
+    font-size: .875rem;
+    color: var(--muted);
 }
 .lang-switch a {
     display: inline-flex;
@@ -231,16 +241,11 @@ h1 {
     margin: 4px 0 0;
 }
 .backup .actions {
-    grid-template-columns: 1fr;
     margin-top: 12px;
 }
-@media (min-width: 420px) {
-    .backup .actions {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-.backup-link {
-    grid-column: 1 / -1;
+.actions .backup-link {
+    /* Full row and allowed to wrap: more specific than ".actions button" and ".button-secondary" */
+    flex-basis: 100%;
     white-space: normal;
 }
 .premature summary,
@@ -466,11 +471,15 @@ progress {
     text-align: center;
 }
 .actions {
-    display: grid;
-    /* Side by side from about 390px; stacked on narrower screens so labels stay on one line */
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    /* Buttons as wide as their label, sharing each row; a button that doesn't fit moves to the next row,
+       so labels stay on one line in every language */
+    display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     margin-top: 16px;
+}
+.actions button {
+    flex: 1 1 auto;
 }
 .button-secondary {
     white-space: nowrap;

@@ -23,10 +23,10 @@
         return `${clipped}…`;
     }
 
-    // Non-breaking spaces keep a number with its unit ("7 mjeseci") and "i" / "and" with what follows,
-    // so a line never ends with "7" or "i"
+    // Non-breaking spaces keep a number with its unit ("7 mjeseci") and "i" / "and" / "und" / "e" with what
+    // follows, so a line never ends with "7" or "i"
     function keepTogether(text) {
-        return String(text).replace(/(\d+) (?=\p{L})/gu, '$1\u00a0').replace(/(^| )(i|and) (?=\S)/g, '$1$2\u00a0');
+        return String(text).replace(/(\d+) (?=\p{L})/gu, '$1\u00a0').replace(/(^| )(i|and|und|e) (?=\S)/g, '$1$2\u00a0');
     }
 
     // Greedy word wrap at ordinary spaces; measure(text, font) gives the width in pixels

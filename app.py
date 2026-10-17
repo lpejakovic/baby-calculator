@@ -9,15 +9,16 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from i18n import API_ERRORS, LANGUAGES, PAGE_TEXT, UNSUPPORTED_LANG
+from i18n import API_ERRORS, LANGUAGE_NAMES, LANGUAGES, PAGE_TEXT, UNSUPPORTED_LANG
 from utils_dt import calculate_date_difference, format_datetime, join_units
 
-APP_VERSION = "2.16"
+APP_VERSION = "2.17"
 
 # Cached by the service worker for offline use (besides the page itself)
 SCRIPTS = ["texts", "dates", "calendar", "data", "card", "app"]  # load order
 PRECACHED_STATIC = ["styles/main.css", *(f"js/{name}.js" for name in SCRIPTS), "favicon.ico",
-                    "apple-touch-icon.png", "images/icon-512.png", "manifest.json", "manifest-en.json"]
+                    "apple-touch-icon.png", "images/icon-512.png", "manifest.json",
+                    *(f"manifest-{code}.json" for code in LANGUAGES if code != "hr")]
 
 app = Flask(__name__)
 # nginx is the only proxy in front of the app; trust its X-Forwarded-* headers
@@ -40,32 +41,40 @@ def static_cache_buster(endpoint, values):
         if os.path.isfile(path):
             values['v'] = int(os.stat(path).st_mtime)
 
-PAGE_ENDPOINTS = {"hr": "index", "en": "index_en"}
+OTHER_LANGUAGES = [code for code in LANGUAGES if code != "hr"]  # served at /en/, /de/, /it/
+
+
+def page_url(lang, **kwargs):
+    """Croatian is the default page "/"; the other languages are "/<lang>/"."""
+    return url_for('index', **kwargs) if lang == "hr" else url_for('index_lang', lang=lang, **kwargs)
+
+
+def page_urls():
+    return {code: page_url(code, _external=True) for code in LANGUAGES}
 
 
 def render_page(lang):
-    page_urls = {code: url_for(PAGE_ENDPOINTS[code], _external=True) for code in LANGUAGES}
-    other_lang = "en" if lang == "hr" else "hr"
     return render_template('index.html', version=APP_VERSION, lang=lang, t=PAGE_TEXT[lang], scripts=SCRIPTS,
-                           page_urls=page_urls, other_lang=other_lang)
+                           page_urls=page_urls(), language_names=LANGUAGE_NAMES)
 
 @app.route('/')
 @limiter.exempt
 def index():
-    # Visitors who chose English (the "lang" cookie, set by the language switch) go straight to /en/;
-    # the browser keeps any "#..." part of the URL across the redirect
-    if request.cookies.get('lang') == 'en':
+    # Visitors who chose another language (the "lang" cookie, set by the language switch) go straight to its
+    # page; the browser keeps any "#..." part of the URL across the redirect
+    chosen = request.cookies.get('lang')
+    if chosen in OTHER_LANGUAGES:
         query = request.query_string.decode()
-        response = redirect(url_for('index_en') + (f'?{query}' if query else ''))
+        response = redirect(page_url(chosen) + (f'?{query}' if query else ''))
     else:
         response = make_response(render_page("hr"))
     response.vary.add('Cookie')
     return response
 
-@app.route('/en/')
+@app.route(f"/<any({', '.join(OTHER_LANGUAGES)}):lang>/")
 @limiter.exempt
-def index_en():
-    return render_page("en")
+def index_lang(lang):
+    return render_page(lang)
 
 @app.route('/health')
 @limiter.exempt
@@ -84,19 +93,19 @@ def robots():
 @app.route('/sitemap.xml')
 @limiter.exempt
 def sitemap():
-    page_urls = {code: url_for(PAGE_ENDPOINTS[code], _external=True) for code in LANGUAGES}
-    return Response(render_template('sitemap.xml', page_urls=page_urls), mimetype='application/xml')
+    return Response(render_template('sitemap.xml', page_urls=page_urls()), mimetype='application/xml')
 
 @app.errorhandler(404)
 def not_found(e):
-    lang = "en" if request.path.startswith("/en/") else "hr"
-    return render_template('404.html', lang=lang, t=PAGE_TEXT[lang], home=url_for(PAGE_ENDPOINTS[lang])), 404
+    first = request.path.strip('/').split('/')[0]
+    lang = first if first in OTHER_LANGUAGES else "hr"
+    return render_template('404.html', lang=lang, t=PAGE_TEXT[lang], home=page_url(lang)), 404
 
 @app.route('/sw.js')
 @limiter.exempt
 def service_worker():
     # Served from the root so it can control the whole site, not just /static/
-    pages = [url_for(endpoint) for endpoint in PAGE_ENDPOINTS.values()]
+    pages = [page_url(code) for code in LANGUAGES]
     assets = pages + [url_for('static', filename=name) for name in PRECACHED_STATIC]
     version = hashlib.sha256(json.dumps([APP_VERSION, assets]).encode()).hexdigest()[:12]
     response = make_response(render_template('sw.js', version=version, assets=assets, pages=pages))

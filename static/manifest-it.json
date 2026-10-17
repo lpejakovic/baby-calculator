@@ -1,0 +1,32 @@
+{
+    "id": "/it/",
+    "name": "Baby Calculator",
+    "short_name": "Baby Calculator",
+    "description": "Calcola l’età del tuo bambino in settimane, mesi e giorni, in tempo reale al secondo.",
+    "lang": "it",
+    "start_url": "/it/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#f6f3fb",
+    "theme_color": "#f6f3fb",
+    "icons": [
+        {
+            "src": "images/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "images/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "images/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

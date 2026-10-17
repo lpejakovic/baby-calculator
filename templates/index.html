@@ -36,7 +36,13 @@
 <body>
     <main class="container">
         <nav class="lang-switch" aria-label="{{ t.switch_label }}">
-            <a href="{{ page_urls[other_lang] }}" hreflang="{{ other_lang }}" lang="{{ other_lang }}">{{ t.switch_to }}</a>
+            {%- for code, url in page_urls.items() %}
+            {%- if code == lang %}
+            <span class="lang-current" lang="{{ code }}" aria-current="page">{{ language_names[code] }}</span>
+            {%- else %}
+            <a href="{{ url }}" hreflang="{{ code }}" lang="{{ code }}">{{ language_names[code] }}</a>
+            {%- endif %}
+            {%- endfor %}
         </nav>
         <h1>Baby Calculator <span class="version-text">v{{ version }}</span></h1>
 

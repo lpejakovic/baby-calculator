@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.17 – 2026-10-17
+- German (`/de/`) and Italian (`/it/`), also in the API (`lang=de`, `lang=it`).
+- The language switch lists all languages; action buttons wrap instead of squeezing long labels.
+
 ## 2.16 – 2026-10-17
 - "Podijeli sliku": a 1080×1080 picture of the age or pregnancy, drawn in the browser, for messaging apps.
 

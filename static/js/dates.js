@@ -133,7 +133,7 @@
         const t = texts(lang);
         if (daysLeft === 0) return t.today;
         if (daysLeft === 1) return t.tomorrow;
-        return t.inDays(unit(daysLeft, 'day', lang));
+        return t.inDays(daysLeft);
     }
 
     function formatDate(ms, lang = 'hr') {
@@ -250,7 +250,7 @@
     }
 
     function dueCountdown(daysToDue, lang = 'hr') {
-        if (daysToDue < 0) return texts(lang).ago(unit(-daysToDue, 'day', lang));
+        if (daysToDue < 0) return texts(lang).ago(-daysToDue);
         return countdown(daysToDue, lang);
     }
 

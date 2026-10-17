@@ -6,7 +6,7 @@
     const {
         BACKUP_MAX_BYTES, DAY, PREGNANCY_DAYS, addSharedChild, babyCalendarEvents, buildBackupLink, buildIcs,
         buildShareUrl, calculateAge, childLabel, cleanChild, convertPregnancy, correctedAge, correctedAgeError,
-        countdown, drawCard, dueCountdown, formatBirth, layoutCard, formatDate, isoDate, joinParts, makeBackup, mergeChildren,
+        TEXT, countdown, drawCard, dueCountdown, formatBirth, layoutCard, formatDate, isoDate, joinParts, makeBackup, mergeChildren,
         nextChildId, normalizeChildren, parseBackup, parseBirth, pregnancyCalendarEvents, pregnancyError,
         pregnancyLmp, pregnancyMilestones, pregnancyStatus, readBackupLink, readSharedBirth,
         readSharedPregnancy, removeChild, startOfDay, texts, todayValue, upcomingMilestones, validPregnancy,
@@ -55,15 +55,16 @@
 
     if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', function () {
         const $ = (id) => document.getElementById(id);
-        // The /en/ page has <html lang="en">
-        const lang = document.documentElement.lang === 'en' ? 'en' : 'hr';
+        // Each language page has its own <html lang>; anything else is treated as Croatian
+        const pageLang = document.documentElement.lang;
+        const lang = Object.prototype.hasOwnProperty.call(TEXT, pageLang) ? pageLang : 'hr';
         const t = texts(lang);
 
-        // The chosen language is kept in a cookie; the server redirects "/" to "/en/" when it says "en".
+        // The chosen language is kept in a cookie; the server redirects "/" to "/en/", "/de/" or "/it/" accordingly.
         // Offline (page from the service worker cache) the page does the redirect itself.
-        const savedLang = (document.cookie.match(/(?:^|; )lang=(hr|en)(?:;|$)/) || [])[1];
-        if (lang === 'hr' && savedLang === 'en') {
-            location.replace(`/en/${location.search}${location.hash}`);
+        const savedLang = (document.cookie.match(/(?:^|; )lang=([a-z]{2})(?:;|$)/) || [])[1];
+        if (lang === 'hr' && savedLang && savedLang !== 'hr' && Object.prototype.hasOwnProperty.call(TEXT, savedLang)) {
+            location.replace(`/${savedLang}/${location.search}${location.hash}`);
             return;
         }
         document.querySelectorAll('.lang-switch a').forEach((link) => link.addEventListener('click', function () {
