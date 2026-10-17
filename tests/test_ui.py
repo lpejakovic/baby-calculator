@@ -82,6 +82,58 @@ def test_milestones(open_page):
         assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", items.nth(i).locator("time").get_attribute("datetime"))
 
 
+def test_opens_shared_link(browser, base_url):
+    context = browser.new_context()
+    page = context.new_page()
+    page.goto(base_url + "?d=2026-09-01T08:30")
+    assert page.input_value("#birth-date") == "2026-09-01"
+    assert page.input_value("#birth-time") == "08:30"
+    assert page.is_visible("#result")
+    assert page.url == base_url  # parameter removed after loading
+    assert page.evaluate("localStorage.getItem('birth')") == '{"date":"2026-09-01","time":"08:30"}'
+    context.close()
+
+
+def test_invalid_shared_link_is_ignored(browser, base_url):
+    context = browser.new_context()
+    page = context.new_page()
+    page.goto(base_url + "?d=2026-02-30")
+    assert page.input_value("#birth-date") == ""
+    assert page.is_hidden("#result")
+    context.close()
+
+
+def test_share_uses_share_sheet(open_page, base_url):
+    page = open_page()
+    page.evaluate("navigator.share = async (data) => { window.sharedData = data; }")
+    calculate(page)
+    page.click("#share-link")
+    data = page.wait_for_function("window.sharedData").json_value()
+    assert data["url"] == base_url + "?d=2025-03-04T17:45"
+    assert data["text"].startswith("Dob: ")
+    assert data["text"].endswith("Rođenje: 04.03.2025. u 17:45.")
+
+
+def test_share_falls_back_to_copying_link(open_page, base_url):
+    page = open_page(permissions=["clipboard-read", "clipboard-write"])
+    page.evaluate("delete Navigator.prototype.share; delete navigator.share")
+    calculate(page, time="")
+    page.click("#share-link")
+    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    assert page.text_content("#share-status") == "Poveznica je kopirana."
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "?d=2025-03-04"
+
+
+def test_copy_text(open_page):
+    page = open_page(permissions=["clipboard-read", "clipboard-write"])
+    calculate(page, time="")
+    page.click("#copy-text")
+    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    assert page.text_content("#share-status") == "Tekst je kopiran."
+    text = page.evaluate("navigator.clipboard.readText()")
+    assert re.fullmatch(r"Dob: .+ \(.+\)\. Rođenje: 04\.03\.2025\.", text), text
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)
@@ -136,6 +188,7 @@ def test_responsive_layout(open_page, width, height, columns, scheme):
             overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
             top: box.top, left: box.left, right: innerWidth - box.right,
             button: document.querySelector('button').getBoundingClientRect().height,
+            actions: [...document.querySelectorAll('.actions button')].map(b => b.getBoundingClientRect().height),
             inputs: [...document.querySelectorAll('input')].map(i => i.getBoundingClientRect().height),
             columns: getComputedStyle(document.querySelector('.cards')).gridTemplateColumns.split(' ').length,
         };
@@ -144,5 +197,7 @@ def test_responsive_layout(open_page, width, height, columns, scheme):
     assert layout["top"] >= 0
     assert layout["left"] >= 16 and layout["right"] >= 16
     assert layout["button"] >= 44
+    # Share buttons: touch-sized and labels on one line
+    assert all(44 <= height < 60 for height in layout["actions"]), layout["actions"]
     assert min(layout["inputs"]) >= 44
     assert layout["columns"] == columns

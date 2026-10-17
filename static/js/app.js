@@ -137,6 +137,18 @@
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     }
 
+    // ?d=YYYY-MM-DD or ?d=YYYY-MM-DDTHH:MM
+    function readSharedBirth(search) {
+        const match = /[?&]d=([^&#]*)/.exec(search || '');
+        if (!match) return null;
+        const [date, time = ''] = decodeURIComponent(match[1]).split('T');
+        return parseBirth(date, time) === null ? null : { date, time };
+    }
+
+    function buildShareUrl(base, date, time) {
+        return `${base}?d=${date}${time ? `T${time}` : ''}`;
+    }
+
     function load() {
         try {
             const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
@@ -175,6 +187,10 @@
             bornAt: document.getElementById('born-at'),
             milestones: document.getElementById('milestones'),
         };
+        const shareButton = document.getElementById('share-link');
+        const copyButton = document.getElementById('copy-text');
+        const shareStatus = document.getElementById('share-status');
+        let statusTimer = null;
         let timer = null;
         let milestonesDay = null;
 
@@ -240,12 +256,65 @@
             timer = setInterval(() => render(birth), 1000);
         }
 
+        function summary() {
+            const born = out.bornAt.textContent;
+            return `Dob: ${out.calendar.textContent} (${out.weeks.textContent}). ${born}${born.endsWith('.') ? '' : '.'}`;
+        }
+
+        function showStatus(message) {
+            clearTimeout(statusTimer);
+            shareStatus.textContent = message;
+            statusTimer = setTimeout(() => { shareStatus.textContent = ''; }, 4000);
+        }
+
+        async function copy(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (e) {
+                // Older browsers: copy from a temporary textarea
+                const area = document.createElement('textarea');
+                area.value = text;
+                area.setAttribute('readonly', '');
+                area.className = 'visually-hidden';
+                document.body.append(area);
+                area.select();
+                const ok = document.execCommand('copy');
+                area.remove();
+                return ok;
+            }
+        }
+
+        shareButton.addEventListener('click', async function () {
+            const url = buildShareUrl(location.origin + location.pathname, dateInput.value, timeInput.value);
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'Baby Calculator', text: summary(), url });
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                }
+            }
+            showStatus(await copy(url) ? 'Poveznica je kopirana.' : 'Kopiranje nije uspjelo.');
+        });
+
+        copyButton.addEventListener('click', async function () {
+            showStatus(await copy(summary()) ? 'Tekst je kopiran.' : 'Kopiranje nije uspjelo.');
+        });
+
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             calculate();
         });
         dateInput.addEventListener('change', () => dateInput.value && calculate());
         timeInput.addEventListener('change', () => dateInput.value && calculate());
+
+        const shared = readSharedBirth(location.search);
+        if (shared) {
+            // The shared date is saved like a normal entry, so the link isn't needed after this
+            save(shared);
+            history.replaceState(null, '', location.pathname + location.hash);
+        }
 
         const saved = load();
         if (saved) {
@@ -257,6 +326,6 @@
 
     // Exposed for tests
     if (typeof module !== 'undefined') {
-        module.exports = { plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate };
+        module.exports = { plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate, readSharedBirth, buildShareUrl };
     }
 })();

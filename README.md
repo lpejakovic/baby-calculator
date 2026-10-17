@@ -9,7 +9,7 @@ The age is shown in three forms, with Croatian labels that use the correct gramm
 
 It also lists the next three milestones (month birthdays, birthdays, 100/500/1000… days) with a countdown.
 
-The UI is in Croatian. Current version: **v2.1**.
+The UI is in Croatian. Current version: **v2.2**.
 
 ## Features
 
@@ -18,6 +18,8 @@ The UI is in Croatian. Current version: **v2.1**.
 - Future dates are rejected
 - Upcoming milestones: month birthdays (1–23 months), birthdays and day counts (100, 200, 300, 500, 1,000 … 10,000 days),
   with the date and "danas" / "sutra" / "za N dana"
+- Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` opens the page with that date. "Podijeli" opens the phone's
+  share sheet (or copies the link), and "Kopiraj tekst" copies a one-line summary
 - The last entered birth date is kept in `localStorage` and the result is shown straight away on the next visit
   (a v1.x cookie is moved over automatically)
 - Responsive layout (phone to desktop), dark mode, WCAG AA contrast, keyboard focus styles, screen-reader announcements
@@ -35,7 +37,7 @@ requirements-dev.txt         Test dependencies (pytest, QuickJS, Playwright)
 pytest.ini                   pytest settings
 tests/                       Python, JavaScript and browser tests
 templates/index.html         Page and form
-static/js/app.js             Age calculation, live counter, milestones, localStorage
+static/js/app.js             Age calculation, live counter, milestones, sharing, localStorage
 static/styles/main.css       Styles (light and dark)
 static/favicon.ico           Favicon (16 and 32 px)
 static/apple-touch-icon.png  Home-screen icon (180 px)
@@ -73,8 +75,8 @@ pytest -m "not ui"                                   # without the browser tests
 - `tests/test_api.py`: `/` and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
 - `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
   plus month ends, leap years and DST; milestones against a `relativedelta` reference on 500 random dates;
-  plurals, date parsing and text joining
-- `tests/test_ui.py`: headless Chromium: live counter, milestones, saved date, cookie migration, future dates, visitor time zone,
+  share links; plurals, date parsing and text joining
+- `tests/test_ui.py`: headless Chromium: live counter, milestones, share link and copy buttons, saved date, cookie migration, future dates, visitor time zone,
   and layout at 320–1280 px in light and dark mode (no sideways scrolling, 16 px edges, 44 px touch targets)
 
 GitHub Actions (`.github/workflows/tests.yml`) runs the unit tests and the browser tests on every push to `main` and on pull requests.

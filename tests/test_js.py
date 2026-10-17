@@ -159,3 +159,28 @@ def test_milestones_match_reference(js):
 @pytest.mark.parametrize("days, expected", [(0, "danas"), (1, "sutra"), (2, "za 2 dana"), (21, "za 21 dan"), (100, "za 100 dana")])
 def test_countdown(js, days, expected):
     assert js.eval(f"M.countdown({days})") == expected
+
+
+@pytest.mark.parametrize("search, expected", [
+    ("?d=2026-09-01", {"date": "2026-09-01", "time": ""}),
+    ("?d=2026-09-01T08:30", {"date": "2026-09-01", "time": "08:30"}),
+    ("?d=2026-09-01T08%3A30", {"date": "2026-09-01", "time": "08:30"}),
+    ("?x=1&d=2026-09-01&y=2", {"date": "2026-09-01", "time": ""}),
+    ("?d=2026-02-30", None),
+    ("?d=2026-09-01T25:00", None),
+    ("?d=", None),
+    ("?dd=2026-09-01", None),
+    ("", None),
+])
+def test_read_shared_birth(js, search, expected):
+    assert call(js, f"M.readSharedBirth({json.dumps(search)})") == expected
+
+
+def test_build_share_url(js):
+    assert js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '08:30')") == "https://bc.example/?d=2026-09-01T08:30"
+    assert js.eval("M.buildShareUrl('https://bc.example/', '2026-09-01', '')") == "https://bc.example/?d=2026-09-01"
+
+
+def test_share_url_round_trip(js):
+    url = js.eval("M.buildShareUrl('https://bc.example/', '2024-02-29', '23:59')")
+    assert call(js, f"M.readSharedBirth({json.dumps(url[url.index('?'):])})") == {"date": "2024-02-29", "time": "23:59"}
