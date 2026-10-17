@@ -1,3 +1,4 @@
+import json
 import re
 import struct
 
@@ -36,8 +37,7 @@ def test_link_preview(client):
     image = client.get(meta["og:image"].removeprefix("https://bc.luka-pejakovic.from.hr"))
     assert image.status_code == 200
     data = image.get_data()
-    assert data[:8] == b"\x89PNG\r\n\x1a\n"
-    assert struct.unpack(">II", data[16:24]) == (1200, 630)
+    assert png_size(data) == (1200, 630)
     assert len(data) < 300 * 1024  # WhatsApp skips large preview images
 
 
@@ -113,3 +113,51 @@ def test_rate_limit_per_client_ip(limiter, frozen_time):
 def test_index_not_rate_limited(limiter):
     client = app_module.app.test_client()
     assert {client.get("/").status_code for _ in range(20)} == {200}
+
+
+def png_size(data):
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    return struct.unpack(">II", data[16:24])
+
+
+def test_manifest(client):
+    html = client.get("/").get_data(as_text=True)
+    href = re.search(r'<link rel="manifest" href="([^"]+)"', html).group(1)
+    response = client.get(href)
+    assert response.status_code == 200
+    manifest = json.loads(response.get_data())
+    assert manifest["name"] and manifest["short_name"]
+    assert (manifest["start_url"], manifest["scope"], manifest["display"]) == ("/", "/", "standalone")
+    purposes = {icon["purpose"] for icon in manifest["icons"]}
+    assert purposes == {"any", "maskable"}
+    sizes = {icon["sizes"] for icon in manifest["icons"] if icon["purpose"] == "any"}
+    assert {"192x192", "512x512"} <= sizes
+    for icon in manifest["icons"]:
+        image = client.get("/static/" + icon["src"])
+        assert image.status_code == 200, icon["src"]
+        width, height = (int(n) for n in icon["sizes"].split("x"))
+        assert png_size(image.get_data()) == (width, height)
+
+
+def test_service_worker(client):
+    response = client.get("/sw.js")
+    assert response.status_code == 200
+    assert response.headers["Content-Type"].startswith("text/javascript")
+    assert response.headers["Cache-Control"] == "no-cache"
+    precache = json.loads(re.search(r"const PRECACHE = (\[.*?\]);", response.get_data(as_text=True)).group(1))
+
+    # Everything the page loads from this site is precached, with the same versioned URL
+    html = client.get("/").get_data(as_text=True)
+    page_assets = set(re.findall(r'(?:href|src)="(/static/[^"]+)"', html))
+    assert "/" in precache
+    assert page_assets <= set(precache)
+    for url in precache:
+        assert client.get(url).status_code == 200, url
+
+
+def test_service_worker_changes_with_assets(client, monkeypatch):
+    before = client.get("/sw.js").get_data(as_text=True)
+    monkeypatch.setattr(app_module, "APP_VERSION", "0.0-test")
+    after = client.get("/sw.js").get_data(as_text=True)
+    cache_name = re.compile(r"const CACHE = '(bc-[0-9a-f]+)'")
+    assert cache_name.search(before).group(1) != cache_name.search(after).group(1)

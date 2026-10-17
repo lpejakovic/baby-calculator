@@ -1,14 +1,19 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, make_response, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
+import hashlib
+import json
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from utils_dt import (YEARS, MONTHS, WEEKS, DAYS, HOURS, MINUTES, SECONDS,
                       plural, format_datetime, calculate_date_difference)
 
-APP_VERSION = "2.3"
+APP_VERSION = "2.4"
+
+# Cached by the service worker for offline use (besides the page itself)
+PRECACHED_STATIC = ["styles/main.css", "js/app.js", "favicon.ico", "apple-touch-icon.png", "manifest.json"]
 
 app = Flask(__name__)
 # nginx is the only proxy in front of the app; trust its X-Forwarded-* headers
@@ -35,6 +40,17 @@ def static_cache_buster(endpoint, values):
 @limiter.exempt
 def index():
     return render_template('index.html', version=APP_VERSION)
+
+@app.route('/sw.js')
+@limiter.exempt
+def service_worker():
+    # Served from the root so it can control the whole site, not just /static/
+    assets = [url_for('index')] + [url_for('static', filename=name) for name in PRECACHED_STATIC]
+    version = hashlib.sha256(json.dumps([APP_VERSION, assets]).encode()).hexdigest()[:12]
+    response = make_response(render_template('sw.js', version=version, assets=assets))
+    response.headers['Content-Type'] = 'text/javascript; charset=utf-8'
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
 
 @app.route('/calculate', methods=['POST'])
 @limiter.limit(throttle_string)

@@ -9,7 +9,7 @@ The age is shown in three forms, with Croatian labels that use the correct gramm
 
 It also lists the next three milestones (month birthdays, birthdays, 100/500/1000… days) with a countdown.
 
-The UI is in Croatian. Current version: **v2.3**.
+The UI is in Croatian. Current version: **v2.4**.
 
 ## Features
 
@@ -18,6 +18,8 @@ The UI is in Croatian. Current version: **v2.3**.
 - Future dates are rejected
 - Upcoming milestones: month birthdays (1–23 months), birthdays and day counts (100, 200, 300, 500, 1,000 … 10,000 days),
   with the date and "danas" / "sutra" / "za N dana"
+- Installable app (PWA) that works offline: manifest, service worker, and an "Instaliraj aplikaciju" button
+  where the browser supports it
 - Link preview (Open Graph): title, description and a 1200×630 image for Viber, WhatsApp, Facebook and others
 - Share link: `?d=2026-09-01` or `?d=2026-09-01T08:30` opens the page with that date. "Podijeli" opens the phone's
   share sheet (or copies the link), and "Kopiraj tekst" copies a one-line summary
@@ -30,7 +32,7 @@ The UI is in Croatian. Current version: **v2.3**.
 ## Project structure
 
 ```
-app.py                       Flask app, routes, rate limits, APP_VERSION
+app.py                       Flask app, routes (/, /sw.js, /calculate), rate limits, APP_VERSION
 utils_dt.py                  Croatian plural helpers and date math for the API
 wsgi.py                      WSGI entry point for Gunicorn
 requirements.txt             Pinned Python dependencies
@@ -38,11 +40,14 @@ requirements-dev.txt         Test dependencies (pytest, QuickJS, Playwright)
 pytest.ini                   pytest settings
 tests/                       Python, JavaScript and browser tests
 templates/index.html         Page and form
+templates/sw.js              Service worker (rendered with the current asset URLs)
+static/manifest.json         Web app manifest
 static/js/app.js             Age calculation, live counter, milestones, sharing, localStorage
 static/styles/main.css       Styles (light and dark)
 static/favicon.ico           Favicon (16 and 32 px)
 static/apple-touch-icon.png  Home-screen icon (180 px)
 static/images/icon-1024.webp Full-size icon artwork
+static/images/icon-*.png     App icons (192, 512, maskable 512)
 static/images/og-image.png   Link preview image (1200×630), made by scripts/make_og_image.py
 scripts/make_og_image.py     Regenerates the preview image (needs Pillow and DejaVu fonts)
 docs/project_digest.md       Project digest / technical overview
@@ -75,11 +80,12 @@ pytest -m "not ui"                                   # without the browser tests
 ```
 
 - `tests/test_utils_dt.py`: Croatian plural rules and date math for the API
-- `tests/test_api.py`: page, link preview tags and image, and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
+- `tests/test_api.py`: page, link preview, manifest and icons, service worker, and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
 - `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
   plus month ends, leap years and DST; milestones against a `relativedelta` reference on 500 random dates;
   share links; plurals, date parsing and text joining
-- `tests/test_ui.py`: headless Chromium: live counter, milestones, share link and copy buttons, saved date, cookie migration, future dates, visitor time zone,
+- `tests/test_ui.py`: headless Chromium: live counter, milestones, share link and copy buttons, offline use,
+  install button, saved date, cookie migration, future dates, visitor time zone,
   and layout at 320–1280 px in light and dark mode (no sideways scrolling, 16 px edges, 44 px touch targets)
 
 GitHub Actions (`.github/workflows/tests.yml`) runs the unit tests and the browser tests on every push to `main` and on pull requests.

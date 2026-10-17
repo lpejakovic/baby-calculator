@@ -212,6 +212,10 @@ button:focus-visible {
     color: var(--on-primary);
     background: var(--primary);
 }
+.install-button {
+    width: 100%;
+    margin-top: 16px;
+}
 .share-status {
     min-height: 1.4em;
     margin: 8px 0 0;

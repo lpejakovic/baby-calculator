@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </head>
@@ -72,6 +73,8 @@
             </div>
             <p class="share-status" id="share-status" role="status"></p>
         </section>
+
+        <button type="button" class="button-secondary install-button" id="install-app" hidden>Instaliraj aplikaciju</button>
 
         <p id="announce" class="visually-hidden" aria-live="polite"></p>
     </main>

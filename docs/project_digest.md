@@ -7,7 +7,7 @@ _Generated 2026-10-17 at v1.3 (commit `4415c13`); updated for v2.0._
 baby-calculator is a single-page app that takes a baby's date and time of birth and shows the age
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 120 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 125 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -26,7 +26,7 @@ Dependencies are pinned in `requirements.txt`.
 
 | File                     | Purpose |
 |--------------------------|---------|
-| `app.py`                 | Flask app, `APP_VERSION`, Limiter setup, routes `/` and `/calculate` |
+| `app.py`                 | Flask app, `APP_VERSION`, Limiter setup, routes `/`, `/sw.js` and `/calculate` |
 | `utils_dt.py`            | API only: `plural()` and Croatian word forms, `format_datetime()`, `calculate_date_difference()` |
 | `wsgi.py`                | Gunicorn entry point (`wsgi:app`) |
 | `requirements.txt`       | Pinned dependencies |
@@ -35,6 +35,8 @@ Dependencies are pinned in `requirements.txt`.
 | `requirements-dev.txt`   | Test dependencies |
 | `.github/workflows/tests.yml` | CI: unit job and browser job |
 | `templates/index.html`   | Form, result cards, meta and Open Graph tags (absolute `og:image` via `_external=True`) |
+| `templates/sw.js`        | Service worker template: precache list and cache name come from the current versioned asset URLs |
+| `static/manifest.json`   | Web app manifest (standalone, icons 192/512/maskable) |
 | `static/js/app.js`       | Date parsing, `calculateAge()`, `upcomingMilestones()`, share link, Croatian plurals, live counter, `localStorage` |
 | `static/styles/main.css` | CSS variables, light/dark themes, responsive card layout (max width 640px) |
 | `static/favicon.ico`     | Favicon, 16 and 32 px (3.9 KB) |
@@ -59,6 +61,10 @@ Dependencies are pinned in `requirements.txt`.
 6. "Podijeli" calls `navigator.share()` with the link and a summary, or copies the link where sharing isn't available;
    "Kopiraj tekst" copies the summary. Both use the Clipboard API with a `textarea` fallback, and report in a `role="status"` line.
 7. A visually hidden `aria-live` region announces the result once; the ticking counter is not announced.
+8. The script registers `/sw.js`. Flask renders it with the page and versioned static URLs, so any static change gives a new
+   service worker and cache name; old caches are deleted on activation. The page is network-first with a cached fallback,
+   static files are cache-first, and `/calculate` is never cached. Where Chrome fires `beforeinstallprompt`, an
+   "Instaliraj aplikaciju" button appears.
 
 ## API flow (`POST /calculate`)
 
@@ -104,6 +110,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.1**: upcoming milestones |
 | 2026-10-17 | **v2.2**: share link, "Podijeli" and "Kopiraj tekst" |
 | 2026-10-17 | **v2.3**: link preview image |
+| 2026-10-17 | **v2.4**: installable app (PWA), works offline |
 
 ## Observations and issues
 
@@ -122,7 +129,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 120 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 125 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps

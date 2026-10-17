@@ -134,6 +134,34 @@ def test_copy_text(open_page):
     assert re.fullmatch(r"Dob: .+ \(.+\)\. Rođenje: 04\.03\.2025\.", text), text
 
 
+def test_works_offline(open_page):
+    page = open_page()
+    # Fails after 10 s (instead of hanging) if the service worker never takes control
+    page.wait_for_function("navigator.serviceWorker.controller !== null", timeout=10_000)
+    page.context.set_offline(True)
+    page.reload()
+    calculate(page)
+    assert page.is_visible("#result")
+    assert page.text_content("#age-weeks")
+    assert page.evaluate("getComputedStyle(document.body).backgroundColor") != "rgba(0, 0, 0, 0)"  # CSS from cache
+
+
+def test_install_button(open_page):
+    page = open_page()
+    assert page.is_hidden("#install-app")
+    # Simulate Chrome offering installation
+    page.evaluate("""() => {
+        const event = new Event('beforeinstallprompt', { cancelable: true });
+        event.prompt = () => { window.installPrompted = true; };
+        event.userChoice = Promise.resolve({ outcome: 'accepted' });
+        window.dispatchEvent(event);
+    }""")
+    assert page.is_visible("#install-app")
+    page.click("#install-app")
+    assert page.evaluate("window.installPrompted") is True
+    assert page.is_hidden("#install-app")
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)

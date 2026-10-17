@@ -316,6 +316,27 @@
             history.replaceState(null, '', location.pathname + location.hash);
         }
 
+        // Offline support and installing as an app
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => { /* the page works without it */ });
+        }
+        const installButton = document.getElementById('install-app');
+        let installPrompt = null;
+        window.addEventListener('beforeinstallprompt', function (event) {
+            // Chrome/Android: offer our own button instead of the browser's mini-infobar
+            event.preventDefault();
+            installPrompt = event;
+            installButton.hidden = false;
+        });
+        installButton.addEventListener('click', async function () {
+            installButton.hidden = true;
+            if (!installPrompt) return;
+            installPrompt.prompt();
+            await installPrompt.userChoice;
+            installPrompt = null;
+        });
+        window.addEventListener('appinstalled', () => { installButton.hidden = true; });
+
         const saved = load();
         if (saved) {
             dateInput.value = saved.date;
