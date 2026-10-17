@@ -90,6 +90,12 @@
             correctedStartsIn: (when, due) => `${when} (termin ${due})`,
             gestationAtBirth: (w, d) => `Gestacijska dob pri rođenju:\u00a0${w}+${d}`,
             correctedUntil2: 'Korekcija se obično koristi do 2. godine.',
+            backupRestored: 'Podaci su učitani.',
+            backupNothingNew: 'Nema novih podataka – sve je već bilo spremljeno.',
+            backupInvalid: 'Ovo nije ispravna sigurnosna kopija.',
+            backupTooLarge: 'Datoteka je prevelika za sigurnosnu kopiju.',
+            backupLinkCopied: 'Poveznica za prijenos je kopirana.',
+            backupReplacePregnancy: 'Sigurnosna kopija ima druge podatke o trudnoći. Zamijeniti postojeće?',
         },
         en: {
             word: (n, key) => (n === 1 ? key : `${key}s`),
@@ -139,6 +145,12 @@
             correctedStartsIn: (when, due) => `${when} (due ${due})`,
             gestationAtBirth: (w, d) => `Born at ${w}+${d}\u00a0weeks`,
             correctedUntil2: 'Correction is usually used until age 2.',
+            backupRestored: 'Data restored.',
+            backupNothingNew: 'Nothing new – everything was already saved.',
+            backupInvalid: 'This isn’t a valid backup.',
+            backupTooLarge: 'The file is too large for a backup.',
+            backupLinkCopied: 'Transfer link copied.',
+            backupReplacePregnancy: 'The backup has different pregnancy data. Replace the current data?',
         },
     };
 
@@ -417,8 +429,78 @@
             } : c));
             return { children: updated.map(cleanChild), activeId: same.id };
         }
-        const child = cleanChild({ id: nextChildId(children), ...shared });
+        const child = cleanChild({ ...shared, id: nextChildId(children) }); // ignore any id it brings
         return { children: [...children, child], activeId: child.id };
+    }
+
+    // --- Backup and restore ---
+
+    const BACKUP_APP = 'baby-calculator';
+    const BACKUP_VERSION = 1;
+    const BACKUP_MAX_BYTES = 100 * 1024;
+
+    function validPregnancy(p) {
+        return p && (p.basis === 'due' || p.basis === 'lmp') && parseBirth(p.date, '') !== null
+            ? { basis: p.basis, date: p.date } : null;
+    }
+
+    function makeBackup(state, exportedAt) {
+        return {
+            app: BACKUP_APP,
+            version: BACKUP_VERSION,
+            exportedAt,
+            children: state.children.map(cleanChild),
+            activeChild: state.activeChild,
+            pregnancy: validPregnancy(state.pregnancy),
+            mode: state.mode === 'pregnancy' ? 'pregnancy' : 'baby',
+        };
+    }
+
+    // A backup object from JSON text, cleaned like stored data; null if it isn't one
+    function parseBackup(text) {
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            return null;
+        }
+        if (!data || data.app !== BACKUP_APP || data.version !== BACKUP_VERSION) return null;
+        return {
+            children: normalizeChildren(data.children, null),
+            pregnancy: validPregnancy(data.pregnancy),
+            mode: data.mode === 'pregnancy' ? 'pregnancy' : 'baby',
+        };
+    }
+
+    // Imported children are added next to the existing ones; a child with the same birth is
+    // not duplicated but gets a missing name or due date
+    function mergeChildren(local, imported) {
+        let children = local;
+        let added = 0;
+        let changed = 0;
+        imported.forEach((child) => {
+            const before = JSON.stringify(children);
+            const count = children.length;
+            ({ children } = addSharedChild(children, child));
+            if (children.length > count) added += 1;
+            else if (JSON.stringify(children) !== before) changed += 1;
+        });
+        return { children, added, changed };
+    }
+
+    // The data travels after "#", which browsers never send to the server
+    function buildBackupLink(base, backup) {
+        return `${base}#backup=${encodeURIComponent(JSON.stringify(backup))}`;
+    }
+
+    function readBackupLink(hash) {
+        const match = /^#backup=(.+)$/.exec(hash || '');
+        if (!match) return null;
+        try {
+            return parseBackup(decodeURIComponent(match[1]));
+        } catch (e) {
+            return null;
+        }
     }
 
     function removeChild(children, id) {
@@ -908,23 +990,112 @@
         });
         window.addEventListener('appinstalled', () => { installButton.hidden = true; });
 
-        const child = activeChild();
-        if (child) {
-            nameInput.value = child.name;
-            dateInput.value = child.date;
-            timeInput.value = child.time;
-            dueInput.value = child.due;
-            premature.open = Boolean(child.due);
+        // --- Backup and restore ---
+        const backupBox = $('backup');
+        const backupStatus = $('backup-status');
+        const backupFile = $('backup-file');
+
+        function currentBackup() {
+            return makeBackup({ children, activeChild: activeId, pregnancy: restore(PREGNANCY_KEY), mode },
+                new Date().toISOString());
         }
-        store(ACTIVE_CHILD_KEY, activeId);
-        renderChildren();
-        const savedPregnancy = restore(PREGNANCY_KEY);
-        if (savedPregnancy && savedPregnancy.date) {
-            basisInputs.forEach((input) => { input.checked = input.value === savedPregnancy.basis; });
-            pregnancyDate.value = savedPregnancy.date;
+
+        // Merges a backup into the saved data and returns the message to show
+        function applyBackup(backup) {
+            const merged = mergeChildren(children, backup.children);
+            children = merged.children;
+            if (activeChild() === null && children.length) activeId = children[0].id;
+            saveChildren();
+            let pregnancyChanged = false;
+            if (backup.pregnancy) {
+                const local = restore(PREGNANCY_KEY);
+                const same = local && local.basis === backup.pregnancy.basis && local.date === backup.pregnancy.date;
+                if (!same && (!local || !local.date || confirm(t.backupReplacePregnancy))) {
+                    store(PREGNANCY_KEY, backup.pregnancy);
+                    pregnancyChanged = true;
+                }
+            }
+            if (!merged.added && !merged.changed && !pregnancyChanged) return t.backupNothingNew;
+            // Show what was restored
+            store(MODE_KEY, merged.added || merged.changed || !pregnancyChanged ? 'baby' : 'pregnancy');
+            return t.backupRestored;
         }
-        refreshDateLimits();
-        setMode(restore(MODE_KEY) === 'pregnancy' ? 'pregnancy' : 'baby');
+
+        $('backup-download').addEventListener('click', function () {
+            const blob = new Blob([JSON.stringify(currentBackup(), null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `baby-calculator-${todayValue()}.json`;
+            document.body.append(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        });
+        $('backup-restore').addEventListener('click', () => backupFile.click());
+        backupFile.addEventListener('change', async function () {
+            const file = backupFile.files[0];
+            backupFile.value = '';
+            if (!file) return;
+            if (file.size > BACKUP_MAX_BYTES) {
+                backupStatus.textContent = t.backupTooLarge;
+                return;
+            }
+            const backup = parseBackup(await file.text());
+            if (!backup) {
+                backupStatus.textContent = t.backupInvalid;
+                return;
+            }
+            backupStatus.textContent = applyBackup(backup);
+            showSaved();
+        });
+        $('backup-link').addEventListener('click', async function () {
+            const ok = await copy(buildBackupLink(location.origin + location.pathname, currentBackup()));
+            backupStatus.textContent = ok ? t.backupLinkCopied : t.copyFailed;
+        });
+
+        // A transfer link (#backup=...) is merged once and then removed from the address bar
+        function takeBackupLink() {
+            if (!/^#backup=/.test(location.hash)) return null;
+            const linked = readBackupLink(location.hash);
+            history.replaceState(null, '', location.pathname + location.search);
+            return linked ? applyBackup(linked) : t.backupInvalid;
+        }
+        const backupMessage = takeBackupLink();
+
+        // Fills the forms from the saved data and shows the saved mode
+        function showSaved() {
+            const child = activeChild();
+            nameInput.value = child ? child.name : '';
+            dateInput.value = child ? child.date : '';
+            timeInput.value = child ? child.time : '';
+            dueInput.value = child ? child.due : '';
+            premature.open = Boolean(dueInput.value);
+            store(ACTIVE_CHILD_KEY, activeId);
+            renderChildren();
+            const savedPregnancy = restore(PREGNANCY_KEY);
+            if (savedPregnancy && savedPregnancy.date) {
+                basisInputs.forEach((input) => { input.checked = input.value === savedPregnancy.basis; });
+                pregnancyDate.value = savedPregnancy.date;
+            }
+            refreshDateLimits();
+            setMode(restore(MODE_KEY) === 'pregnancy' ? 'pregnancy' : 'baby');
+        }
+
+        function showBackupMessage(message) {
+            if (!message) return;
+            backupBox.open = true;
+            backupStatus.textContent = message;
+        }
+
+        showSaved();
+        showBackupMessage(backupMessage);
+        // A transfer link opened while the page is already open only changes the "#" part
+        window.addEventListener('hashchange', function () {
+            const message = takeBackupLink();
+            if (!message) return;
+            showSaved();
+            showBackupMessage(message);
+        });
     });
 
     // Exposed for tests
@@ -933,7 +1104,7 @@
             plural, FORMS, joinParts, parseBirth, addMonths, calculateAge, upcomingMilestones, countdown, formatDate,
             readSharedBirth, buildShareUrl, lmpFrom, pregnancyStatus, pregnancyError, pregnancyMilestones, dueCountdown,
             readSharedPregnancy, normalizeChildren, nextChildId, childLabel, addSharedChild, removeChild,
-            correctedAge, correctedAgeError,
+            correctedAge, correctedAgeError, makeBackup, parseBackup, mergeChildren, buildBackupLink, readBackupLink,
             TEXT, unit, formatBirth,
         };
     }

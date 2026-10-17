@@ -153,6 +153,18 @@
 
         <button type="button" class="button-secondary install-button" id="install-app" hidden>{{ t.install }}</button>
 
+        <details class="backup" id="backup">
+            <summary>{{ t.backup }}</summary>
+            <p class="hint">{{ t.backup_text }}</p>
+            <div class="actions">
+                <button type="button" class="button-secondary" id="backup-download">{{ t.backup_download }}</button>
+                <button type="button" class="button-secondary" id="backup-restore">{{ t.backup_restore }}</button>
+                <button type="button" class="button-secondary backup-link" id="backup-link">{{ t.backup_link }}</button>
+            </div>
+            <input type="file" id="backup-file" accept="application/json,.json" hidden>
+            <p class="share-status" id="backup-status" role="status"></p>
+        </details>
+
         <p id="announce" class="visually-hidden" aria-live="polite"></p>
     </main>
 </body>

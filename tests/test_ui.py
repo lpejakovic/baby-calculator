@@ -1,6 +1,8 @@
 """Browser tests: page behaviour and responsive layout in headless Chromium."""
+import json
 import re
 import threading
+from pathlib import Path
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -15,10 +17,23 @@ pytestmark = pytest.mark.ui
 BIRTH_DATE, BIRTH_TIME = "2025-03-04", "17:45"
 
 
+NGINX_CONF = Path(__file__).resolve().parent.parent / "deploy" / "nginx-bc.luka-pejakovic.from.hr.conf"
+# The production Content-Security-Policy, so the browser tests fail if it would block anything
+CSP = re.search(r'add_header Content-Security-Policy "([^"]+)"', NGINX_CONF.read_text()).group(1)
+
+
+def with_csp(wsgi_app):
+    def wrapped(environ, start_response):
+        def start(status, headers, exc_info=None):
+            return start_response(status, headers + [("Content-Security-Policy", CSP)], exc_info)
+        return wsgi_app(environ, start)
+    return wrapped
+
+
 @pytest.fixture(scope="module")
 def base_url():
     app_module.limiter.enabled = False
-    server = make_server("127.0.0.1", 0, app_module.app, threaded=True)
+    server = make_server("127.0.0.1", 0, with_csp(app_module.app), threaded=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield f"http://127.0.0.1:{server.server_port}/"
@@ -61,6 +76,17 @@ def calculate(page, date=BIRTH_DATE, time=BIRTH_TIME, name=None):
     page.click("#birth-form button[type=submit]")
 
 
+def poll(page, expression, timeout=5):
+    """Waits until expression is truthy and returns it. Unlike page.wait_for_function, this works under
+    the production CSP, which (rightly) blocks the eval that wait_for_function uses."""
+    for _ in range(int(timeout * 10)):
+        value = page.evaluate(expression)
+        if value:
+            return value
+        page.wait_for_timeout(100)
+    raise AssertionError(f"Timed out waiting for {expression}")
+
+
 def test_result_and_live_counter(open_page):
     page = open_page()
     assert page.is_hidden("#result")
@@ -69,7 +95,7 @@ def test_result_and_live_counter(open_page):
     assert page.text_content("#born-at") == "Rođenje: 04.03.2025. u 17:45"
     assert page.text_content("#announce").startswith("Dob: ")
     first = page.text_content("#age-total")
-    page.wait_for_function(f"document.getElementById('age-total').textContent !== {first!r}", timeout=3000)
+    sync_api.expect(page.locator("#age-total")).not_to_have_text(first, timeout=3000)
 
 
 def test_milestones(open_page):
@@ -111,7 +137,7 @@ def test_share_uses_share_sheet(open_page, base_url):
     page.evaluate("navigator.share = async (data) => { window.sharedData = data; }")
     calculate(page)
     page.click("#share-link")
-    data = page.wait_for_function("window.sharedData").json_value()
+    data = poll(page, "window.sharedData || null")
     assert data["url"] == base_url + "?d=2025-03-04T17:45"
     assert data["text"].startswith("Dob: ")
     assert data["text"].endswith("Rođenje: 04.03.2025. u 17:45.")
@@ -122,7 +148,7 @@ def test_share_falls_back_to_copying_link(open_page, base_url):
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     calculate(page, time="")
     page.click("#share-link")
-    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     assert page.text_content("#share-status") == "Poveznica je kopirana."
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "?d=2025-03-04"
 
@@ -131,7 +157,7 @@ def test_copy_text(open_page):
     page = open_page(permissions=["clipboard-read", "clipboard-write"])
     calculate(page, time="")
     page.click("#copy-text")
-    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     assert page.text_content("#share-status") == "Tekst je kopiran."
     text = page.evaluate("navigator.clipboard.readText()")
     assert re.fullmatch(r"Dob: .+ \(.+\)\. Rođenje: 04\.03\.2025\.", text), text
@@ -140,7 +166,7 @@ def test_copy_text(open_page):
 def test_works_offline(open_page):
     page = open_page()
     # Fails after 10 s (instead of hanging) if the service worker never takes control
-    page.wait_for_function("navigator.serviceWorker.controller !== null", timeout=10_000)
+    poll(page, "navigator.serviceWorker.controller !== null || null", timeout=10)
     page.context.set_offline(True)
     page.reload()
     calculate(page)
@@ -230,13 +256,13 @@ def test_shared_pregnancy_link_and_copy(browser, base_url):
     assert page.is_checked("input[value=pregnancy]")
     assert page.text_content("#pregnancy-duration") == "32 tjedna i 6 dana"
     page.click("#copy-text")
-    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     due = date.today() + timedelta(days=50)
     assert page.evaluate("navigator.clipboard.readText()") == \
         f"Trudnoća: 32 tjedna i 6 dana (33. tjedan). Termin: {due:%d.%m.%Y}."
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     page.click("#share-link")
-    page.wait_for_function("document.getElementById('share-status').textContent === 'Poveznica je kopirana.'")
+    sync_api.expect(page.locator("#share-status")).to_have_text("Poveznica je kopirana.")
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "?t=" + due_in(50)
     context.close()
 
@@ -340,12 +366,12 @@ def test_named_child_copy_and_share(open_page, base_url):
     page = open_page(permissions=["clipboard-read", "clipboard-write"])
     calculate(page, "2025-03-04", "", name="Ana Marija")
     page.click("#copy-text")
-    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     copied = page.evaluate("navigator.clipboard.readText()")
     assert re.fullmatch(r"Ana Marija: .+ \(.+\)\. Rođenje: 04\.03\.2025\.", copied), copied
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     page.click("#share-link")
-    page.wait_for_function("document.getElementById('share-status').textContent === 'Poveznica je kopirana.'")
+    sync_api.expect(page.locator("#share-status")).to_have_text("Poveznica je kopirana.")
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "?d=2025-03-04&n=Ana%20Marija"
 
 
@@ -424,12 +450,12 @@ def test_english_copy_and_share(open_page, base_url):
     page.goto(base_url + "en/")
     calculate(page, "2025-03-04", "", name="Ana")
     page.click("#copy-text")
-    page.wait_for_function("document.getElementById('share-status').textContent === 'Text copied.'")
+    sync_api.expect(page.locator("#share-status")).to_have_text("Text copied.")
     copied = page.evaluate("navigator.clipboard.readText()")
     assert re.fullmatch(r"Ana: .+ \(.+\)\. Born: 4 Mar 2025\.", copied), copied
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     page.click("#share-link")
-    page.wait_for_function("document.getElementById('share-status').textContent === 'Link copied.'")
+    sync_api.expect(page.locator("#share-status")).to_have_text("Link copied.")
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/?d=2025-03-04&n=Ana"
 
 
@@ -448,7 +474,7 @@ def test_language_switch_keeps_data(open_page, base_url):
 
 def test_english_works_offline(open_page, base_url):
     page = open_page()
-    page.wait_for_function("navigator.serviceWorker.controller !== null", timeout=10_000)
+    poll(page, "navigator.serviceWorker.controller !== null || null", timeout=10)
     page.context.set_offline(True)
     page.goto(base_url + "en/")
     calculate(page, "2025-03-04")
@@ -520,7 +546,7 @@ def test_corrected_age(open_page):
     assert page.text_content("#corrected-detail") == "10 tjedana i 5 dana · Gestacijska dob pri rođenju:\u00a031+2"
     assert page.text_content("#age-calendar") == "4 mjeseca i 14 dana"  # the actual age is unchanged
     page.click("#copy-text")
-    page.wait_for_function("document.getElementById('share-status').textContent !== ''")
+    sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     assert page.evaluate("navigator.clipboard.readText()") == \
         "Ana: 4 mjeseca i 14 dana (19 tjedana i 3 dana). Korigirana dob: 2 mjeseca i 14 dana. Rođenje: 01.08.2026."
 
@@ -571,7 +597,7 @@ def test_corrected_age_share_link_and_english(open_page, base_url):
     assert page.text_content("#corrected-detail") == "10 weeks and 5 days · Born at 31+2\u00a0weeks"
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     page.click("#share-link")
-    page.wait_for_function("document.getElementById('share-status').textContent === 'Link copied.'")
+    sync_api.expect(page.locator("#share-status")).to_have_text("Link copied.")
     assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/?d=2026-08-01&n=Ana&due=2026-10-01"
 
 
@@ -582,6 +608,118 @@ def test_corrected_age_layout(open_page, width):
     overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
     summary = page.evaluate("document.querySelector('#premature summary').getBoundingClientRect().height")
     assert not overflow and summary >= 44
+
+
+def open_backup(page):
+    if not page.evaluate("document.getElementById('backup').open"):
+        page.click("#backup summary")
+
+
+def download_backup(page, tmp_path):
+    open_backup(page)
+    with page.expect_download() as info:
+        page.click("#backup-download")
+    download = info.value
+    path = tmp_path / download.suggested_filename
+    download.save_as(path)
+    return download.suggested_filename, path
+
+
+def test_backup_download(open_page, tmp_path):
+    page = open_page()
+    enter_premature(page, birth="2026-08-01", due="2026-10-01", name="Ana")
+    page.click("text=Trudnoća")
+    page.fill("#pregnancy-date", due_in(100))
+    page.click("#pregnancy-form button")
+    name, path = download_backup(page, tmp_path)
+    assert re.fullmatch(r"baby-calculator-\d{4}-\d{2}-\d{2}\.json", name)
+    data = json.loads(path.read_text())
+    assert (data["app"], data["version"], data["mode"]) == ("baby-calculator", 1, "pregnancy")
+    assert data["children"] == [{"id": 1, "name": "Ana", "date": "2026-08-01", "time": "", "due": "2026-10-01"}]
+    assert data["pregnancy"] == {"basis": "due", "date": due_in(100)}
+
+
+def test_backup_restore_file_on_new_device(open_page, browser, base_url, tmp_path):
+    page = open_page()
+    calculate(page, "2025-03-04", name="Ana")
+    page.click("#add-child")
+    calculate(page, "2026-09-01", name="Marko")
+    _, path = download_backup(page, tmp_path)
+
+    other = browser.new_context()  # a different browser with no saved data
+    new_page = other.new_page()
+    new_page.goto(base_url)
+    open_backup(new_page)
+    new_page.set_input_files("#backup-file", str(path))
+    sync_api.expect(new_page.locator("#backup-status")).to_have_text("Podaci su učitani.")
+    assert chips(new_page) == ["Ana", "Marko"] and new_page.is_visible("#result")
+    new_page.set_input_files("#backup-file", str(path))  # restoring again adds nothing
+    sync_api.expect(new_page.locator("#backup-status")).to_have_text("Nema novih podataka – sve je već bilo spremljeno.")
+    assert chips(new_page) == ["Ana", "Marko"]
+    other.close()
+
+
+def test_backup_restore_rejects_bad_files(open_page, tmp_path):
+    page = open_page()
+    open_backup(page)
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"app": "something-else"}')
+    page.set_input_files("#backup-file", str(bad))
+    sync_api.expect(page.locator("#backup-status")).to_have_text("Ovo nije ispravna sigurnosna kopija.")
+    big = tmp_path / "big.json"
+    big.write_text(" " * (100 * 1024 + 1))
+    page.set_input_files("#backup-file", str(big))
+    sync_api.expect(page.locator("#backup-status")).to_have_text("Datoteka je prevelika za sigurnosnu kopiju.")
+    assert page.is_hidden("#children")
+
+
+def test_backup_transfer_link(open_page, browser):
+    page = open_page(permissions=["clipboard-read", "clipboard-write"])
+    calculate(page, "2025-03-04", name="Ana")
+    open_backup(page)
+    page.click("#backup-link")
+    sync_api.expect(page.locator("#backup-status")).to_have_text("Poveznica za prijenos je kopirana.")
+    link = page.evaluate("navigator.clipboard.readText()")
+    assert "#backup=" in link and "?" not in link  # the data stays after "#", never sent to the server
+
+    other = browser.new_context()
+    new_page = other.new_page()
+    new_page.goto(link)
+    assert "#" not in new_page.url  # removed from the address bar after restoring
+    assert chips(new_page) == ["Ana"] and new_page.is_visible("#result")
+    assert new_page.evaluate("document.getElementById('backup').open")
+    assert new_page.text_content("#backup-status") == "Podaci su učitani."
+    other.close()
+
+
+@pytest.mark.parametrize("accept, expected", [(False, 50), (True, 100)])
+def test_backup_pregnancy_conflict_asks(open_page, base_url, accept, expected):
+    page = open_page()
+    page.click("text=Trudnoća")
+    page.fill("#pregnancy-date", due_in(50))
+    page.click("#pregnancy-form button")
+    backup = {"app": "baby-calculator", "version": 1, "children": [], "pregnancy": {"basis": "due", "date": due_in(100)}}
+    messages = []
+    page.on("dialog", lambda d: (messages.append(d.message), d.accept() if accept else d.dismiss()))
+    # Same page, only the "#" part changes: no reload, so the page has to notice the hash change
+    page.goto(base_url + "#backup=" + json.dumps(backup).replace(" ", ""))
+    sync_api.expect(page.locator("#backup-status")).not_to_have_text("")
+    assert messages == ["Sigurnosna kopija ima druge podatke o trudnoći. Zamijeniti postojeće?"]
+    assert page.input_value("#pregnancy-date") == due_in(expected)
+    assert "#" not in page.url
+
+
+def test_backup_english_and_layout(open_page, base_url, tmp_path):
+    page = open_page(viewport={"width": 320, "height": 900})
+    page.goto(base_url + "en/")
+    open_backup(page)
+    bad = tmp_path / "bad.json"
+    bad.write_text("nope")
+    page.set_input_files("#backup-file", str(bad))
+    sync_api.expect(page.locator("#backup-status")).to_have_text("This isn’t a valid backup.")
+    overflow = page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    heights = page.evaluate("[...document.querySelectorAll('#backup summary, #backup button')].map(b => b.getBoundingClientRect().height)")
+    assert not overflow and min(heights) >= 44, heights
 
 
 def test_restores_saved_date(open_page):

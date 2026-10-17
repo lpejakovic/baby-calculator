@@ -488,3 +488,64 @@ def test_due_date_in_share_links_and_storage(js):
     shared = {"date": "2026-09-01", "time": "", "name": "", "due": "2026-10-20"}
     result = call(js, f"M.addSharedChild({json.dumps([child(1)])}, {json.dumps(shared)})")
     assert result["children"][0]["due"] == "2026-10-20"
+
+
+# --- Backup and restore
+
+def backup_json(**overrides):
+    data = {"app": "baby-calculator", "version": 1, "exportedAt": "2026-10-17T12:00:00Z",
+            "children": [child(1, name="Ana", due="2026-09-20")], "activeChild": 1,
+            "pregnancy": {"basis": "due", "date": "2027-03-01"}, "mode": "baby"}
+    data.update(overrides)
+    return json.dumps(data)
+
+
+def test_make_and_parse_backup(js):
+    state = {"children": [child(3, name="Ana")], "activeChild": 3,
+             "pregnancy": {"basis": "lmp", "date": "2026-09-01"}, "mode": "pregnancy"}
+    backup = call(js, f"M.makeBackup({json.dumps(state)}, '2026-10-17T12:00:00Z')")
+    assert backup == {"app": "baby-calculator", "version": 1, "exportedAt": "2026-10-17T12:00:00Z",
+                      "children": [child(3, name="Ana")], "activeChild": 3,
+                      "pregnancy": {"basis": "lmp", "date": "2026-09-01"}, "mode": "pregnancy"}
+    assert call(js, f"M.parseBackup({json.dumps(json.dumps(backup))})") == {
+        "children": [child(3, name="Ana")], "pregnancy": {"basis": "lmp", "date": "2026-09-01"}, "mode": "pregnancy"}
+
+
+@pytest.mark.parametrize("text", [
+    "not json", "null", "[]", "{}",
+    backup_json(app="other-app"),
+    backup_json(version=2),
+])
+def test_parse_backup_rejects(js, text):
+    assert call(js, f"M.parseBackup({json.dumps(text)})") is None
+
+
+def test_parse_backup_cleans_data(js):
+    text = backup_json(children=[{"id": 1, "name": "Ana", "date": "2026-02-30"}, {"id": 1, "name": "Iva", "date": "2025-01-01"},
+                                 "junk"], pregnancy={"basis": "other", "date": "2027-01-01"}, mode="weird")
+    assert call(js, f"M.parseBackup({json.dumps(text)})") == {
+        "children": [child(1, "2025-01-01", name="Iva")], "pregnancy": None, "mode": "baby"}
+
+
+def test_merge_children(js):
+    local = [child(1, "2025-01-01", name="Ana"), child(2, "2026-09-01", "08:30")]
+    imported = [
+        child(1, "2026-09-01", "08:30", name="Marko", due="2026-10-01"),  # same birth: fills name and due date
+        child(2, "2025-01-01", name="Other"),                            # same birth, already named: unchanged
+        child(1, "2024-05-05", name="Iva"),                              # new; its id 1 is already taken
+    ]
+    result = call(js, f"M.mergeChildren({json.dumps(local)}, {json.dumps(imported)})")
+    assert (result["added"], result["changed"]) == (1, 1)
+    assert result["children"] == [child(1, "2025-01-01", name="Ana"), child(2, "2026-09-01", "08:30", "Marko", "2026-10-01"),
+                                  child(3, "2024-05-05", name="Iva")]
+    again = call(js, f"M.mergeChildren({json.dumps(result['children'])}, {json.dumps(imported)})")
+    assert (again["added"], again["changed"]) == (0, 0)
+
+
+def test_backup_link_round_trip(js):
+    backup = json.loads(backup_json(children=[child(1, name="Ana Marija Č", due="2026-09-20")]))
+    link = js.eval(f"M.buildBackupLink('https://bc.example/', {json.dumps(backup)})")
+    assert link.startswith("https://bc.example/#backup=%7B")
+    assert call(js, f"M.readBackupLink({json.dumps(link[link.index('#'):])})")["children"] == backup["children"]
+    for bad in ["", "#backup=", "#backup=%E0%A4%A", "#backup=%7Bnope", "#other=1"]:
+        assert call(js, f"M.readBackupLink({json.dumps(bad)})") is None, bad

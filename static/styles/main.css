@@ -208,7 +208,29 @@ h1 {
     color: var(--primary);
     background: var(--surface-accent);
 }
-.premature summary {
+.backup {
+    margin-top: 24px;
+    padding-top: 8px;
+    border-top: 1px solid var(--surface-accent);
+}
+.backup .hint {
+    margin: 4px 0 0;
+}
+.backup .actions {
+    grid-template-columns: 1fr;
+    margin-top: 12px;
+}
+@media (min-width: 420px) {
+    .backup .actions {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+.backup-link {
+    grid-column: 1 / -1;
+    white-space: normal;
+}
+.premature summary,
+.backup summary {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -218,10 +240,12 @@ h1 {
     color: var(--primary);
     cursor: pointer;
 }
-.premature summary::-webkit-details-marker {
+.premature summary::-webkit-details-marker,
+.backup summary::-webkit-details-marker {
     display: none;
 }
-.premature summary::before {
+.premature summary::before,
+.backup summary::before {
     /* Our own disclosure arrow; display: flex removes the browser's marker */
     content: "";
     width: 8px;
@@ -231,15 +255,18 @@ h1 {
     transform: rotate(-45deg);
     transition: transform .15s;
 }
-.premature[open] summary::before {
+.premature[open] summary::before,
+.backup[open] summary::before {
     transform: rotate(45deg);
 }
 @media (prefers-reduced-motion: reduce) {
-    .premature summary::before {
+    .premature summary::before,
+    .backup summary::before {
         transition: none;
     }
 }
-.premature summary:focus-visible {
+.premature summary:focus-visible,
+.backup summary:focus-visible {
     outline: 3px solid var(--primary);
     outline-offset: 2px;
 }

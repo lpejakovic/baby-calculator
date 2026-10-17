@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 259 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 276 automated tests with CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -83,13 +83,19 @@ Dependencies are pinned in `requirements.txt`.
    has passed, and then `calculateAge(due, now)`. The card shows "Počinje na termin" before the due date and "Nije
    potrebna" for babies born on or after it, and notes from age 2 that correction is usually used until then.
    `correctedAgeError()` allows a due date at most 20 weeks after the birth.
-10. **Languages**: `/` (Croatian) and `/en/` (English) render the same template with `PAGE_TEXT[lang]`, and add
+10. **Backup and restore** ("Sigurnosna kopija"): `makeBackup()` writes `{app, version: 1, exportedAt, children,
+   activeChild, pregnancy, mode}`; "Preuzmi datoteku" downloads it as JSON (Blob link), "Učitaj datoteku" reads a file
+   (max 100 KB) and "Kopiraj poveznicu za prijenos" copies `/#backup=<encoded JSON>`. The data after `#` is never sent
+   to the server. `parseBackup()` validates and cleans like stored data; `mergeChildren()` adds children with
+   `addSharedChild()` (no duplicates, missing names and due dates filled in, new ids); different pregnancy data is
+   replaced only after `confirm()`. A transfer link is handled on load and on `hashchange`, then removed from the URL.
+11. **Languages**: `/` (Croatian) and `/en/` (English) render the same template with `PAGE_TEXT[lang]`, and add
    canonical and `hreflang` links (`x-default` is Croatian) plus a link to the other language. The script reads
    `<html lang>` and takes every text from `TEXT[lang]` in `app.js` (plural rules, "i"/"and", ordinals, date format,
    errors, share text); the pure functions take an optional `lang` that defaults to Croatian. Saved data is shared
    between the pages, share links keep the current page, and each language has its own manifest, start URL and
    preview image.
-11. The script registers `/sw.js`. Flask renders it with the page and versioned static URLs, so any static change gives a new
+12. The script registers `/sw.js`. Flask renders it with the page and versioned static URLs, so any static change gives a new
    service worker and cache name; old caches are deleted on activation. The page is network-first with a cached fallback,
    static files are cache-first, and `/calculate` is never cached. Where Chrome fires `beforeinstallprompt`, an
    "Instaliraj aplikaciju" button appears.
@@ -145,6 +151,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.7.1**: real elapsed time in "Ukupno", 404 page, `robots.txt`, `sitemap.xml`, date limits follow today |
 | 2026-10-17 | Passwordless restart (sudoers rule), `/health`, uptime workflow, Dependabot |
 | 2026-10-17 | **v2.8**: corrected age for premature babies |
+| 2026-10-17 | **v2.9**: backup and restore; browser tests run under the production CSP |
 
 ## Observations and issues
 
@@ -163,7 +170,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 259 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 276 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps
