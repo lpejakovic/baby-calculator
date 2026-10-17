@@ -95,7 +95,8 @@
             pictureFailed: 'Izrada slike nije uspjela.',
             copyFailed: 'Kopiranje nije uspjelo.',
             childRemoved: (label) => `Uklonjeno: „${label}”.`,
-            measurementRemoved: (date) => `Uklonjeno: mjerenje od ${date}.`,
+            // Croatian dates already end with a full stop ("10.04.2026.")
+            measurementRemoved: (date) => `Uklonjeno: mjerenje od ${date}${date.endsWith('.') ? '' : '.'}`,
             undo: 'Poništi',
             corrected: 'Korigirana dob',
             correctedNotNeeded: 'Nije potrebna',
