@@ -8,7 +8,7 @@ baby-calculator is a single-page app that takes a baby's date and time of birth 
 as weeks/days, years/months/days, a live days/hours/minutes/seconds counter and upcoming milestones, with Croatian
 labels that use the correct grammatical number, and in English at `/en/`. A pregnancy mode shows weeks + days, trimester, due date and
 pregnancy milestones. Since v2.0 the calculation runs in the browser;
-Flask serves the page and an optional JSON API. It has no database, has 285 automated tests with CI, and runs
+Flask serves the page and an optional JSON API. It has no database, has 307 automated tests and linting in CI, and runs
 in production under Gunicorn + nginx via systemd.
 
 ## Tech stack
@@ -35,9 +35,10 @@ Dependencies are pinned in `requirements.txt`.
 | `deploy/`                | systemd unit and nginx site config |
 | `tests/`, `pytest.ini`   | Python, JavaScript (QuickJS) and browser (Playwright) tests |
 | `requirements-dev.txt`   | Test dependencies |
-| `.github/workflows/tests.yml` | CI: unit job and browser job |
+| `.github/workflows/tests.yml` | CI: lint job (ruff, ESLint), unit job, browser job with axe-core accessibility audit |
+| `pyproject.toml`, `eslint.config.js`, `package.json` | Linter settings and the pinned ESLint version |
 | `.github/workflows/uptime.yml` | Checks `/health`, `/` and `/en/` on the live site every 15 minutes |
-| `.github/dependabot.yml` | Weekly update PRs for pip and GitHub Actions |
+| `.github/dependabot.yml` | Weekly update PRs for pip, npm and GitHub Actions |
 | `templates/index.html`   | Form, result cards, meta and Open Graph tags (absolute `og:image` via `_external=True`) |
 | `templates/404.html`     | Not-found page in the language of the URL (`/en/…` is English), `noindex` |
 | `templates/sitemap.xml`  | Both pages with `hreflang` alternates |
@@ -158,6 +159,7 @@ the page uses nominative forms (`godina`, `minuta`, `sekunda`) for the card valu
 | 2026-10-17 | **v2.8**: corrected age for premature babies |
 | 2026-10-17 | **v2.9**: backup and restore; browser tests run under the production CSP |
 | 2026-10-17 | **v2.10**: calendar export of milestones (`.ics`) |
+| 2026-10-17 | Linting (ruff, ESLint) and axe-core accessibility audit in CI; removed dead code found by ESLint |
 
 ## Observations and issues
 
@@ -176,7 +178,7 @@ Checked against the running code with Flask's test client:
 8. **Template details** (fixed): the version comes from `APP_VERSION`, and results are inserted with `textContent`.
 9. **Production config.** `app.run(debug=True)` only runs when `app.py` is started directly, not under Gunicorn.
    The systemd unit in `deploy/` runs Gunicorn as `www-data` with sandboxing (was `root`).
-10. **Tests** (fixed): 285 tests under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
+10. **Tests** (fixed): 307 tests (22 of them an axe-core accessibility audit) under `pytest`: Python helpers, the API with a frozen clock, `app.js` in QuickJS compared with
     `relativedelta`, and Playwright browser tests for behaviour and responsive layout. GitHub Actions runs them on every push.
 
 ## Suggested next steps

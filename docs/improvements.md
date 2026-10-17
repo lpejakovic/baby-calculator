@@ -10,14 +10,12 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## Plan
 
-1. **Next:** separate working copy, linting and accessibility audit in CI, API improvements, split `app.js`.
+1. **Next:** separate working copy, API improvements, split `app.js`.
 
 ## 1. Workflow and operations
 
 1. **Separate editing from the live site:** this folder is both the working copy and what the site runs. Work in a
    separate checkout or branch and deploy only after CI passes.
-2. **Linting:** `ruff` for Python and a JavaScript linter, in CI.
-3. **Accessibility audit in CI:** run axe-core in the browser tests.
 
 ## 2. Small site fixes
 

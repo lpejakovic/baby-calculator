@@ -55,7 +55,7 @@ i18n.py                      Page texts in Croatian and English
 utils_dt.py                  Croatian plural helpers and date math for the API
 wsgi.py                      WSGI entry point for Gunicorn
 requirements.txt             Pinned Python dependencies
-requirements-dev.txt         Test dependencies (pytest, QuickJS, Playwright, icalendar)
+requirements-dev.txt         Test and lint dependencies (pytest, QuickJS, Playwright, icalendar, axe-core, ruff)
 pytest.ini                   pytest settings
 tests/                       Python, JavaScript and browser tests
 templates/index.html         Page and form
@@ -74,7 +74,10 @@ scripts/make_og_image.py     Regenerates the preview images (needs Pillow and De
 docs/project_digest.md       Project digest / technical overview
 docs/improvements.md         Improvement list (the 2026-10-17 review is complete)
 deploy/                      systemd unit and nginx site config
-.github/workflows/tests.yml  CI
+.github/workflows/tests.yml  CI: lint, unit tests, browser tests and accessibility audit
+pyproject.toml               ruff settings
+package.json                 ESLint (JavaScript tooling only; package-lock.json pins it)
+eslint.config.js             ESLint settings
 .github/workflows/uptime.yml Uptime check every 15 minutes
 .github/dependabot.yml       Weekly dependency update PRs
 ```
@@ -103,6 +106,8 @@ pytest                                               # all tests
 pytest -m "not ui"                                   # without the browser tests
 ```
 
+- `tests/test_a11y.py`: axe-core accessibility audit (WCAG 2.2 A/AA and best practices) in both languages, light and
+  dark mode, empty, baby (with corrected age), pregnancy, backup and error states, and the 404 page
 - `tests/test_utils_dt.py`: Croatian plural rules and date math for the API
 - `tests/test_api.py`: both pages, language links, 404 page, `robots.txt` and `sitemap.xml`, link preview, manifests and icons, service worker, and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
 - `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
@@ -117,7 +122,16 @@ pytest -m "not ui"                                   # without the browser tests
 The browser tests send the production Content-Security-Policy (read from `deploy/`), so anything it would block fails
 a test.
 
-GitHub Actions (`.github/workflows/tests.yml`) runs the unit tests and the browser tests on every push to `main` and on pull requests.
+## Linting
+
+```bash
+ruff check                # Python (settings in pyproject.toml)
+npm ci && npm run lint    # JavaScript: ESLint recommended rules (eslint.config.js)
+```
+
+Without Node on the machine, `pip install nodejs-wheel-binaries` provides it inside the virtualenv.
+
+GitHub Actions (`.github/workflows/tests.yml`) runs the linters, the unit tests and the browser tests on every push to `main` and on pull requests.
 
 ## API
 
@@ -183,7 +197,7 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl restart baby-calculator
 - `.github/workflows/uptime.yml` checks `/health`, `/` and `/en/` on the live site every 15 minutes (with retries).
   A failed run means the site is down; GitHub emails the failure to whoever last changed the schedule.
   GitHub pauses scheduled workflows after 60 days without repository activity; re-enable it under Actions if that happens.
-- `.github/dependabot.yml` opens weekly update PRs for pip packages and GitHub Actions (minor and patch updates
+- `.github/dependabot.yml` opens weekly update PRs for pip packages, npm (ESLint) and GitHub Actions (minor and patch updates
   grouped into one PR). The tests run on each PR; merge, then pull on the server and restart.
 
 ## Notes

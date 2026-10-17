@@ -1,15 +1,27 @@
-from flask import Flask, Response, render_template, request, jsonify, make_response, url_for
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from werkzeug.middleware.proxy_fix import ProxyFix
 import hashlib
 import json
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from flask import Flask, Response, jsonify, make_response, render_template, request, url_for
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 from i18n import LANGUAGES, PAGE_TEXT
-from utils_dt import (YEARS, MONTHS, WEEKS, DAYS, HOURS, MINUTES, SECONDS,
-                      plural, format_datetime, calculate_date_difference)
+from utils_dt import (
+    DAYS,
+    HOURS,
+    MINUTES,
+    MONTHS,
+    SECONDS,
+    WEEKS,
+    YEARS,
+    calculate_date_difference,
+    format_datetime,
+    plural,
+)
 
 APP_VERSION = "2.10"
 

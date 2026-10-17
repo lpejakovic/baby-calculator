@@ -3,3 +3,5 @@ pytest==9.1.1
 quickjs==1.19.4
 playwright==1.64.0
 icalendar==7.3.0
+axe-playwright-python==0.1.8
+ruff==0.17.1

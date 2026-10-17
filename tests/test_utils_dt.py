@@ -2,8 +2,18 @@ from datetime import datetime
 
 import pytest
 
-from utils_dt import (YEARS, MONTHS, WEEKS, DAYS, HOURS, MINUTES, SECONDS,
-                      plural, format_datetime, calculate_date_difference)
+from utils_dt import (
+    DAYS,
+    HOURS,
+    MINUTES,
+    MONTHS,
+    SECONDS,
+    WEEKS,
+    YEARS,
+    calculate_date_difference,
+    format_datetime,
+    plural,
+)
 
 
 @pytest.mark.parametrize("number, expected", [

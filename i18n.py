@@ -45,7 +45,10 @@ PAGE_TEXT = {
         "premature_hint": "Za korigiranu dob. Nije obavezno.",
         "corrected_age": "Korigirana dob",
         "backup": "Sigurnosna kopija",
-        "backup_text": "Podaci su spremljeni samo u ovom pregledniku, nigdje drugdje. Spremite kopiju ili ih prenesite na drugi uređaj.",
+        "backup_text": (
+            "Podaci su spremljeni samo u ovom pregledniku, nigdje drugdje. "
+            "Spremite kopiju ili ih prenesite na drugi uređaj."
+        ),
         "backup_download": "Preuzmi datoteku",
         "backup_restore": "Učitaj datoteku",
         "backup_link": "Kopiraj poveznicu za prijenos",
@@ -93,7 +96,10 @@ PAGE_TEXT = {
         "premature_hint": "For the corrected age. Optional.",
         "corrected_age": "Corrected age",
         "backup": "Backup",
-        "backup_text": "Your data is stored only in this browser, nowhere else. Save a copy or move it to another device.",
+        "backup_text": (
+            "Your data is stored only in this browser, nowhere else. "
+            "Save a copy or move it to another device."
+        ),
         "backup_download": "Download file",
         "backup_restore": "Restore from file",
         "backup_link": "Copy transfer link",

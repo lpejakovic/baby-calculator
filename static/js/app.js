@@ -719,10 +719,6 @@
             }
         }
 
-        function resultHeading() {
-            const child = activeChild();
-            return child ? childLabel(child, children.indexOf(child), lang) : '';
-        }
 
         // "Today" moves on while the page or installed app stays open, so the date limits are
         // refreshed whenever a date field is used and when the app comes back to the foreground
