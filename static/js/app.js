@@ -433,33 +433,34 @@
         return countdown(daysToDue, lang);
     }
 
-    // ?t=YYYY-MM-DD (due date)
+    // #t=YYYY-MM-DD (due date); older links used ?t=
     function readSharedPregnancy(search) {
-        const match = /[?&]t=([^&#]*)/.exec(search || '');
+        const match = /[?&#]t=([^&#]*)/.exec(search || '');
         if (!match) return null;
         const date = decodeURIComponent(match[1]);
         return parseBirth(date, '') === null ? null : { basis: 'due', date };
     }
 
-    // ?d=YYYY-MM-DD or ?d=YYYY-MM-DDTHH:MM, optionally &n=<name>
+    // #d=YYYY-MM-DD or #d=YYYY-MM-DDTHH:MM, optionally &n=<name>&due=YYYY-MM-DD (older links used ?d=)
     function readSharedBirth(search) {
-        const match = /[?&]d=([^&#]*)/.exec(search || '');
+        const match = /[?&#]d=([^&#]*)/.exec(search || '');
         if (!match) return null;
         const [date, time = ''] = decodeURIComponent(match[1]).split('T');
         if (parseBirth(date, time) === null) return null;
-        const nameMatch = /[?&]n=([^&#]*)/.exec(search);
+        const nameMatch = /[?&#]n=([^&#]*)/.exec(search);
         let name = '';
         try {
             name = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, ' ')).trim().slice(0, NAME_MAX) : '';
         } catch (e) { /* malformed escape: ignore the name */ }
-        const dueMatch = /[?&]due=([^&#]*)/.exec(search);
+        const dueMatch = /[?&#]due=([^&#]*)/.exec(search);
         const due = dueMatch && parseBirth(dueMatch[1], '') !== null ? dueMatch[1] : '';
         return { date, time, name, due };
     }
 
+    // The data goes after "#", which browsers never send to the server (older links used "?d=")
     function buildShareUrl(base, date, time, name = '', due = '') {
         const n = name ? `&n=${encodeURIComponent(name)}` : '';
-        return `${base}?d=${date}${time ? `T${time}` : ''}${n}${due ? `&due=${due}` : ''}`;
+        return `${base}#d=${date}${time ? `T${time}` : ''}${n}${due ? `&due=${due}` : ''}`;
     }
 
     // --- Several children: [{ id, name, date, time }] ---
@@ -622,6 +623,18 @@
         // The /en/ page has <html lang="en">
         const lang = document.documentElement.lang === 'en' ? 'en' : 'hr';
         const t = texts(lang);
+
+        // The chosen language is kept in a cookie; the server redirects "/" to "/en/" when it says "en".
+        // Offline (page from the service worker cache) the page does the redirect itself.
+        const savedLang = (document.cookie.match(/(?:^|; )lang=(hr|en)(?:;|$)/) || [])[1];
+        if (lang === 'hr' && savedLang === 'en') {
+            location.replace(`/en/${location.search}${location.hash}`);
+            return;
+        }
+        document.querySelectorAll('.lang-switch a').forEach((link) => link.addEventListener('click', function () {
+            const secure = location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = `lang=${link.hreflang}; path=/; max-age=${365 * 24 * 3600}; SameSite=Lax${secure}`;
+        }));
         const modeInputs = document.querySelectorAll('input[name="mode"]');
         const basisInputs = document.querySelectorAll('input[name="basis"]');
         const form = $('birth-form');
@@ -926,7 +939,7 @@
         function shareUrl() {
             const base = location.origin + location.pathname;
             if (current && current.mode === 'pregnancy') {
-                return `${base}?t=${isoDate(current.lmp + PREGNANCY_DAYS * DAY)}`;
+                return `${base}#t=${isoDate(current.lmp + PREGNANCY_DAYS * DAY)}`;
             }
             const child = activeChild();
             return buildShareUrl(base, dateInput.value, timeInput.value, child ? child.name : '', child ? child.due : '');
@@ -1026,20 +1039,23 @@
         children = loadChildren();
         const savedActive = restore(ACTIVE_CHILD_KEY);
         activeId = children.some((c) => c.id === savedActive) ? savedActive : (children[0] ? children[0].id : null);
-        const sharedBirth = readSharedBirth(location.search);
-        const sharedPregnancy = readSharedPregnancy(location.search);
-        if (sharedBirth) {
-            // Added next to the visitor's own children (or selected if already there), never overwriting them
-            ({ children, activeId } = addSharedChild(children, sharedBirth));
-            saveChildren();
-            store(MODE_KEY, 'baby');
-        } else if (sharedPregnancy) {
-            store(PREGNANCY_KEY, sharedPregnancy);
-            store(MODE_KEY, 'pregnancy');
+        function takeShareLink() {
+            const source = `${location.search}${location.hash}`;
+            const sharedBirth = readSharedBirth(source);
+            const sharedPregnancy = sharedBirth ? null : readSharedPregnancy(source);
+            if (sharedBirth) {
+                // Added next to the visitor's own children (or selected if already there), never overwriting them
+                ({ children, activeId } = addSharedChild(children, sharedBirth));
+                saveChildren();
+                store(MODE_KEY, 'baby');
+            } else if (sharedPregnancy) {
+                store(PREGNANCY_KEY, sharedPregnancy);
+                store(MODE_KEY, 'pregnancy');
+            }
+            if (/[?&#][dt]=/.test(source)) history.replaceState(null, '', location.pathname);
+            return Boolean(sharedBirth || sharedPregnancy);
         }
-        if (sharedBirth || sharedPregnancy || /[?&][dt]=/.test(location.search)) {
-            history.replaceState(null, '', location.pathname + location.hash);
-        }
+        takeShareLink();
 
         // Offline support and installing as an app
         if ('serviceWorker' in navigator) {
@@ -1180,8 +1196,12 @@
 
         showSaved();
         showBackupMessage(backupMessage);
-        // A transfer link opened while the page is already open only changes the "#" part
+        // A share or transfer link opened while the page is already open only changes the "#" part
         window.addEventListener('hashchange', function () {
+            if (takeShareLink()) {
+                showSaved();
+                return;
+            }
             const message = takeBackupLink();
             if (!message) return;
             showSaved();

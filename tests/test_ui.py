@@ -101,7 +101,7 @@ def test_share_uses_share_sheet(open_page, base_url):
     calculate(page)
     page.click("#share-link")
     data = poll(page, "window.sharedData || null")
-    assert data["url"] == base_url + "?d=2025-03-04T17:45"
+    assert data["url"] == base_url + "#d=2025-03-04T17:45"
     assert data["text"].startswith("Dob: ")
     assert data["text"].endswith("Rođenje: 04.03.2025. u 17:45.")
 
@@ -113,7 +113,7 @@ def test_share_falls_back_to_copying_link(open_page, base_url):
     page.click("#share-link")
     sync_api.expect(page.locator("#share-status")).not_to_have_text("")
     assert page.text_content("#share-status") == "Poveznica je kopirana."
-    assert page.evaluate("navigator.clipboard.readText()") == base_url + "?d=2025-03-04"
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "#d=2025-03-04"
 
 
 def test_copy_text(open_page):
@@ -226,7 +226,7 @@ def test_shared_pregnancy_link_and_copy(browser, base_url):
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     page.click("#share-link")
     sync_api.expect(page.locator("#share-status")).to_have_text("Poveznica je kopirana.")
-    assert page.evaluate("navigator.clipboard.readText()") == base_url + "?t=" + due_in(50)
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "#t=" + due_in(50)
     context.close()
 
 
@@ -319,9 +319,9 @@ def test_migrates_single_saved_birth(open_page):
 def test_shared_link_adds_child(open_page, base_url):
     page = open_page()
     calculate(page, "2025-03-04", name="Ana")
-    page.goto(base_url + "?d=2026-09-01T08:30&n=Marko")
+    page.goto(base_url + "#d=2026-09-01T08:30&n=Marko")  # same page: handled on hashchange
     assert chips(page) == ["Ana", "Marko"] and active_chip(page) == "Marko"
-    page.goto(base_url + "?d=2026-09-01T08:30&n=Marko")  # opening it again doesn't duplicate
+    page.goto(base_url + "#d=2026-09-01T08:30&n=Marko")  # opening it again doesn't duplicate
     assert chips(page) == ["Ana", "Marko"]
 
 
@@ -335,7 +335,7 @@ def test_named_child_copy_and_share(open_page, base_url):
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     page.click("#share-link")
     sync_api.expect(page.locator("#share-status")).to_have_text("Poveznica je kopirana.")
-    assert page.evaluate("navigator.clipboard.readText()") == base_url + "?d=2025-03-04&n=Ana%20Marija"
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "#d=2025-03-04&n=Ana%20Marija"
 
 
 @pytest.mark.parametrize("width", [320, 360, 1280])
@@ -419,7 +419,7 @@ def test_english_copy_and_share(open_page, base_url):
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     page.click("#share-link")
     sync_api.expect(page.locator("#share-status")).to_have_text("Link copied.")
-    assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/?d=2025-03-04&n=Ana"
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/#d=2025-03-04&n=Ana"
 
 
 def test_language_switch_keeps_data(open_page, base_url):
@@ -561,7 +561,7 @@ def test_corrected_age_share_link_and_english(open_page, base_url):
     page.evaluate("delete Navigator.prototype.share; delete navigator.share")
     page.click("#share-link")
     sync_api.expect(page.locator("#share-status")).to_have_text("Link copied.")
-    assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/?d=2026-08-01&n=Ana&due=2026-10-01"
+    assert page.evaluate("navigator.clipboard.readText()") == base_url + "en/#d=2026-08-01&n=Ana&due=2026-10-01"
 
 
 @pytest.mark.parametrize("width", [320, 1280])
@@ -717,6 +717,33 @@ def test_calendar_export_pregnancy_english(open_page, base_url, tmp_path):
     assert name == "baby-calculator-pregnancy-2026-12-06.ics"
     assert [str(e["SUMMARY"]) for e in events] == ["Pregnancy: Full term", "Pregnancy: Due date"]
     assert events[1].decoded("DTSTART") == date(2026, 12, 6)
+
+
+def test_privacy_note(open_page, base_url):
+    page = open_page()
+    assert page.text_content(".privacy-note") == "Datumi i imena ostaju samo na vašem uređaju – ne šalju se na server."
+    page.goto(base_url + "en/")
+    assert page.is_visible(".privacy-note")
+    assert page.text_content(".privacy-note") == "Dates and names stay on your device – they are never sent to the server."
+
+
+def test_language_choice_is_remembered(open_page, base_url):
+    page = open_page()
+    page.click(".lang-switch a")  # English
+    assert page.url == base_url + "en/"
+    page.goto(base_url)  # opening "/" again goes straight to English
+    assert page.url == base_url + "en/" and page.evaluate("document.documentElement.lang") == "en"
+    page.click(".lang-switch a")  # back to Croatian
+    page.goto(base_url)
+    assert page.url == base_url and page.evaluate("document.documentElement.lang") == "hr"
+
+
+def test_share_link_keeps_hash_through_language_redirect(open_page, base_url):
+    page = open_page()
+    page.click(".lang-switch a")  # English chosen
+    page.goto(base_url + "#d=2025-03-04&n=Ana")  # a Croatian share link
+    page.wait_for_url(base_url + "en/")
+    assert chips(page) == ["Ana"] and page.text_content("#age-weeks").endswith("days")
 
 
 def test_restores_saved_date(open_page):

@@ -53,6 +53,7 @@ PAGE_TEXT = {
         "backup_restore": "Učitaj datoteku",
         "backup_link": "Kopiraj poveznicu za prijenos",
         "add_to_calendar": "Dodaj u kalendar",
+        "privacy_note": "Datumi i imena ostaju samo na vašem uređaju – ne šalju se na server.",
     },
     "en": {
         "locale": "en_US",
@@ -104,6 +105,7 @@ PAGE_TEXT = {
         "backup_restore": "Restore from file",
         "backup_link": "Copy transfer link",
         "add_to_calendar": "Add to calendar",
+        "privacy_note": "Dates and names stay on your device – they are never sent to the server.",
     },
 }
 
