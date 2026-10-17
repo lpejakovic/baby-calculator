@@ -78,8 +78,8 @@ Accusative forms (`godinu`, `minutu`, `sekundu`) are used because the text reads
 
 Checked against the running code with Flask's test client:
 
-1. **Bad input returns 500.** `datetime=bad` raises an unhandled `ValueError` (HTTP 500); a missing field returns 400.
-   The frontend has no `error` handler, so on 400/429/500 the user sees nothing.
+1. **Bad input** (fixed): an invalid or missing `datetime` returns 400 with `{"error": "..."}`, and rate-limited
+   `/calculate` requests return 429 with a JSON message. The page shows the message in red under the form.
 2. **Future dates give confusing output.** For a date about 2.5 months ahead the response is
    `-76 dana, 14 sati, …`, `-11 tjedana i 1 dan` and `0 godina, -2 mjeseca i -14 dana`. A commit message says
    unborn children are handled, but the current code does not handle them.
@@ -100,8 +100,7 @@ Checked against the running code with Flask's test client:
 
 ## Suggested next steps
 
-1. Validate input and return 400 with a message; add an AJAX `error` handler that shows it (including 429).
-2. Decide how to handle future dates (e.g. "do poroda je preostalo …") or reject them.
-3. Remove the dead code and replace the plural helpers with one generic function.
-4. Add pytest tests for the plural rules and for edge cases (month ends, leap years).
-5. Configure `ProxyFix`/real client IP for rate limiting, and consider running the service as a non-root user.
+1. Decide how to handle future dates (e.g. "do poroda je preostalo …") or reject them.
+2. Remove the dead code and replace the plural helpers with one generic function.
+3. Add pytest tests for the plural rules and for edge cases (month ends, leap years).
+4. Configure `ProxyFix`/real client IP for rate limiting, and consider running the service as a non-root user.

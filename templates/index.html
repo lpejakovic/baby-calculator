@@ -76,6 +76,13 @@
                             `
                         );
                     },
+                    error: function(jqXHR) {
+                        const message = (jqXHR.responseJSON && jqXHR.responseJSON.error)
+                            || 'Došlo je do greške. Pokušajte ponovno.';
+                        $('#result').empty().append(
+                            $('<p class="error-text"></p>').text(message)
+                        );
+                    },
                     complete: function(jqXHR, textStatus) {
                         setTimeout(() => {
                             $('#calculate-button').prop('disabled', false);

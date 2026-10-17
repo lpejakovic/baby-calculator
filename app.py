@@ -21,7 +21,10 @@ def index():
 @app.route('/calculate', methods=['POST'])
 @limiter.limit(throttle_string)
 def calculate():
-    input_datetime = datetime.strptime(request.form['datetime'], '%Y-%m-%dT%H:%M')
+    try:
+        input_datetime = datetime.strptime(request.form.get('datetime', ''), '%Y-%m-%dT%H:%M')
+    except ValueError:
+        return jsonify({"error": "Neispravan datum i vrijeme rođenja."}), 400
     
     current_datetime = datetime.now()
     difference = current_datetime - input_datetime
@@ -53,6 +56,12 @@ def calculate():
         "year_diff": f"{years_diff} {year_text}, {months_diff} {year_month_text} i {days_diff} {year_day_text}",
     }
     return jsonify(result)
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    if request.path != '/calculate':
+        return e
+    return jsonify({"error": "Previše zahtjeva. Pokušajte ponovno kasnije."}), 429
 
 
 

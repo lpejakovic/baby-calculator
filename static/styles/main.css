@@ -54,3 +54,6 @@ button:hover {
     font-size: .875rem;
     color: #666;
 }
+.error-text {
+    color: #c0392b;
+}
