@@ -14,30 +14,13 @@
         wallToReal, WHO_GROWTH,
     } = globalThis.BC;
 
-    // Migration of older saved data (see loadChildren). Both can be removed after 2026-11-17, when the
-    // last v1.x cookies (30-day lifetime) have expired.
-    const STORAGE_KEY = 'birth'; // v2.0–2.5: a single child; moved into CHILDREN_KEY on first load
     const CHILDREN_KEY = 'children';
     const ACTIVE_CHILD_KEY = 'activeChild';
     const MODE_KEY = 'mode';
     const PREGNANCY_KEY = 'pregnancy';
-    const LEGACY_COOKIE = 'datetime';
 
-    // Children from storage; migrates the v2.x single 'birth' entry and the v1.x cookie
     function loadChildren() {
-        let legacy = restore(STORAGE_KEY);
-        const match = document.cookie.match(new RegExp(`(?:^|; )${LEGACY_COOKIE}=([^;]*)`));
-        if (match) {
-            document.cookie = `${LEGACY_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-            const [date, time] = decodeURIComponent(match[1]).split('T');
-            legacy = legacy || { date, time: time || '' };
-        }
-        const children = normalizeChildren(restore(CHILDREN_KEY), legacy);
-        store(CHILDREN_KEY, children);
-        try {
-            localStorage.removeItem(STORAGE_KEY);
-        } catch (e) { /* storage unavailable */ }
-        return children;
+        return normalizeChildren(restore(CHILDREN_KEY));
     }
 
     function store(key, value) {

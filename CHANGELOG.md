@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.19 – 2026-10-17
+- Removed the migration of data saved by versions before 2.6 (the 1.x cookie and the single saved date).
+- The site's access log keeps only shortened client IPs and no query strings.
+
 ## 2.18 – 2026-10-17
 - Growth chart: weight, length and head circumference with WHO percentiles from birth to 24 months, by corrected
   age for babies born early; measurements are stored with the child and included in backups.

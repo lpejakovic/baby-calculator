@@ -309,15 +309,6 @@ def test_remove_child_can_be_cancelled(open_page):
     assert chips(page) == ["Ana"]
 
 
-def test_migrates_single_saved_birth(open_page):
-    page = open_page()
-    page.evaluate("localStorage.clear(); localStorage.setItem('birth', JSON.stringify({date: '2026-09-01', time: '08:30'}))")
-    page.reload()
-    assert chips(page) == ["Dijete 1"] and page.is_visible("#result")
-    assert page.input_value("#birth-time") == "08:30"
-    assert page.evaluate("localStorage.getItem('birth')") is None
-
-
 def test_shared_link_adds_child(open_page, base_url):
     page = open_page()
     calculate(page, "2025-03-04", name="Ana")
@@ -1057,18 +1048,6 @@ def test_restores_saved_date(open_page):
     assert page.input_value("#birth-date") == BIRTH_DATE
     assert page.input_value("#birth-time") == BIRTH_TIME
     assert page.is_visible("#result")
-
-
-def test_migrates_legacy_cookie(open_page, base_url):
-    page = open_page()
-    page.context.add_cookies([{"name": "datetime", "value": "2026-08-15T22:10", "url": base_url}])
-    page.reload()
-    assert page.input_value("#birth-date") == "2026-08-15"
-    assert page.input_value("#birth-time") == "22:10"
-    assert page.context.cookies() == []
-    assert page.evaluate("JSON.parse(localStorage.getItem('children'))") == [
-        {"id": 1, "name": "", "date": "2026-08-15", "time": "22:10", "due": ""}]
-    assert page.evaluate("localStorage.getItem('birth')") is None
 
 
 def test_future_date_is_rejected(open_page):

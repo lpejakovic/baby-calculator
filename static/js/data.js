@@ -57,11 +57,10 @@
         return clean;
     }
 
-    // Valid children from storage; a v2.x single saved birth becomes the first child
-    function normalizeChildren(stored, legacyBirth) {
+    // Valid children from storage or a backup
+    function normalizeChildren(stored) {
         const valid = (c) => c && typeof c.date === 'string' && parseBirth(c.date, c.time || '') !== null;
-        let list = Array.isArray(stored) ? stored.filter(valid) : [];
-        if (!list.length && valid(legacyBirth)) list = [{ name: '', ...legacyBirth }];
+        const list = Array.isArray(stored) ? stored.filter(valid) : [];
         // Ids must be unique positive integers; renumber if storage was edited by hand
         const ids = list.map((c) => c.id);
         const ok = ids.every((id) => Number.isInteger(id) && id > 0) && new Set(ids).size === ids.length;
@@ -122,7 +121,7 @@
         }
         if (!data || data.app !== BACKUP_APP || data.version !== BACKUP_VERSION) return null;
         return {
-            children: normalizeChildren(data.children, null),
+            children: normalizeChildren(data.children),
             pregnancy: validPregnancy(data.pregnancy),
             mode: data.mode === 'pregnancy' ? 'pregnancy' : 'baby',
         };
