@@ -44,10 +44,10 @@ def join_units(parts, lang="hr"):
     return f"{', '.join(texts[:-1])} {AND[lang]} {texts[-1]}" if len(texts) > 1 else texts[0]
 
 
-def format_datetime(dt, format_string="%d.%m.%Y %H:%M:%S", lang="hr"):
+def format_datetime(dt, lang="hr"):
     if lang == "en":
         return f"{dt.day} {MONTH_NAMES_EN[dt.month - 1]} {dt.year} {dt:%H:%M:%S}"
-    return dt.strftime(format_string)
+    return f"{dt:%d.%m.%Y %H:%M:%S}"
 
 def calculate_date_difference(start_date, end_date):
     difference = relativedelta(end_date, start_date)
