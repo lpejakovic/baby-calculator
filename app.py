@@ -9,10 +9,10 @@ from api import api
 from extensions import limiter
 from i18n import LANGUAGE_NAMES, LANGUAGES, PAGE_TEXT
 
-APP_VERSION = "2.17"
+APP_VERSION = "2.18"
 
 # Cached by the service worker for offline use (besides the page itself)
-SCRIPTS = ["texts", "dates", "calendar", "data", "card", "app"]  # load order
+SCRIPTS = ["texts", "dates", "who-growth", "growth", "calendar", "data", "card", "app"]  # load order
 PRECACHED_STATIC = ["styles/main.css", *(f"js/{name}.js" for name in SCRIPTS), "favicon.ico",
                     "apple-touch-icon.png", "images/icon-512.png", "manifest.json",
                     *(f"manifest-{code}.json" for code in LANGUAGES if code != "hr")]

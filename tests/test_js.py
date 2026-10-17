@@ -14,7 +14,7 @@ import utils_dt
 quickjs = pytest.importorskip("quickjs")
 
 JS_DIR = Path(__file__).resolve().parent.parent / "static" / "js"
-PURE_SCRIPTS = ["texts", "dates", "calendar", "data", "card"]  # browser-free, in load order
+PURE_SCRIPTS = ["texts", "dates", "who-growth", "growth", "calendar", "data", "card"]  # browser-free, in load order
 EPOCH = datetime(1970, 1, 1)
 
 
@@ -848,3 +848,102 @@ def test_pregnancy_texts_de_it(js, lang, detail, milestones):
 def test_card_keeps_units_together_de_it(js):
     assert js.eval("M.keepTogether('1 Jahr, 7 Monate und 13 Tage')") == "1\u00a0Jahr, 7\u00a0Monate und\u00a013\u00a0Tage"
     assert js.eval("M.keepTogether('7 mesi e 13 giorni')") == "7\u00a0mesi e\u00a013\u00a0giorni"
+
+
+# --- Growth (growth.js, WHO data in who-growth.js)
+
+from statistics import NormalDist  # noqa: E402
+
+
+def test_normal_cdf_matches_python(js):
+    for z in [-4, -3, -2.5, -1.88, -1, -0.3, 0, 0.5, 1.036, 2, 3.5]:
+        assert abs(js.eval(f"M.normalCdf({z})") - NormalDist().cdf(z)) < 1e-6, z
+
+
+def test_who_data_shape(js):
+    assert call(js, "Object.keys(M.WHO_GROWTH)") == ["boys", "girls"]
+    for sex in ["boys", "girls"]:
+        assert call(js, f"Object.keys(M.WHO_GROWTH.{sex})") == ["weight", "length", "head"]
+        for measure in ["weight", "length", "head"]:
+            table = call(js, f"M.WHO_GROWTH.{sex}.{measure}")
+            assert len(table) == 25 and all(len(row) == 3 for row in table)
+            medians = [row[1] for row in table]
+            assert medians == sorted(medians), (sex, measure)  # medians grow with age
+
+
+@pytest.mark.parametrize("value, expected", [
+    (3.3464, "P50"),            # the WHO median for a newborn boy
+    (2.459312, "P2"),           # published 2nd (2.3rd) percentile; decimals only below P1 and above P99
+    (4.419354, "P98"),          # published 98th (97.7th) percentile
+    (1.5, "<P0.1"), (6.5, ">P99.9"),
+])
+def test_newborn_boy_weight_percentiles(js, value, expected):
+    p = js.eval(f"M.measurePercentile(M.WHO_GROWTH.boys.weight, 0, {value})")
+    assert js.eval(f"M.formatPercentile({p})") == expected
+
+
+def test_lms_interpolation_and_range(js):
+    table = call(js, "M.WHO_GROWTH.girls.length")
+    assert call(js, "M.lmsAt(M.WHO_GROWTH.girls.length, 6)") == pytest.approx(table[6])
+    mid = call(js, "M.lmsAt(M.WHO_GROWTH.girls.length, 6.5)")
+    assert mid == pytest.approx([(a + b) / 2 for a, b in zip(table[6], table[7], strict=True)])
+    assert call(js, "M.lmsAt(M.WHO_GROWTH.girls.length, 24)") == pytest.approx(table[24])
+    assert call(js, "[M.lmsAt(M.WHO_GROWTH.girls.length, -0.1), M.lmsAt(M.WHO_GROWTH.girls.length, 24.1)]") == [None, None]
+
+
+def test_value_and_z_score_round_trip(js):
+    for z in [-2.5, -1, 0, 1.2, 3]:
+        value = js.eval(f"M.valueAt(M.lmsAt(M.WHO_GROWTH.boys.head, 9.3), {z})")
+        assert js.eval(f"M.zScore({value}, M.lmsAt(M.WHO_GROWTH.boys.head, 9.3))") == pytest.approx(z, abs=1e-9)
+
+
+def test_age_in_months(js):
+    birth = datetime(2026, 1, 1)
+    # Whole days only: 6 WHO months are 182.6 days, so 182 days is a little under 6
+    assert js.eval(f"M.ageInMonths({ms(birth)}, {ms(birth + timedelta(days=183))})") == pytest.approx(6, abs=1 / 30.4375)
+    assert js.eval(f"M.ageInMonths({ms(birth)}, {ms(birth)})") == 0
+
+
+@pytest.mark.parametrize("p, expected", [(50.4, "P50"), (2.34, "P2"), (0.54, "P0.5"), (99.42, "P99.4"), (0.05, "<P0.1"), (99.95, ">P99.9")])
+def test_format_percentile(js, p, expected):
+    assert js.eval(f"M.formatPercentile({p})") == expected
+
+
+def test_growth_chart_geometry(js):
+    points = [{"months": 0, "value": 3.3}, {"months": 6, "value": 7.9}, {"months": 30, "value": 13}]
+    chart = call(js, f"M.growthChart(M.WHO_GROWTH.boys.weight, {json.dumps(points)}, 600, 360)")
+    assert [c["percentile"] for c in chart["curves"]] == [3, 15, 50, 85, 97]
+    top, bottom = chart["pad"]["top"], 360 - chart["pad"]["bottom"]
+    for curve in chart["curves"]:
+        ys = [float(part.split()[1]) for part in curve["d"].split(" L")]
+        assert len(ys) == 97 and all(top - 0.1 <= y <= bottom + 0.1 for y in ys)
+    assert [p["months"] for p in chart["points"]] == [0, 6]  # the 30-month point is outside the chart
+    assert chart["xTicks"][0]["months"] == 0 and chart["xTicks"][-1]["months"] == 24
+    values = [t["value"] for t in chart["yTicks"]]
+    assert values == sorted(values) and [t["y"] for t in chart["yTicks"]] == sorted([t["y"] for t in chart["yTicks"]], reverse=True)
+
+
+def test_clean_measurements(js):
+    stored = [
+        {"date": "2026-03-01", "weight": 5.2, "length": 57},
+        {"date": "2026-01-01", "weight": 3.4},
+        {"date": "2026-03-01", "head": 39.5},          # same date: merged
+        {"date": "2026-02-01", "weight": 4200},        # grams by mistake: dropped
+        {"date": "nope", "weight": 4}, "junk",
+    ]
+    assert call(js, f"M.cleanMeasurements({json.dumps(stored)})") == [
+        {"date": "2026-01-01", "weight": 3.4},
+        {"date": "2026-03-01", "weight": 5.2, "length": 57, "head": 39.5},
+    ]
+
+
+def test_child_growth_fields_are_optional_and_merged(js):
+    plain = child(1, name="Ana")
+    assert call(js, f"M.normalizeChildren({json.dumps([plain])}, null)") == [plain]  # unchanged when unused
+    local = {**child(1, name="Ana"), "sex": "f", "measurements": [{"date": "2026-02-01", "weight": 4.5}]}
+    imported = {**child(1, name="Ana"), "sex": "m",
+                "measurements": [{"date": "2026-02-01", "weight": 9.9}, {"date": "2026-03-01", "weight": 5.6}]}
+    merged = call(js, f"M.mergeChildren({json.dumps([local])}, {json.dumps([imported])})")
+    assert merged["children"][0]["sex"] == "f"  # the existing value wins
+    assert merged["children"][0]["measurements"] == [{"date": "2026-02-01", "weight": 4.5}, {"date": "2026-03-01", "weight": 5.6}]
+    assert (merged["added"], merged["changed"]) == (0, 1)

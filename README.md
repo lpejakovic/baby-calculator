@@ -11,6 +11,7 @@ Live: <https://bc.luka-pejakovic.from.hr>
   changes included); correct Croatian and English plurals
 - Upcoming milestones (month birthdays, birthdays, 100 … 10,000 days) with a countdown, and export to a calendar (`.ics`)
 - Several children with optional names, and corrected age for babies born early
+- Growth chart: weight, length and head circumference with WHO percentiles (birth to 24 months), stored in the browser
 - Pregnancy mode from the due date, the last period, an IVF transfer or an ultrasound: weeks + days, trimester, due
   date with progress, and pregnancy milestones
 - Share links, copyable summaries and a share picture drawn in the browser; backup to a file or a transfer link,
@@ -97,4 +98,7 @@ Dependabot opens weekly update PRs.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE), except the growth reference data in `static/js/who-growth.js`: it is from the
+[WHO Child Growth Standards](https://www.who.int/tools/child-growth-standards) (via the
+[CDC data files](https://www.cdc.gov/growthcharts/who-data-files.htm)) and is used under WHO's terms (non-commercial
+use with acknowledgement of WHO as the source). It is not covered by the MIT license.

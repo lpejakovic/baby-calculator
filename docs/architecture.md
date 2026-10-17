@@ -9,15 +9,15 @@ Flask serves one page per language (`/` Croatian, `/en/`, `/de/`, `/it/`) from o
 |---|---|
 | Server | `app.py` (pages, service worker, `/health`, sitemap, 404, `APP_VERSION`), `api.py` (`POST /calculate` as a Blueprint), `extensions.py` (the shared rate limiter), `i18n.py` (page texts, API errors), `utils_dt.py` (API date math and word forms), `wsgi.py` |
 | Page | `templates/index.html`, `templates/404.html`, `static/styles/main.css` |
-| Script | `static/js/texts.js`, `dates.js`, `calendar.js`, `data.js`, `card.js` (pure: no DOM or storage) and `app.js` (page code) |
+| Script | `static/js/texts.js`, `dates.js`, `who-growth.js` (data), `growth.js`, `calendar.js`, `data.js`, `card.js` (pure: no DOM or storage) and `app.js` (page code) |
 | Offline | `templates/sw.js` (rendered with the current asset URLs), `static/manifest.json`, `manifest-en.json` |
 | Deployment | `deploy/` (systemd unit, nginx template, `deploy.sh`, tested in `tests/test_deploy.py`) |
 | Tests | `tests/` (pytest; QuickJS for the pure scripts; Playwright and axe-core in the browser) |
 
 ## Script
 
-The six scripts are plain files sharing one namespace, `BC`, loaded in order with `defer`: `texts.js`, `dates.js`,
-`calendar.js`, `data.js`, `card.js`, `app.js`. There is no build step. The pure files are what the QuickJS tests load; a test also
+The scripts are plain files sharing one namespace, `BC`, loaded in order with `defer`: `texts.js`, `dates.js`,
+`who-growth.js`, `growth.js`, `calendar.js`, `data.js`, `card.js`, `app.js`. There is no build step. The pure files are what the QuickJS tests load; a test also
 checks that `app.js` finds everything it takes from `BC`.
 
 - **Time.** Calendar values (years, months, days, weeks) use wall-clock time stored as UTC milliseconds, so they follow
@@ -33,6 +33,11 @@ checks that `app.js` finds everything it takes from `BC`.
   `convertPregnancy()` keeps the same pregnancy when the basis is switched. Accepted: 0 to 42 weeks.
 - **Calendar.** `buildIcs()` writes RFC 5545: all-day, non-blocking events with a 9:00 reminder, CRLF, escaped text,
   lines folded at 75 bytes. Event ids come from the birth (or LMP) date and the milestone key, so re-importing updates.
+- **Growth.** `who-growth.js` holds the WHO Child Growth Standards (L, M, S per completed month, 0–24 months; made by
+  `scripts/make_growth_data.py`, which checks them against the published percentiles). `growth.js` interpolates
+  L, M and S between months, gives z-scores and percentiles (LMS method), and the chart geometry with percentiles 3,
+  15, 50, 85 and 97. Ages are by date in WHO months (30.4375 days), counted from the due date for babies born early.
+  A child stores `sex` and `measurements` only once they are used.
 - **Share picture.** `card.js`: `layoutCard()` wraps and fits the text (title, age, details, footer) into a 1080×1080
   square, shrinking everything until it fits above the footer, with the text measure passed in (canvas in the page,
   a stand-in in the tests); `drawCard()` paints it. The page shares the PNG as a file, or downloads it where sharing
@@ -47,7 +52,7 @@ checks that `app.js` finds everything it takes from `BC`.
 
 | Key | Content |
 |---|---|
-| `children` | `[{id, name, date, time, due}]`; `activeChild` is the selected id |
+| `children` | `[{id, name, date, time, due, sex?, measurements?}]`; `activeChild` is the selected id |
 | `pregnancy` | `{basis: "due" \| "lmp" \| "ivf" \| "ultrasound", date, embryoDays?, gaWeeks?, gaDays?}` |
 | `mode` | `"baby"` or `"pregnancy"` |
 | `lang` cookie | `hr`, `en`, `de` or `it`, set by the language switch; `/` redirects to that language's page |

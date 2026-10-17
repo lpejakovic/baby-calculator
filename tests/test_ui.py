@@ -945,6 +945,8 @@ def test_no_button_label_is_cut_off(open_page, base_url, lang, width):
     page.goto(base_url + lang)
     calculate(page, "2025-03-04", name="Ana")
     page.click("#backup summary")
+    page.click("#growth summary")
+    page.click("#growth .sex label.radio >> nth=0")
     # Elements reaching past the right edge (named, so a failure says what to fix)
     sticking_out = page.evaluate("""[...document.querySelectorAll('main *')]
         .filter(el => el.offsetParent !== null && el.getBoundingClientRect().right > document.documentElement.clientWidth)
@@ -953,6 +955,90 @@ def test_no_button_label_is_cut_off(open_page, base_url, lang, width):
         .filter(el => el.offsetParent !== null && el.scrollWidth > el.clientWidth + 1)
         .map(el => el.textContent.trim())""")
     assert sticking_out == [] and cut == []
+
+
+def growth_page(open_page, path="", **context):
+    page = open_page(timezone_id="Europe/Zagreb", **context)
+    page.clock.set_fixed_time("2026-07-10T12:00:00+02:00")
+    if path:
+        page.goto(page.url + path)
+    return page
+
+
+def add_measurement(page, date, weight="", length="", head=""):
+    page.fill("#measure-date", date)
+    page.fill("#measure-weight", weight)
+    page.fill("#measure-length", length)
+    page.fill("#measure-head", head)
+    page.click("#measure-form button[type=submit]")
+
+
+def measurement_rows(page):
+    return page.locator("#measurements li span").all_text_contents()
+
+
+def test_growth_chart(open_page):
+    page = growth_page(open_page)
+    calculate(page, "2026-01-10", name="Ana")
+    page.click("#growth summary")
+    assert page.text_content("#growth-chart") == "Odaberite spol djeteta za WHO krivulje i percentile."
+    page.click("#growth label.radio:has-text('Djevojčica')")
+    add_measurement(page, "2026-01-10", weight="3,2", length="49,1", head="33,9")   # close to the WHO medians at birth
+    add_measurement(page, "2026-04-10", weight="6,2")
+    rows = measurement_rows(page)
+    assert rows[0] == "10.04.2026.: 6,2 kg (P69)"
+    assert rows[1] == "10.01.2026.: 3,2 kg (P47) · 49,1 cm (P49) · 33,9 cm (P51)"
+    svg = page.locator("#growth-chart svg")
+    assert svg.get_attribute("aria-label") == "Krivulja rasta: Težina, percentili WHO-a i mjerenja djeteta"
+    assert svg.locator("path.curve").count() == 5 and svg.locator("circle.point").count() == 2
+    page.click("#growth label.radio:has-text('Duljina')")
+    assert page.locator("#growth-chart circle.point").count() == 1  # only one length was measured
+    page.reload()  # saved with the child; the section opens again because there are measurements
+    assert page.evaluate("document.getElementById('growth').open") and len(measurement_rows(page)) == 2
+
+
+def test_growth_validation_and_editing(open_page):
+    page = growth_page(open_page)
+    calculate(page, "2026-01-10", name="Ana")
+    page.click("#growth summary")
+    page.click("#growth label.radio:has-text('Dječak')")
+    add_measurement(page, "2026-04-10", weight="4200")
+    assert page.text_content("#measure-error") == "Težina: unesite vrijednost od 0,3 do 30 kg."
+    add_measurement(page, "2026-04-10")
+    assert page.text_content("#measure-error") == "Unesite barem jednu vrijednost."
+    page.evaluate("document.getElementById('measure-date').removeAttribute('max')")
+    add_measurement(page, "2026-08-01", weight="7")
+    assert page.text_content("#measure-error") == "Datum mjerenja mora biti između rođenja i današnjeg dana."
+    add_measurement(page, "2026-04-10", weight="6.4")
+    add_measurement(page, "2026-04-10", head="40.5")  # same date: added to it
+    assert page.is_hidden("#measure-error")
+    assert measurement_rows(page) == ["10.04.2026.: 6,4 kg (P53) · 40,5 cm (P52)"]
+    page.click("#measurements button")
+    assert measurement_rows(page) == []
+
+
+def test_growth_uses_corrected_age(open_page):
+    page = growth_page(open_page)
+    page.fill("#child-name", "Ana")
+    page.fill("#birth-date", "2026-01-10")
+    page.click("#premature summary")
+    page.fill("#due-date", "2026-03-01")
+    page.click("#birth-form button[type=submit]")
+    page.click("#growth summary")
+    page.click("#growth label.radio:has-text('Djevojčica')")
+    add_measurement(page, "2026-02-10", weight="1,9")
+    add_measurement(page, "2026-03-01", weight="3,2")
+    assert measurement_rows(page) == ["01.03.2026.: 3,2 kg (P47)", "10.02.2026.: 1,9 kg (prije termina)"]
+    assert page.is_visible("#growth-corrected")
+
+
+def test_growth_in_english(open_page):
+    page = growth_page(open_page, "en/")
+    calculate(page, "2026-01-10", name="Ana")
+    page.click("#growth summary")
+    page.click("#growth label.radio:has-text('Girl')")
+    add_measurement(page, "2026-04-10", weight="6.2")
+    assert measurement_rows(page) == ["10 Apr 2026: 6.2 kg (P69)"]
 
 
 def test_restores_saved_date(open_page):

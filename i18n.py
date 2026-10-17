@@ -63,6 +63,24 @@ PAGE_TEXT = {
         "backup_link": "Kopiraj poveznicu za prijenos",
         "add_to_calendar": "Dodaj u kalendar",
         "privacy_note": "Datumi i imena ostaju samo na vašem uređaju – ne šalju se na server.",
+        "growth": "Rast (WHO krivulje)",
+        "sex": "Spol",
+        "girl": "Djevojčica",
+        "boy": "Dječak",
+        "measure_date": "Datum mjerenja",
+        "weight_kg": "Težina (kg)",
+        "length_cm": "Duljina (cm)",
+        "head_cm": "Opseg glave (cm)",
+        "add_measurement": "Dodaj mjerenje",
+        "measure_weight": "Težina",
+        "measure_length": "Duljina",
+        "measure_head": "Opseg glave",
+        "chart_measure": "Krivulja",
+        "growth_note": (
+            "Percentili 3, 15, 50, 85 i 97 prema WHO standardima rasta, od rođenja do 24 mjeseca. "
+            "Samo za informaciju – ne zamjenjuje pregled kod pedijatra."
+        ),
+        "growth_source": "Izvor: WHO Child Growth Standards",
     },
     "en": {
         "locale": "en_US",
@@ -122,6 +140,24 @@ PAGE_TEXT = {
         "backup_link": "Copy transfer link",
         "add_to_calendar": "Add to calendar",
         "privacy_note": "Dates and names stay on your device – they are never sent to the server.",
+        "growth": "Growth (WHO charts)",
+        "sex": "Sex",
+        "girl": "Girl",
+        "boy": "Boy",
+        "measure_date": "Date measured",
+        "weight_kg": "Weight (kg)",
+        "length_cm": "Length (cm)",
+        "head_cm": "Head circumference (cm)",
+        "add_measurement": "Add measurement",
+        "measure_weight": "Weight",
+        "measure_length": "Length",
+        "measure_head": "Head",
+        "chart_measure": "Chart",
+        "growth_note": (
+            "Percentiles 3, 15, 50, 85 and 97 of the WHO growth standards, from birth to 24 months. "
+            "For information only – not a substitute for a check-up with a paediatrician."
+        ),
+        "growth_source": "Source: WHO Child Growth Standards",
     },
     "de": {
         "locale": "de_DE",
@@ -181,6 +217,24 @@ PAGE_TEXT = {
         "backup_link": "Übertragungslink kopieren",
         "add_to_calendar": "Zum Kalender hinzufügen",
         "privacy_note": "Daten und Namen bleiben auf Ihrem Gerät – sie werden nie an den Server gesendet.",
+        "growth": "Wachstum (WHO-Kurven)",
+        "sex": "Geschlecht",
+        "girl": "Mädchen",
+        "boy": "Junge",
+        "measure_date": "Datum der Messung",
+        "weight_kg": "Gewicht (kg)",
+        "length_cm": "Länge (cm)",
+        "head_cm": "Kopfumfang (cm)",
+        "add_measurement": "Messung hinzufügen",
+        "measure_weight": "Gewicht",
+        "measure_length": "Länge",
+        "measure_head": "Kopfumfang",
+        "chart_measure": "Kurve",
+        "growth_note": (
+            "Perzentilen 3, 15, 50, 85 und 97 der WHO-Wachstumsstandards, von der Geburt bis 24 Monate. "
+            "Nur zur Information – ersetzt keine Untersuchung beim Kinderarzt."
+        ),
+        "growth_source": "Quelle: WHO Child Growth Standards",
     },
     "it": {
         "locale": "it_IT",
@@ -240,6 +294,24 @@ PAGE_TEXT = {
         "backup_link": "Copia link di trasferimento",
         "add_to_calendar": "Aggiungi al calendario",
         "privacy_note": "Date e nomi restano sul tuo dispositivo – non vengono mai inviati al server.",
+        "growth": "Crescita (curve OMS)",
+        "sex": "Sesso",
+        "girl": "Femmina",
+        "boy": "Maschio",
+        "measure_date": "Data della misurazione",
+        "weight_kg": "Peso (kg)",
+        "length_cm": "Lunghezza (cm)",
+        "head_cm": "Circonferenza cranica (cm)",
+        "add_measurement": "Aggiungi misurazione",
+        "measure_weight": "Peso",
+        "measure_length": "Lunghezza",
+        "measure_head": "Circonferenza cranica",
+        "chart_measure": "Curva",
+        "growth_note": (
+            "Percentili 3, 15, 50, 85 e 97 degli standard di crescita OMS, dalla nascita ai 24 mesi. "
+            "Solo a scopo informativo – non sostituisce la visita dal pediatra."
+        ),
+        "growth_source": "Fonte: WHO Child Growth Standards (OMS)",
     },
 }
 

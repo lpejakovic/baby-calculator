@@ -43,7 +43,17 @@ def ultrasound(page):
     page.click("#pregnancy-form button")
 
 
-STATES = {"empty": None, "baby": baby, "pregnancy": pregnancy, "ultrasound": ultrasound, "backup": backup, "error": error}
+def growth(page):
+    baby(page)
+    page.click("#growth summary")
+    page.click("#growth .sex label.radio >> nth=0")
+    for date, weight in [("2026-08-01", "2,4"), ("2026-10-01", "3,4")]:
+        page.fill("#measure-date", date)
+        page.fill("#measure-weight", weight)
+        page.click("#measure-form button[type=submit]")
+
+
+STATES = {"growth": growth, "empty": None, "baby": baby, "pregnancy": pregnancy, "ultrasound": ultrasound, "backup": backup, "error": error}
 
 
 def audit(page):
