@@ -11,7 +11,7 @@ from i18n import LANGUAGES, PAGE_TEXT
 from utils_dt import (YEARS, MONTHS, WEEKS, DAYS, HOURS, MINUTES, SECONDS,
                       plural, format_datetime, calculate_date_difference)
 
-APP_VERSION = "2.9"
+APP_VERSION = "2.10"
 
 # Cached by the service worker for offline use (besides the page itself)
 PRECACHED_STATIC = ["styles/main.css", "js/app.js", "favicon.ico", "apple-touch-icon.png",

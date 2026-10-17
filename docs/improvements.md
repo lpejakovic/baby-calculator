@@ -10,8 +10,7 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## Plan
 
-1. **Features:** calendar export.
-2. **Then:** separate working copy, linting and accessibility audit in CI, API improvements, split `app.js`.
+1. **Next:** separate working copy, linting and accessibility audit in CI, API improvements, split `app.js`.
 
 ## 1. Workflow and operations
 
@@ -27,8 +26,7 @@ light and dark mode, baby and pregnancy results; the page weighs about 16 KB gzi
 
 ## 3. New features
 
-1. **Add milestones to a calendar** (`.ics` download).
-2. **Privacy note:** "Podaci ostaju samo na vašem uređaju", visible without opening anything (the backup section
+1. **Privacy note:** "Podaci ostaju samo na vašem uređaju", visible without opening anything (the backup section
    already says so when opened).
-3. **Remember the language:** open the chosen language next time, or suggest English once to English-language browsers.
-4. **More pregnancy dating options:** IVF transfer date, or a date from an ultrasound.
+2. **Remember the language:** open the chosen language next time, or suggest English once to English-language browsers.
+3. **More pregnancy dating options:** IVF transfer date, or a date from an ultrasound.

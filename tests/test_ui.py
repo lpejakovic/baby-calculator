@@ -722,6 +722,40 @@ def test_backup_english_and_layout(open_page, base_url, tmp_path):
     assert not overflow and min(heights) >= 44, heights
 
 
+def download_calendar(page, button, tmp_path):
+    with page.expect_download() as info:
+        page.click(button)
+    path = tmp_path / info.value.suggested_filename
+    info.value.save_as(path)
+    from icalendar import Calendar
+    return info.value.suggested_filename, Calendar.from_ical(path.read_bytes()).walk("VEVENT")
+
+
+def test_calendar_export_baby(open_page, tmp_path):
+    page = open_page(timezone_id="Europe/Zagreb")
+    page.clock.set_fixed_time("2026-10-17T12:00:00+02:00")
+    calculate(page, "2026-09-01", "08:30", name="Ana")
+    name, events = download_calendar(page, "#calendar-baby", tmp_path)
+    assert name == "baby-calculator-2026-09-01.ics"
+    summaries = [str(e["SUMMARY"]) for e in events]
+    assert summaries[:3] == ["Ana: 2 mjeseca", "Ana: 3 mjeseca", "Ana: 100 dana"]
+    assert "Ana: 2. rođendan" in summaries and "Ana: 3. rođendan" not in summaries  # next two years only
+    assert events[0].decoded("DTSTART") == date(2026, 11, 1)
+
+
+def test_calendar_export_pregnancy_english(open_page, base_url, tmp_path):
+    page = open_page(timezone_id="Europe/Zagreb")
+    page.clock.set_fixed_time("2026-10-17T12:00:00+02:00")
+    page.goto(base_url + "en/")
+    page.click("text=Pregnancy")
+    page.fill("#pregnancy-date", "2026-12-06")
+    page.click("#pregnancy-form button")
+    name, events = download_calendar(page, "#calendar-pregnancy", tmp_path)
+    assert name == "baby-calculator-pregnancy-2026-12-06.ics"
+    assert [str(e["SUMMARY"]) for e in events] == ["Pregnancy: Full term", "Pregnancy: Due date"]
+    assert events[1].decoded("DTSTART") == date(2026, 12, 6)
+
+
 def test_restores_saved_date(open_page):
     page = open_page()
     calculate(page)

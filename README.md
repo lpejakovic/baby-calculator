@@ -13,7 +13,7 @@ A **pregnancy mode** ("Trudnoća") works from the due date or the first day of t
 the pregnancy as weeks + days (`32+6 · 33. tjedan · 3. tromjesečje`), the due date with a countdown and progress bar,
 and upcoming pregnancy milestones (14, 20, 28, 37 and 40 weeks).
 
-The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.9**.
+The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.10**.
 
 ## Features
 
@@ -34,6 +34,8 @@ The UI is in Croatian (`/`) and English (`/en/`). Current version: **v2.9**.
   share sheet (or copies the link), and "Kopiraj tekst" copies a one-line summary
 - Corrected age for premature babies: an optional due date per child ("Prijevremeno rođeno dijete?") adds a
   "Korigirana dob" card with the age counted from the due date and the gestational age at birth
+- "Dodaj u kalendar": downloads the milestones as an `.ics` file (baby: the next two years; pregnancy: up to the
+  due date) with all-day events, a 9:00 reminder and stable ids, so importing again updates instead of duplicating
 - Backup and restore ("Sigurnosna kopija"): download a JSON file, restore it, or copy a transfer link whose data
   stays after `#` (never sent to the server). Restoring merges: no duplicates, missing names and due dates are filled
   in, and different pregnancy data is replaced only after asking
@@ -53,7 +55,7 @@ i18n.py                      Page texts in Croatian and English
 utils_dt.py                  Croatian plural helpers and date math for the API
 wsgi.py                      WSGI entry point for Gunicorn
 requirements.txt             Pinned Python dependencies
-requirements-dev.txt         Test dependencies (pytest, QuickJS, Playwright)
+requirements-dev.txt         Test dependencies (pytest, QuickJS, Playwright, icalendar)
 pytest.ini                   pytest settings
 tests/                       Python, JavaScript and browser tests
 templates/index.html         Page and form
@@ -105,9 +107,10 @@ pytest -m "not ui"                                   # without the browser tests
 - `tests/test_api.py`: both pages, language links, 404 page, `robots.txt` and `sitemap.xml`, link preview, manifests and icons, service worker, and `/calculate` with a frozen clock: valid and invalid input, future dates, time zones, rate limits
 - `tests/test_js.py`: `static/js/app.js` in QuickJS: `calculateAge()` checked against `relativedelta` on 2,000 random dates
   plus month ends, leap years and DST; milestones against a `relativedelta` reference on 500 random dates;
-  corrected age (against `relativedelta`, limits, texts); backups (format, validation, merging, links); English plurals, ordinals, dates and texts (same keys in both languages); share links; saved children (migration, cleaning, adding shared, removing); pregnancy weeks, trimesters, due date, limits and milestones; plurals, date parsing and text joining
+  corrected age (against `relativedelta`, limits, texts); calendar files (escaping, byte-based line folding,
+  validated with the `icalendar` parser); backups (format, validation, merging, links); English plurals, ordinals, dates and texts (same keys in both languages); share links; saved children (migration, cleaning, adding shared, removing); pregnancy weeks, trimesters, due date, limits and milestones; plurals, date parsing and text joining
 - `tests/test_ui.py`: headless Chromium: live counter, milestones, several children, pregnancy mode, English page
-  and language switch, corrected age, backup and restore, 404 page, real time across clock changes, date limits after midnight, share link and copy buttons, offline use,
+  and language switch, corrected age, calendar export, backup and restore, 404 page, real time across clock changes, date limits after midnight, share link and copy buttons, offline use,
   install button, saved date, cookie migration, future dates, visitor time zone,
   and layout at 320–1280 px in light and dark mode (no sideways scrolling, 16 px edges, 44 px touch targets)
 

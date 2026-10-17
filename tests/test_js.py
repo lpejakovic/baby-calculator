@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from dateutil.relativedelta import relativedelta
+from icalendar import Calendar
 
 import utils_dt
 
@@ -549,3 +550,74 @@ def test_backup_link_round_trip(js):
     assert call(js, f"M.readBackupLink({json.dumps(link[link.index('#'):])})")["children"] == backup["children"]
     for bad in ["", "#backup=", "#backup=%E0%A4%A", "#backup=%7Bnope", "#other=1"]:
         assert call(js, f"M.readBackupLink({json.dumps(bad)})") is None, bad
+
+
+# --- Calendar export (.ics)
+
+
+
+def ics_events(text):
+    calendar = Calendar.from_ical(text)
+    return calendar, [e for e in calendar.walk("VEVENT")]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Ana; Marko, Iva", r"Ana\; Marko\, Iva"),
+    (r"back\slash", r"back\\slash"),
+    ("two\nlines", r"two\nlines"),
+])
+def test_ics_escape(js, text, expected):
+    assert js.eval(f"M.icsEscape({json.dumps(text)})") == expected
+
+
+def test_ics_fold_counts_bytes(js):
+    line = "SUMMARY:" + "Ćićo i Đurđa žive u Čakovcu, " * 6
+    folded = js.eval(f"M.icsFold({json.dumps(line)})")
+    parts = folded.split("\r\n")
+    assert len(parts) > 1
+    assert all(len(p.encode()) <= 75 for p in parts)
+    assert all(p.startswith(" ") for p in parts[1:])
+    assert "".join([parts[0]] + [p[1:] for p in parts[1:]]) == line  # unfolding gives the original
+
+
+def test_baby_calendar(js):
+    birth, now = datetime(2026, 9, 1, 8, 30), datetime(2026, 10, 17, 15, 30)
+    events = call(js, f"M.babyCalendarEvents({ms(birth)}, 'Ana', {ms(now)}, 'hr', 'https://bc.example/')")
+    expected = [m for m in expected_milestones(birth, now, count=1000) if m["daysLeft"] <= 730]
+    assert [e["date"] for e in events] == [m["date"] for m in expected]
+    assert [e["summary"] for e in events][:3] == ["Ana: 2 mjeseca", "Ana: 3 mjeseca", "Ana: 100 dana"]
+    assert "Ana: 1. rođendan" in [e["summary"] for e in events]
+    uids = [e["uid"] for e in events]
+    assert len(set(uids)) == len(uids) and uids[0] == "2026-09-01-m2@bc.luka-pejakovic.from.hr"
+    # Stable: exporting again later gives the same id for each milestone that is in both exports
+    later = call(js, f"M.babyCalendarEvents({ms(birth)}, 'Ana', {ms(now + timedelta(days=40))}, 'hr', 'https://bc.example/')")
+    first_ids = {e["date"]: e["uid"] for e in events}
+    shared = [e for e in later if e["date"] in first_ids]
+    assert shared and all(first_ids[e["date"]] == e["uid"] for e in shared)
+
+
+def test_ics_file_is_valid(js):
+    birth, now = datetime(2026, 9, 1, 8, 30), datetime(2026, 10, 17, 15, 30)
+    events = f"M.babyCalendarEvents({ms(birth)}, 'Ana Đurđević; mala', {ms(now)}, 'hr', 'https://bc.example/')"
+    text = js.eval(f"M.buildIcs({events}, {ms(datetime(2026, 10, 17, 13, 30, 5))})")
+    assert text.endswith("\r\n") and "\n" not in text.replace("\r\n", "")
+    assert all(len(line.encode()) <= 75 for line in text.split("\r\n"))
+    calendar, parsed = ics_events(text)
+    assert (str(calendar["VERSION"]), str(calendar["METHOD"])) == ("2.0", "PUBLISH")
+    first = parsed[0]
+    assert str(first["SUMMARY"]) == "Ana Đurđević; mala: 2 mjeseca"
+    assert first.decoded("DTSTART") == datetime(2026, 11, 1).date()
+    assert first.decoded("DTEND") == datetime(2026, 11, 2).date()
+    assert first.decoded("DTSTAMP").isoformat() == "2026-10-17T13:30:05+00:00"
+    assert str(first["TRANSP"]) == "TRANSPARENT"
+    alarm = first.walk("VALARM")[0]
+    assert alarm.decoded("TRIGGER") == timedelta(hours=9)
+
+
+def test_pregnancy_calendar(js):
+    lmp, now = datetime(2026, 3, 1), datetime(2026, 10, 17, 15, 30)
+    events = call(js, f"M.pregnancyCalendarEvents({ms(lmp)}, {ms(now)}, 'en', 'https://bc.example/en/')")
+    assert [e["summary"] for e in events] == ["Pregnancy: Full term", "Pregnancy: Due date"]
+    assert events[1]["date"] == ms(lmp + timedelta(days=280))
+    assert events[1]["uid"] == "pregnancy-2026-03-01-due@bc.luka-pejakovic.from.hr"
+    assert events[0]["description"] == "Baby Calculator · https://bc.example/en/"

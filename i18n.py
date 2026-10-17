@@ -49,6 +49,7 @@ PAGE_TEXT = {
         "backup_download": "Preuzmi datoteku",
         "backup_restore": "Učitaj datoteku",
         "backup_link": "Kopiraj poveznicu za prijenos",
+        "add_to_calendar": "Dodaj u kalendar",
     },
     "en": {
         "locale": "en_US",
@@ -96,5 +97,6 @@ PAGE_TEXT = {
         "backup_download": "Download file",
         "backup_restore": "Restore from file",
         "backup_link": "Copy transfer link",
+        "add_to_calendar": "Add to calendar",
     },
 }

@@ -286,6 +286,14 @@ h1 {
     color: var(--error);
     background: transparent;
 }
+.calendar-button {
+    margin-top: 4px;
+    padding-left: 0;
+    color: var(--primary);
+}
+.calendar-button:hover {
+    color: var(--primary-hover);
+}
 .result-title {
     margin: 0 0 12px;
     font-size: 1.25rem;
