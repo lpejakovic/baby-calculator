@@ -21,9 +21,17 @@ jobs:
           body=$(curl -fsS --max-time 20 --retry 3 --retry-delay 10 --retry-all-errors "$SITE/health")
           echo "$body"
           echo "$body" | jq -e '.status == "ok"'
-      - name: Croatian and English pages
+      - name: Pages in all languages
         run: |
-          for path in / /en/; do
+          for path in / /en/ /de/ /it/; do
             curl -fsS --max-time 20 --retry 3 --retry-delay 10 --retry-all-errors "$SITE$path" | grep -q "Baby Calculator"
             echo "$path OK"
           done
+      - name: A static file (served by nginx from disk)
+        run: |
+          css=$(curl -fsS --max-time 20 --retry 3 --retry-delay 10 --retry-all-errors "$SITE/" \
+            | grep -o '/static/styles/main\.css?v=[0-9a-f]*' | head -1)
+          test -n "$css"
+          type=$(curl -fsS --max-time 20 --retry 3 --retry-delay 10 --retry-all-errors -o /dev/null -w '%{content_type}' "$SITE$css")
+          echo "$css: $type"
+          case "$type" in text/css*) ;; *) exit 1 ;; esac

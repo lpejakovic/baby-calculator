@@ -9,16 +9,21 @@ Flask serves one page per language (`/` Croatian, `/en/`, `/de/`, `/it/`) from o
 |---|---|
 | Server | `app.py` (pages, service worker, `/health`, sitemap, 404, `APP_VERSION`), `api.py` (`POST /calculate` as a Blueprint), `extensions.py` (the shared rate limiter), `i18n.py` (page texts, API errors), `utils_dt.py` (API date math and word forms), `wsgi.py` |
 | Page | `templates/index.html`, `templates/404.html`, `static/styles/main.css` |
-| Script | `static/js/texts.js`, `dates.js`, `who-growth.js` (data), `growth.js`, `calendar.js`, `data.js`, `card.js` (pure: no DOM or storage) and `app.js` (page code) |
+| Script | `static/js/texts.js`, `dates.js`, `who-growth.js` (data), `growth.js`, `calendar.js`, `data.js`, `card.js` (pure: no DOM or storage); `growth-page.js`, `picture-page.js`, `backup-page.js` and `app.js` (page code) |
 | Offline | `templates/sw.js` (rendered with the current asset URLs), `static/manifest.json`, `manifest-en.json` |
 | Deployment | `deploy/` (systemd unit, nginx template, `deploy.sh`, tested in `tests/test_deploy.py`) |
 | Tests | `tests/` (pytest; QuickJS for the pure scripts; Playwright and axe-core in the browser) |
 
 ## Script
 
-The scripts are plain files sharing one namespace, `BC`, loaded in order with `defer`: `texts.js`, `dates.js`,
-`who-growth.js`, `growth.js`, `calendar.js`, `data.js`, `card.js`, `app.js`. There is no build step. The pure files are what the QuickJS tests load; a test also
-checks that `app.js` finds everything it takes from `BC`.
+The scripts are plain files sharing one namespace, `BC`, loaded in order with `defer` (`SCRIPTS` in `app.py`):
+`texts.js`, `dates.js`, `who-growth.js`, `growth.js`, `calendar.js`, `data.js`, `card.js`, then the page code
+`growth-page.js`, `picture-page.js`, `backup-page.js` and `app.js`. There is no build step. The pure files are what
+the QuickJS tests load; a test also checks that each page file finds everything it takes from `BC`.
+
+`app.js` holds the forms, results, children, sharing and the shared state. The other page files only define
+`BC.setupGrowth`, `BC.setupPicture` and `BC.setupBackup`; `app.js` calls them with a small `page` object (the
+state through getters and setters, and the helpers they need) and uses what they return.
 
 - **Time.** Calendar values (years, months, days, weeks) use wall-clock time stored as UTC milliseconds, so they follow
   the visitor's time zone and aren't shifted by summer/winter time. The live total ("Ukupno") uses real elapsed time

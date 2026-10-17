@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import json
 import os
@@ -10,11 +11,12 @@ from api import api
 from extensions import limiter
 from i18n import LANGUAGE_NAMES, LANGUAGES, PAGE_TEXT
 
-APP_VERSION = "2.26"
+APP_VERSION = "2.27"
 SOURCE_URL = "https://github.com/lpejakovic/baby-calculator"
 
 # Cached by the service worker for offline use (besides the page itself)
-SCRIPTS = ["texts", "dates", "who-growth", "growth", "calendar", "data", "card", "app"]  # load order
+SCRIPTS = ["texts", "dates", "who-growth", "growth", "calendar", "data", "card",  # pure logic
+           "growth-page", "picture-page", "backup-page", "app"]  # page code; in load order
 PRECACHED_STATIC = ["styles/main.css", *(f"js/{name}.js" for name in SCRIPTS), "favicon.ico",
                     "apple-touch-icon.png", "images/icon-512.png", "manifest.json",
                     *(f"manifest-{code}.json" for code in LANGUAGES if code != "hr")]
@@ -26,13 +28,22 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 limiter.init_app(app)
 app.register_blueprint(api)  # POST /calculate
 
+@functools.lru_cache(maxsize=128)
+def content_hash(path, mtime_ns, size):
+    """First 10 hex digits of the file's SHA-256; cached until the file changes (mtime and size are the key)."""
+    with open(path, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()[:10]
+
+
 @app.url_defaults
 def static_cache_buster(endpoint, values):
-    # nginx caches /static for a year; the file's mtime in the URL makes browsers fetch changed files
+    # nginx caches /static for a year; a hash of the content in the URL makes browsers fetch a file again only
+    # when it really changed (not when a checkout merely touches it)
     if endpoint == 'static' and 'filename' in values:
         path = os.path.join(app.static_folder, values['filename'])
         if os.path.isfile(path):
-            values['v'] = int(os.stat(path).st_mtime)
+            stat = os.stat(path)
+            values['v'] = content_hash(path, stat.st_mtime_ns, stat.st_size)
 
 OTHER_LANGUAGES = [code for code in LANGUAGES if code != "hr"]  # served at /en/, /de/, /it/
 

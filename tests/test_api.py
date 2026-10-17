@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import struct
 from datetime import datetime
@@ -23,7 +24,7 @@ def test_index(client):
     # Every static URL carries a cache-busting version
     static_urls = re.findall(r'"(/static/[^"]+)"', html)
     assert static_urls
-    assert all(re.search(r"\?v=\d+$", url) for url in static_urls)
+    assert all(re.search(r"\?v=[0-9a-f]{10}$", url) for url in static_urls)
 
 
 def test_link_preview(client):
@@ -32,7 +33,7 @@ def test_link_preview(client):
                                     "X-Forwarded-For": "1.2.3.4"}).get_data(as_text=True)
     meta = dict(re.findall(r'<meta (?:property|name)="([^"]+)" content="([^"]*)"', html))
     assert meta["og:url"] == "https://bc.luka-pejakovic.from.hr/"
-    assert re.fullmatch(r"https://bc\.luka-pejakovic\.from\.hr/static/images/og-image\.png\?v=\d+", meta["og:image"])
+    assert re.fullmatch(r"https://bc\.luka-pejakovic\.from\.hr/static/images/og-image\.png\?v=[0-9a-f]{10}", meta["og:image"])
     assert (meta["og:image:width"], meta["og:image:height"], meta["og:image:type"]) == ("1200", "630", "image/png")
     assert meta["og:image:alt"]
     assert meta["twitter:card"] == "summary_large_image"
@@ -246,10 +247,10 @@ def test_english_page(client):
     assert meta["og:url"] == "https://bc.luka-pejakovic.from.hr/en/"
     assert meta["og:locale"] == "en_US"
     assert meta["description"] == PAGE_TEXT["en"]["description"] == meta["og:description"]
-    assert re.fullmatch(r"https://bc\.luka-pejakovic\.from\.hr/static/images/og-image-en\.png\?v=\d+", meta["og:image"])
+    assert re.fullmatch(r"https://bc\.luka-pejakovic\.from\.hr/static/images/og-image-en\.png\?v=[0-9a-f]{10}", meta["og:image"])
     image = client.get(meta["og:image"].removeprefix("https://bc.luka-pejakovic.from.hr")).get_data()
     assert png_size(image) == (1200, 630)
-    assert re.search(r'<link rel="manifest" href="/static/manifest-en\.json\?v=\d+">', html)
+    assert re.search(r'<link rel="manifest" href="/static/manifest-en\.json\?v=[0-9a-f]{10}">', html)
 
 
 SITE = "https://bc.luka-pejakovic.from.hr"
@@ -283,7 +284,7 @@ def test_german_and_italian_pages(client, lang, edit, description):
     assert f'<html lang="{lang}">' in html and edit in html
     meta = page_meta(html)
     assert meta["description"] == description and meta["og:url"] == PAGES[lang]
-    assert re.fullmatch(rf"{SITE}/static/images/og-image-{lang}\.png\?v=\d+", meta["og:image"])
+    assert re.fullmatch(rf"{SITE}/static/images/og-image-{lang}\.png\?v=[0-9a-f]{{10}}", meta["og:image"])
     assert png_size(client.get(meta["og:image"].removeprefix(SITE)).get_data()) == (1200, 630)
     assert f"manifest-{lang}.json" in html
 
@@ -409,3 +410,19 @@ def test_footer_copyright_and_source(client, path, source):
     footer = re.search(r'<footer class="site-footer">(.*?)</footer>', html, re.S).group(1)
     assert re.search(r"© 2024–\d{4} Luka Pejaković · v\d+\.\d+", footer)
     assert f'<a href="https://github.com/lpejakovic/baby-calculator" rel="noopener">{source}</a>' in footer
+
+
+def test_static_urls_change_only_with_content(client, tmp_path, monkeypatch):
+    # The version in a static URL is a hash of the file, so touching a file without changing it keeps the URL
+    folder = tmp_path / "static"
+    folder.mkdir()
+    (folder / "x.css").write_text("a { color: red; }")
+    monkeypatch.setattr(app_module.app, "static_folder", str(folder))
+    with app_module.app.test_request_context():
+        first = app_module.url_for("static", filename="x.css")
+        os.utime(folder / "x.css", ns=(1, 1))  # touched: different mtime, same content
+        assert app_module.url_for("static", filename="x.css") == first
+        (folder / "x.css").write_text("a { color: blue; }")
+        os.utime(folder / "x.css", ns=(2, 2))  # (a write in the same clock tick could keep the old mtime)
+        changed = app_module.url_for("static", filename="x.css")
+    assert changed != first and re.fullmatch(r"/static/x\.css\?v=[0-9a-f]{10}", changed)

@@ -720,15 +720,25 @@ def test_backup_keeps_new_pregnancy_details(js):
         {"basis": "ultrasound", "date": "2026-06-01", "gaWeeks": 8, "gaDays": 3}
 
 
-def test_app_js_loads_after_the_pure_scripts():
+PAGE_SCRIPTS = ["growth-page", "picture-page", "backup-page", "app"]  # page code, after the pure scripts
+
+
+@pytest.mark.parametrize("name", PAGE_SCRIPTS)
+def test_page_scripts_load_after_the_pure_scripts(name):
     # Without a DOM the page code doesn't run, but syntax errors and names missing from BC fail here
     ctx = quickjs.Context()
-    for name in [*PURE_SCRIPTS, "app"]:
-        ctx.eval((JS_DIR / f"{name}.js").read_text())
-    app_js = (JS_DIR / "app.js").read_text()
-    imported = re.search(r"const \{([^}]*)\} = globalThis\.BC;", app_js).group(1)
+    for script in [*PURE_SCRIPTS, *PAGE_SCRIPTS]:
+        ctx.eval((JS_DIR / f"{script}.js").read_text())
+    source = (JS_DIR / f"{name}.js").read_text()
+    imported = re.search(r"const \{([^}]*)\} = (?:globalThis\.)?BC;", source).group(1)
     missing = [n.strip() for n in imported.split(",") if n.strip() and ctx.eval(f"typeof BC.{n.strip()}") == "undefined"]
     assert missing == []
+
+
+def test_scripts_are_loaded_in_order():
+    import app
+    order = app.SCRIPTS
+    assert order == [*PURE_SCRIPTS, *PAGE_SCRIPTS]
 
 
 # --- Share card layout (card.js)

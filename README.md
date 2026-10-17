@@ -93,7 +93,7 @@ Changes go through a branch and a pull request; CI must pass before merging. The
 the rollback are tested in `tests/test_deploy.py`, and `shellcheck` checks it in CI.
 
 Production runs Gunicorn under systemd behind nginx; templates for both are in `deploy/`. nginx serves `/static/` with
-long caching (Flask adds `?v=<mtime>` to static URLs) and sends the security headers, including a strict CSP: keep all
+long caching (Flask adds `?v=<content hash>` to static URLs) and sends the security headers, including a strict CSP: keep all
 JavaScript and CSS in `static/`. The site's access log keeps only shortened client IPs and no query strings
 (`deploy/nginx-anonymized-log.conf`). A scheduled workflow checks `/health`, `/` and `/en/` every 15 minutes, and
 Dependabot opens weekly update PRs.
